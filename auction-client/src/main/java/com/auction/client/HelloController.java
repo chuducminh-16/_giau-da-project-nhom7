@@ -1,4 +1,4 @@
-package com.example.giaodien1;
+package com.auction.client;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
