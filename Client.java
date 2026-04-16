@@ -1,3 +1,4 @@
+import java.io.PrintWriter;
 import java.net.Socket;
 
 public class Client {
@@ -5,10 +6,14 @@ public class Client {
         try {
             System.out.println("Client đang kết nối...");
 
-            // Kết nối tới server đang chạy
             Socket socket = new Socket("localhost", 1234);
 
             System.out.println("Kết nối thành công!");
+
+            // Tạo luồng gửi dữ liệu lên server
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+
+            out.println("HELLO SERVER");
 
         } catch (Exception e) {
             e.printStackTrace();
