@@ -12,7 +12,7 @@
     </padding>
 
     <Label fx:id="welcomeText" />
-    <Button fx:id="button_ugood" onAction="#onHelloButtonClick" prefHeight="447.0" prefWidth="503.0" text="Hello!" textAlignment="JUSTIFY" textFill="#132a83">
+    <Button onAction="#onHelloButtonClick" prefHeight="447.0" prefWidth="503.0" text="Hello!" textAlignment="JUSTIFY" textFill="#132a83">
       <font>
          <Font name="System Bold" size="80.0" />
       </font></Button>
