@@ -6,11 +6,14 @@ public class Server {
         try {
             System.out.println("Server đang chạy...");
 
-            //tạo server socket
             ServerSocket server = new ServerSocket(1234);
 
             while (true) {
                 Socket client = server.accept();
+
+                ClientHandler handler = new ClientHandler(client);
+                handler.start();
+
                 System.out.println("Có client kết nối!");
             }
 
