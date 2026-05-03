@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+
+<AnchorPane prefHeight="400.0" prefWidth="600.0" stylesheets="@com/auction/client/css/style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.DetailController">
+   <children>
+      <HBox layoutY="-1.0" prefHeight="400.0" prefWidth="600.0" spacing="40.0" styleClass="root" stylesheets="@com/auction/client/css/style.css">
+         <padding>
+            <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
+         </padding>
+         <children>
+            <VBox prefHeight="200.0" prefWidth="100.0">
+               <children>
+                  <ImageView fx:id="productImage" fitHeight="400.0" fitWidth="400.0" pickOnBounds="true" preserveRatio="true" />
+               </children>
+            </VBox>
+            <VBox fx:id="productNameLabel" prefHeight="200.0" prefWidth="98.0" spacing="20.0" styleClass="heading-1">
+               <children>
+                  <Label text="Patek Philippe Nautilus" />
+                  <Label fx:id="currentPriceLabel" styleClass="heading-2" text="Current Bid: $0" />
+                  <HBox prefHeight="100.0" prefWidth="200.0" spacing="15.0">
+                     <children>
+                        <TextField fx:id="bidInput" styleClass="input-field" text="Enter your bid" />
+                        <Button fx:id="bidButton" mnemonicParsing="false" onAction="#onPlaceBidClick" styleClass="btn-black" text="Place Bid" />
+                     </children>
+                  </HBox>
+                  <LineChart fx:id="priceChart">
+                    <xAxis>
+                      <CategoryAxis side="BOTTOM" />
+                    </xAxis>
+                    <yAxis>
+                      <NumberAxis side="LEFT" />
+                    </yAxis>
+                  </LineChart>
+               </children>
+            </VBox>
+         </children>
+      </HBox>
+   </children>
+</AnchorPane>
