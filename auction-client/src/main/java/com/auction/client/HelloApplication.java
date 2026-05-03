@@ -11,9 +11,11 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         // Trỏ vào file login-view.fxml
-        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("login-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 800, 600);
+//        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("login-view.fxml"));
+//        Scene scene = new Scene(fxmlLoader.load(), 800, 600);
 
+        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("detail-view.fxml"));
+        Scene scene = new Scene(fxmlLoader.load(), 1000, 700); // Đặt màn hình to ra một chút
         // Add global CSS
         scene.getStylesheets().add(getClass().getResource("css/style.css").toExternalForm());
 
