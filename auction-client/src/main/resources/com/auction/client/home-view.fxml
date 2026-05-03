@@ -13,7 +13,6 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-
 <AnchorPane prefHeight="800.0" prefWidth="1050.0" stylesheets="@com/auction/client/css/style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.HomeController">
    <children>
       <BorderPane layoutY="4.0" prefHeight="800.0" prefWidth="1200.0">
@@ -32,22 +31,22 @@
                                     <ImageView fitHeight="461.0" fitWidth="471.0" pickOnBounds="true" preserveRatio="true" />
                                     <VBox alignment="CENTER_LEFT" prefHeight="461.0" prefWidth="493.0" spacing="20.0">
                                        <children>
-                                          <Label prefHeight="29.0" prefWidth="193.0" styleClass="heading-2" text="Lot 001">
+                                          <Label prefHeight="35.0" prefWidth="224.0" styleClass="heading-2" stylesheets="@css/style.css" text="Lot 001">
                                              <graphic>
-                                                <Label prefHeight="58.0" prefWidth="118.0" styleClass="heading-2" text="Live now" />
+                                                <Label prefHeight="58.0" prefWidth="118.0" styleClass="heading-2" stylesheets="@css/style.css" text="Live now" />
                                              </graphic>
                                           </Label>
-                                          <Label prefHeight="89.0" prefWidth="459.0" styleClass="heading-1" text="The Eames Prototype Archive" />
+                                          <Label prefHeight="89.0" prefWidth="459.0" styleClass="heading-1" stylesheets="@css/style.css" text="The Eames Prototype Archive" />
                                           <Label prefHeight="41.0" prefWidth="322.0" text="Describtion" />
                                           <BorderPane prefHeight="200.0" prefWidth="200.0">
                                              <left>
-                                                <Label prefHeight="92.0" prefWidth="183.0" text="CURRENT BID" BorderPane.alignment="CENTER" />
+                                                <Label prefHeight="92.0" prefWidth="183.0" stylesheets="@css/style.css" text="CURRENT BID" BorderPane.alignment="CENTER" />
                                              </left>
                                              <bottom>
-                                                <Label prefHeight="47.0" prefWidth="469.0" styleClass="heading-2" text="68,68$" BorderPane.alignment="CENTER" />
+                                                <Label prefHeight="47.0" prefWidth="469.0" styleClass="heading-2" stylesheets="@css/style.css" text="68,68$" BorderPane.alignment="CENTER" />
                                              </bottom>
                                              <right>
-                                                <Button mnemonicParsing="false" onAction="#onHeroBidClicked" prefHeight="45.0" prefWidth="156.0" styleClass="heading-2" text="Place Bid" BorderPane.alignment="CENTER" />
+                                                <Button mnemonicParsing="false" onAction="#onHeroBidClicked" prefHeight="45.0" prefWidth="156.0" styleClass="heading-2" stylesheets="@css/style.css" text="Place Bid" BorderPane.alignment="CENTER" />
                                              </right>
                                              <top>
                                                 <Label text="_________________________________________________________________________________________" BorderPane.alignment="CENTER" />
