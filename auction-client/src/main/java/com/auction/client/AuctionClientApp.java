@@ -7,15 +7,19 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 
-public class HelloApplication extends Application {
+public class AuctionClientApp extends Application {
     @Override
     public void start(Stage stage) throws IOException {
-        // Trỏ vào file login-view.fxml
+
 //        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("login-view.fxml"));
 //        Scene scene = new Scene(fxmlLoader.load(), 800, 600);
 
-        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("detail-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 1000, 700); // Đặt màn hình to ra một chút
+//        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("detail-view.fxml"));
+//        Scene scene = new Scene(fxmlLoader.load(), 1000, 700);
+
+        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("home-view.fxml"));
+        Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
+
         // Add global CSS
         scene.getStylesheets().add(getClass().getResource("css/style.css").toExternalForm());
 
