@@ -1,14 +1,135 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.auction.client.ProfileController"
-            prefHeight="400.0" prefWidth="600.0">
 
+<AnchorPane prefHeight="800.0" prefWidth="1200.0" stylesheets="@com/auction/client/css/style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.ProfileController">
+   <children>
+      <BorderPane prefHeight="878.0" prefWidth="1277.0">
+         <top>
+            <BorderPane prefHeight="200.0" prefWidth="1282.0" BorderPane.alignment="CENTER">
+               <left>
+                  <Label styleClass="heading-2" text="CURATOR" BorderPane.alignment="CENTER" />
+               </left>
+               <right>
+                  <Label text="SUPPORT" BorderPane.alignment="CENTER" />
+               </right>
+               <padding>
+                  <Insets bottom="30.0" left="30.0" right="30.0" top="30.0" />
+               </padding>
+            </BorderPane>
+         </top>
+         <bottom>
+            <BorderPane prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+               <left>
+                  <Label styleClass="heading-2" text="CURATOR" BorderPane.alignment="CENTER" />
+               </left>
+               <right>
+                  <Label text="© 2024 THE CURATOR AUCTION HOUSE " BorderPane.alignment="CENTER" />
+               </right>
+               <padding>
+                  <Insets bottom="30.0" left="30.0" right="30.0" top="30.0" />
+               </padding>
+            </BorderPane>
+         </bottom>
+         <center>
+            <HBox alignment="CENTER" maxHeight="650.0" maxWidth="900.0" prefHeight="100.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+               <children>
+                  <VBox maxWidth="905.0" prefHeight="531.0" prefWidth="340.0" spacing="20.0">
+                     <padding>
+                        <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
+                     </padding>
+                     <children>
+                        <Label prefHeight="39.0" prefWidth="352.0" styleClass="heading-2" text="JOIN THE COLLECTION" />
+                        <Label text="Gain exclusive access..." />
+                        <ImageView fitHeight="312.0" fitWidth="321.0" pickOnBounds="true" preserveRatio="true" />
+                        <Region prefHeight="200.0" prefWidth="200.0" VBox.vgrow="ALWAYS" />
+                        <Label text="__EST. 2024__" />
+                     </children>
+                  </VBox>
+                  <VBox prefHeight="531.0" prefWidth="500.0" spacing="20.0">
+                     <padding>
+                        <Insets bottom="50.0" left="50.0" right="50.0" top="50.0" />
+                     </padding>
+                     <children>
+                        <Label prefHeight="0.0" prefWidth="210.0" styleClass="heading-2" text="CREATE ACCOUNT" />
+                        <Label prefHeight="21.0" prefWidth="307.0" text="Enter your details to register for the upcoming auctions" />
+                        <HBox prefHeight="60.0" prefWidth="399.0" spacing="20.0">
+                           <children>
+                              <VBox prefHeight="200.0" prefWidth="100.0" HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label text="FULL NAME" />
+                                    <TextField fx:id="fullNameField" prefHeight="40.0" prefWidth="190.0" />
+                                 </children>
+                              </VBox>
+                              <VBox prefHeight="200.0" prefWidth="100.0" HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label text="USERNAME" />
+                                    <TextField fx:id="usernameField" prefHeight="41.0" prefWidth="190.0" />
+                                 </children>
+                              </VBox>
+                           </children>
+                        </HBox>
+                        <VBox prefHeight="46.0" prefWidth="399.0">
+                           <children>
+                              <Label text="EMAIL ADDRESS" />
+                              <TextField fx:id="emailField" prefHeight="32.0" prefWidth="399.0" />
+                           </children>
+                        </VBox>
+                        <VBox prefHeight="49.0" prefWidth="399.0">
+                           <children>
+                              <Label text="PHONE NUMBER" />
+                              <TextField prefHeight="34.0" prefWidth="399.0" />
+                           </children>
+                        </VBox>
+                        <HBox prefHeight="75.0" prefWidth="399.0" spacing="20.0">
+                           <children>
+                              <VBox prefHeight="200.0" prefWidth="100.0" HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label prefHeight="15.0" prefWidth="116.0" text="PASSWORD" />
+                                    <PasswordField fx:id="passwordField" prefHeight="33.0" prefWidth="190.0" />
+                                 </children>
+                              </VBox>
+                              <VBox prefHeight="200.0" prefWidth="100.0" HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label text="CONFIRM PASSWORD" />
+                                    <PasswordField fx:id="confirmPasswordField" prefHeight="35.0" prefWidth="190.0" />
+                                 </children>
+                              </VBox>
+                           </children>
+                        </HBox>
+                        <VBox prefHeight="200.0" prefWidth="100.0">
+                           <children>
+                              <Label text="ADDRESS" />
+                              <TextField prefHeight="50.0" prefWidth="399.0" />
+                              <BorderPane prefHeight="200.0" prefWidth="200.0">
+                                 <left>
+                                    <Button mnemonicParsing="false" onAction="#onRegisterClicked" styleClass="btn-black" text="REGISTER" textFill="WHITE" BorderPane.alignment="CENTER" />
+                                 </left>
+                                 <right>
+                                    <Button mnemonicParsing="false" onAction="#onBackToLoginClicked" text="&lt;- Back to login" BorderPane.alignment="CENTER" />
+                                 </right>
+                                 <bottom>
+                                    <Label prefHeight="15.0" prefWidth="330.0" text="By registering, you agree..." wrapText="true" BorderPane.alignment="CENTER" />
+                                 </bottom>
+                              </BorderPane>
+                           </children>
+                        </VBox>
+                     </children>
+                  </VBox>
+               </children>
+            </HBox>
+         </center>
+      </BorderPane>
+   </children>
 </AnchorPane>

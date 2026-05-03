@@ -17,7 +17,10 @@ public class AuctionClientApp extends Application {
 //        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("detail-view.fxml"));
 //        Scene scene = new Scene(fxmlLoader.load(), 1000, 700);
 
-        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("home-view.fxml"));
+//        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("home-view.fxml"));
+//        Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
+
+        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("profile-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
 
         // Add global CSS
