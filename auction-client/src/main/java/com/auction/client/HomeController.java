@@ -9,7 +9,7 @@ import javafx.scene.input.KeyEvent;
 
 public class HomeController {
 
-    // --- KHAI BÁO CÁC THÀNH PHẦN GIAO DIỆN (Phải khớp fx:id trong Scene Builder) ---
+    // --- KHAI BÁO CÁC THÀNH PHẦN GIAO DIỆN ---
 
     @FXML
     private TextField searchField;
@@ -22,7 +22,7 @@ public class HomeController {
     public void initialize() {
         System.out.println("Trang chủ đã tải xong! Sẵn sàng săn đồ cổ.");
 
-        // Em có thể thiết lập thêm dữ liệu mặc định ở đây nếu cần
+        // thiết lập thêm dữ liệu mặc định ở đây nếu cần
     }
 
     // --- CÁC HÀM XỬ LÝ SỰ KIỆN (Bắt hành động của người dùng) ---
@@ -45,7 +45,10 @@ public class HomeController {
     @FXML
     public void onHeroBidClicked(ActionEvent event) {
         System.out.println("Đã bấm Place Bid cho The Eames Prototype Archive!");
-        // TODO: Viết code chuyển sang màn hình chi tiết sản phẩm (Detail View)
+
+        // SỬ DỤNG SCENE ENGINE ĐỂ CHUYỂN MÀN HÌNH
+        // Tham số: (Sự kiện, Tên file FXML đích, Tiêu đề cửa sổ mới)
+        SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiết sản phẩm");
     }
 
     /**
@@ -58,5 +61,11 @@ public class HomeController {
         System.out.println("Đã bấm đấu giá tại nút có ID là: " + clickedButton.getId());
 
         // TODO: Mở popup nhập giá hoặc chuyển trang chi tiết
+    }
+
+    @FXML
+    public void onProductClicked(ActionEvent event) {
+        // Khi bấm vào sản phẩm, chuyển sang trang chi tiết đấu giá
+        SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiết đấu giá");
     }
 }

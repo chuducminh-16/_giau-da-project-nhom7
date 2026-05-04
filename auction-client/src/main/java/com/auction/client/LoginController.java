@@ -39,4 +39,15 @@ public class LoginController {
             System.out.println("Lỗi chuyển màn hình: " + e.getMessage());
         }
     }
+
+    @FXML
+    public void onLoginClicked(ActionEvent event) {
+        // Giả sử đăng nhập thành công
+        SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
+    }
+
+    @FXML
+    public void onGoToRegister(ActionEvent event) {
+        SceneEngine.changeScene(event, "profile-view.fxml", "The Curator - Đăng ký tài khoản");
+    }
 }

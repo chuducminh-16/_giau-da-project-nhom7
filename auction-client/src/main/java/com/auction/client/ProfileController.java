@@ -53,8 +53,15 @@ public class ProfileController {
     }
 
     @FXML
+    public void onProfileClicked(ActionEvent event) {
+        // Logic kiểm tra mật khẩu... (như bài trước)
+        System.out.println("Đăng ký thành công!");
+        // Đăng ký xong thì cho họ về trang Login để đăng nhập lại
+        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập");
+    }
+
+    @FXML
     public void onBackToLoginClicked(ActionEvent event) {
-        System.out.println("Quay lại màn hình Đăng nhập...");
-        // TODO: Viết code chuyển scene về login-view.fxml
+        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập");
     }
 }

@@ -53,7 +53,7 @@ public class DetailController {
 
             // Logic kiểm tra: Chỉ nhận giá cao hơn giá hiện hành
             if (newBid > currentHighestBid) {
-                // (Sau này học Networking, đoạn này sẽ gửi giá lên Server)
+                // (Sau này Networking, đoạn này sẽ gửi giá lên Server)
                 // Hiện tại giả lập là đấu giá thành công:
 
                 currentHighestBid = newBid; // Cập nhật lại giá cao nhất
