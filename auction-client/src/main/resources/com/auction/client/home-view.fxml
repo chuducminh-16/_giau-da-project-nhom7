@@ -13,43 +13,43 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<AnchorPane prefHeight="800.0" prefWidth="1050.0" stylesheets="@com/auction/client/css/style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.HomeController">
+<AnchorPane prefHeight="800.0" prefWidth="1333.0" stylesheets="@com/auction/client/css/style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.HomeController">
    <children>
-      <BorderPane layoutY="4.0" prefHeight="800.0" prefWidth="1200.0">
+      <BorderPane layoutY="4.0" prefHeight="800.0" prefWidth="1200.0" AnchorPane.bottomAnchor="9.0" AnchorPane.leftAnchor="9.0" AnchorPane.rightAnchor="9.0" AnchorPane.topAnchor="9.0">
          <center>
             <ScrollPane fitToWidth="true" hbarPolicy="NEVER" prefHeight="606.0" prefWidth="1200.0" BorderPane.alignment="CENTER">
               <content>
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="200.0" prefWidth="200.0">
                      <children>
-                        <VBox fx:id="mainContentVBox" layoutX="-1.0" prefHeight="731.0" prefWidth="1050.0" spacing="40.0">
+                        <VBox fx:id="mainContentVBox" alignment="CENTER_LEFT" layoutX="-1.0" prefHeight="764.0" prefWidth="1301.0" spacing="40.0">
                            <padding>
                               <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
                            </padding>
                            <children>
-                              <HBox prefHeight="417.0" prefWidth="970.0" spacing="40.0">
+                              <HBox prefHeight="461.0" prefWidth="1238.0" spacing="40.0">
                                  <children>
                                     <ImageView fitHeight="461.0" fitWidth="471.0" pickOnBounds="true" preserveRatio="true" />
-                                    <VBox alignment="CENTER_LEFT" prefHeight="461.0" prefWidth="493.0" spacing="20.0">
+                                    <VBox alignment="CENTER_LEFT" prefHeight="461.0" prefWidth="727.0" spacing="20.0">
                                        <children>
-                                          <Label prefHeight="35.0" prefWidth="224.0" styleClass="heading-2" stylesheets="@css/style.css" text="Lot 001">
+                                          <Label alignment="CENTER_RIGHT" prefHeight="35.0" prefWidth="381.0" styleClass="heading-2" stylesheets="@css/style.css" text="Lot 001">
                                              <graphic>
                                                 <Label prefHeight="58.0" prefWidth="118.0" styleClass="heading-2" stylesheets="@css/style.css" text="Live now" />
                                              </graphic>
                                           </Label>
-                                          <Label prefHeight="89.0" prefWidth="459.0" styleClass="heading-1" stylesheets="@css/style.css" text="The Eames Prototype Archive" />
-                                          <Label prefHeight="41.0" prefWidth="322.0" text="Describtion" />
-                                          <BorderPane prefHeight="200.0" prefWidth="200.0">
+                                          <Label alignment="CENTER_RIGHT" prefHeight="89.0" prefWidth="616.0" styleClass="heading-1" stylesheets="@css/style.css" text="The Eames Prototype Archive" VBox.vgrow="NEVER" />
+                                          <Label alignment="CENTER_RIGHT" prefHeight="41.0" prefWidth="237.0" text="Describtion" />
+                                          <BorderPane prefHeight="200.0" prefWidth="686.0">
                                              <left>
-                                                <Label prefHeight="92.0" prefWidth="183.0" stylesheets="@css/style.css" text="CURRENT BID" BorderPane.alignment="CENTER" />
+                                                <Label alignment="CENTER_RIGHT" prefHeight="92.0" prefWidth="251.0" stylesheets="@css/style.css" text="CURRENT BID" BorderPane.alignment="CENTER" />
                                              </left>
                                              <bottom>
-                                                <Label prefHeight="47.0" prefWidth="469.0" styleClass="heading-2" stylesheets="@css/style.css" text="68,68$" BorderPane.alignment="CENTER" />
+                                                <Label prefHeight="47.0" prefWidth="362.0" styleClass="heading-2" stylesheets="@css/style.css" text="68,68$" BorderPane.alignment="CENTER" />
                                              </bottom>
                                              <right>
-                                                <Button mnemonicParsing="false" onAction="#onHeroBidClicked" prefHeight="45.0" prefWidth="156.0" styleClass="heading-2" stylesheets="@css/style.css" text="Place Bid" BorderPane.alignment="CENTER" />
+                                                <Button alignment="CENTER" mnemonicParsing="false" onAction="#onHeroBidClicked" prefHeight="51.0" prefWidth="212.0" styleClass="heading-2" stylesheets="@css/style.css" text="Place Bid" BorderPane.alignment="CENTER" />
                                              </right>
                                              <top>
-                                                <Label text="_________________________________________________________________________________________" BorderPane.alignment="CENTER" />
+                                                <Label alignment="CENTER_RIGHT" prefHeight="17.0" prefWidth="682.0" text="________________________________________________________________________________________________________" BorderPane.alignment="CENTER" />
                                              </top>
                                           </BorderPane>
                                        </children>
@@ -62,15 +62,15 @@
                                        <children>
                                           <BorderPane prefHeight="200.0" prefWidth="200.0">
                                              <left>
-                                                <Label text="Curated Lots" BorderPane.alignment="CENTER" />
+                                                <Label text="Curated Lots" BorderPane.alignment="TOP_RIGHT" />
                                              </left>
                                              <right>
-                                                <Label text="View All" underline="true" BorderPane.alignment="CENTER" />
+                                                <Label text="View All" underline="true" BorderPane.alignment="TOP_LEFT" />
                                              </right>
-                                             <bottom>
+                                             <center>
                                                 <HBox prefHeight="119.0" prefWidth="970.0" spacing="30.0" BorderPane.alignment="CENTER">
                                                    <children>
-                                                      <VBox prefHeight="162.0" prefWidth="221.0" spacing="10.0">
+                                                      <VBox prefHeight="166.0" prefWidth="319.0" spacing="10.0">
                                                          <padding>
                                                             <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
                                                          </padding>
@@ -89,7 +89,7 @@
                                                             </HBox>
                                                          </children>
                                                       </VBox>
-                                                      <VBox layoutX="10.0" layoutY="10.0" prefHeight="162.0" prefWidth="230.0" spacing="10.0">
+                                                      <VBox layoutX="10.0" layoutY="10.0" prefHeight="166.0" prefWidth="322.0" spacing="10.0">
                                                          <padding>
                                                             <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
                                                          </padding>
@@ -108,13 +108,13 @@
                                                             </HBox>
                                                          </children>
                                                       </VBox>
-                                                      <VBox layoutX="10.0" layoutY="10.0" prefHeight="162.0" prefWidth="225.0" spacing="10.0">
+                                                      <VBox layoutX="10.0" layoutY="10.0" prefHeight="166.0" prefWidth="323.0" spacing="10.0">
                                                          <padding>
                                                             <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
                                                          </padding>
                                                          <children>
                                                             <Label text="ENDS IN 4H" />
-                                                            <StackPane prefHeight="81.0" prefWidth="75.0">
+                                                            <StackPane prefHeight="82.0" prefWidth="264.0">
                                                                <children>
                                                                   <ImageView fitHeight="82.0" fitWidth="84.0" pickOnBounds="true" preserveRatio="true" />
                                                                </children>
@@ -127,7 +127,7 @@
                                                             </HBox>
                                                          </children>
                                                       </VBox>
-                                                      <VBox layoutX="10.0" layoutY="10.0" prefHeight="162.0" prefWidth="224.0" spacing="10.0">
+                                                      <VBox layoutX="10.0" layoutY="10.0" prefHeight="166.0" prefWidth="324.0" spacing="10.0">
                                                          <padding>
                                                             <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
                                                          </padding>
@@ -148,7 +148,7 @@
                                                       </VBox>
                                                    </children>
                                                 </HBox>
-                                             </bottom>
+                                             </center>
                                           </BorderPane>
                                        </children>
                                     </VBox>
@@ -174,6 +174,7 @@
                   <Region prefHeight="70.0" prefWidth="403.0" HBox.hgrow="ALWAYS" />
                   <TextField fx:id="searchField" onKeyPressed="#onSearchEnter" prefHeight="70.0" prefWidth="176.0" promptText="Search lots, artists..." />
                   <Button mnemonicParsing="false" prefHeight="69.0" prefWidth="66.0" text="ACC" />
+                  <Button fx:id="btnLogout" mnemonicParsing="false" onAction="#onLogoutClick" prefHeight="77.0" prefWidth="85.0" text="Log Out" />
                </children>
             </HBox>
          </top>

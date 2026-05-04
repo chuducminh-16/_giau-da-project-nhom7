@@ -11,7 +11,7 @@ public class AuctionClientApp extends Application {
     public void start(Stage stage) throws IOException {
 
         FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("login-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 800, 600);
+        Scene scene = new Scene(fxmlLoader.load(), 1053, 672);
 
 //        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("detail-view.fxml"));
 //        Scene scene = new Scene(fxmlLoader.load(), 1000, 700);

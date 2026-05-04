@@ -1,5 +1,6 @@
 package com.auction.client;
 
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.XYChart;
@@ -83,5 +84,11 @@ public class DetailController {
 
         // Thêm điểm mới vào biểu đồ (Nó sẽ tự vẽ đường nối liền với điểm cũ)
         priceSeries.getData().add(dataPoint);
+    }
+
+    @FXML
+    public void onBackToHomeClick(ActionEvent event) {
+        // Gọi động cơ chuyển cảnh SceneEngine
+        SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 }

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.Group?>
 <?import javafx.scene.chart.CategoryAxis?>
 <?import javafx.scene.chart.LineChart?>
 <?import javafx.scene.chart.NumberAxis?>
@@ -10,41 +11,54 @@
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<AnchorPane prefHeight="673.0" prefWidth="1027.0" stylesheets="@css/style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.DetailController">
+<AnchorPane prefHeight="672.0" prefWidth="1053.0" stylesheets="@css/style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.DetailController">
    <children>
-      <HBox layoutY="-1.0" prefHeight="669.0" prefWidth="1027.0" spacing="40.0" styleClass="root" stylesheets="@css/style.css">
-         <padding>
-            <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
-         </padding>
+      <StackPane layoutX="10.0" layoutY="10.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
          <children>
-            <VBox prefHeight="200.0" prefWidth="100.0">
+            <Group>
                <children>
-                  <ImageView fx:id="productImage" fitHeight="589.0" fitWidth="399.0" pickOnBounds="true" preserveRatio="true" />
-               </children>
-            </VBox>
-            <VBox prefHeight="589.0" prefWidth="519.0" spacing="20.0" styleClass="heading-1">
-               <children>
-                  <Label fx:id="productNameLabel" prefHeight="39.0" prefWidth="507.0" text="Patek Philippe Nautilus" />
-                  <Label fx:id="currentPriceLabel" prefHeight="29.0" prefWidth="510.0" styleClass="heading-2" text="Current Bid: $0" />
-                  <HBox prefHeight="100.0" prefWidth="200.0" spacing="15.0">
+                  <HBox prefHeight="669.0" prefWidth="1027.0" spacing="40.0" styleClass="root" stylesheets="@css/style.css">
+                     <padding>
+                        <Insets bottom="40.0" left="40.0" top="40.0" />
+                     </padding>
                      <children>
-                        <TextField fx:id="bidInput" prefHeight="55.0" prefWidth="278.0" styleClass="input-field" text="Enter your bid" />
-                        <Button fx:id="bidButton" mnemonicParsing="false" onAction="#onPlaceBidClick" prefHeight="54.0" prefWidth="213.0" styleClass="btn-black" text="Place Bid" />
+                        <VBox prefHeight="200.0" prefWidth="100.0">
+                           <children>
+                              <ImageView fx:id="productImage" fitHeight="589.0" fitWidth="399.0" pickOnBounds="true" preserveRatio="true" />
+                           </children>
+                        </VBox>
+                        <VBox prefHeight="589.0" prefWidth="578.0" spacing="20.0" styleClass="heading-1">
+                           <children>
+                              <Label fx:id="productNameLabel" prefHeight="39.0" prefWidth="507.0" text="Patek Philippe Nautilus" />
+                              <Label fx:id="currentPriceLabel" prefHeight="29.0" prefWidth="510.0" styleClass="heading-2" text="Current Bid: $0" />
+                              <HBox prefHeight="100.0" prefWidth="200.0" spacing="15.0">
+                                 <children>
+                                    <TextField fx:id="bidInput" prefHeight="55.0" prefWidth="278.0" styleClass="input-field" text="Enter your bid" />
+                                    <Button fx:id="bidButton" mnemonicParsing="false" onAction="#onPlaceBidClick" prefHeight="54.0" prefWidth="213.0" styleClass="btn-black" text="Place Bid" />
+                                 </children>
+                              </HBox>
+                              <LineChart fx:id="priceChart" prefHeight="371.0" prefWidth="498.0">
+                                <xAxis>
+                                  <CategoryAxis side="BOTTOM" />
+                                </xAxis>
+                                <yAxis>
+                                  <NumberAxis prefHeight="189.0" prefWidth="24.0" side="LEFT" />
+                                </yAxis>
+                              </LineChart>
+                           </children>
+                        </VBox>
                      </children>
                   </HBox>
-                  <LineChart fx:id="priceChart" prefHeight="371.0" prefWidth="498.0">
-                    <xAxis>
-                      <CategoryAxis side="BOTTOM" />
-                    </xAxis>
-                    <yAxis>
-                      <NumberAxis prefHeight="189.0" prefWidth="24.0" side="LEFT" />
-                    </yAxis>
-                  </LineChart>
                </children>
-            </VBox>
+               <StackPane.margin>
+                  <Insets left="200.0" />
+               </StackPane.margin>
+            </Group>
          </children>
-      </HBox>
+      </StackPane>
+      <Button fx:id="btnBackToHome" layoutX="15.0" layoutY="15.0" mnemonicParsing="false" onAction="#onBackToHomeClick" prefHeight="39.0" prefWidth="90.0" text="BACK" />
    </children>
 </AnchorPane>

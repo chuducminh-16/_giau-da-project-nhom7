@@ -2,9 +2,15 @@ package com.auction.client;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
+import javafx.stage.Stage;
+
+import java.io.IOException;
 
 public class ProfileController {
     // --- KHAI BÁO CÁC Ô NHẬP LIỆU ---
@@ -61,7 +67,31 @@ public class ProfileController {
     }
 
     @FXML
-    public void onBackToLoginClicked(ActionEvent event) {
-        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập");
+    private Button btnBackToLogin;
+
+    // Hàm xử lý khi bấm nút Back
+    @FXML
+    protected void onBackToLoginClick(ActionEvent event) throws IOException {
+        // Tải lại giao diện đăng nhập
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("login-view.fxml"));
+        Scene loginScene = new Scene(fxmlLoader.load());
+
+        // Lấy cửa sổ hiện tại và đổi cảnh
+        Stage currentStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+        currentStage.setScene(loginScene);
+        currentStage.show();
+    }
+
+    @FXML
+    public void onRegisterClick(ActionEvent event) {
+        // 1. Logic lưu dữ liệu người dùng ở đây
+        System.out.println("Đăng ký thành công!");
+
+        // 2. Chuyển sang trang Home
+        SceneEngine.changeScene(
+                event,
+                "home-view.fxml",
+                "UET Auction - Trang chủ"
+        );
     }
 }

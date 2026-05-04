@@ -68,4 +68,16 @@ public class HomeController {
         // Khi bấm vào sản phẩm, chuyển sang trang chi tiết đấu giá
         SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiết đấu giá");
     }
+
+    @FXML
+    public void onLogoutClick(ActionEvent event) {
+        System.out.println("Đang đăng xuất...");
+
+        // Dùng SceneEngine để về trang Login
+        SceneEngine.changeScene(
+                event,
+                "login-view.fxml",
+                "The Curator - Đăng nhập"
+        );
+    }
 }

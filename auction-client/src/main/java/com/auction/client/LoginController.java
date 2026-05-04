@@ -3,10 +3,17 @@ package com.auction.client;
 import com.auction.client.utils.NavigationUtils;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
-
 import java.io.IOException;
+import javafx.fxml.FXML;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.StackPane;
+import javafx.stage.Stage;
 
 public class LoginController {
 
@@ -49,5 +56,40 @@ public class LoginController {
     @FXML
     public void onGoToRegister(ActionEvent event) {
         SceneEngine.changeScene(event, "profile-view.fxml", "The Curator - Đăng ký tài khoản");
+    }
+
+    // 1. Khai báo 2 đối tượng vừa đặt tên bên Scene Builder
+    @FXML
+    private StackPane rootPane;
+
+    @FXML
+    private ImageView backgroundImage;
+
+    // 2. Hàm initialize() này vô cùng đặc biệt: Nó sẽ TỰ ĐỘNG CHẠY ngay khi giao diện vừa bật lên
+    @FXML
+    public void initialize() {
+        // "Trói" chiều rộng của ảnh dính chặt vào chiều rộng của khung
+        backgroundImage.fitWidthProperty().bind(rootPane.widthProperty());
+
+        // "Trói" chiều cao của ảnh dính chặt vào chiều cao của khung
+        backgroundImage.fitHeightProperty().bind(rootPane.heightProperty());
+    }
+
+    @FXML
+    private Button btnSignUp; // Khai báo nút đã đặt fx:id trong Scene Builder
+
+    // Hàm xử lý khi bấm nút Sign Up
+    @FXML
+    protected void onSignUpClick(ActionEvent event) throws IOException {
+        // Bước 1: Tải file giao diện profile-view.fxml
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("profile-view.fxml"));
+        Scene profileScene = new Scene(fxmlLoader.load());
+
+        // Bước 2: Lấy ra "Cửa sổ" (Stage) hiện tại đang chứa nút Sign Up
+        Stage currentStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+
+        // Bước 3: Thay cảnh (Scene) hiện tại bằng cảnh Profile và hiển thị
+        currentStage.setScene(profileScene);
+        currentStage.show();
     }
 }

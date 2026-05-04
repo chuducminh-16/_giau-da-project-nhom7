@@ -1,22 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <AnchorPane prefHeight="672.0" prefWidth="1053.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.LoginController">
    <children>
-      <VBox alignment="CENTER" layoutX="250.0" layoutY="72.0" prefHeight="600.0" prefWidth="800.0" spacing="20.0" styleClass="root" stylesheets="@com/auction/client/css/style.css">
+      <StackPane fx:id="rootPane" prefHeight="672.0" prefWidth="1053.0">
          <children>
-            <Label styleClass="heading-1" text="Log In" />
-            <TextField fx:id="emailInput" maxWidth="300.0" styleClass="input-field" text="Email" />
-            <PasswordField fx:id="passwordInput" maxWidth="300.0" styleClass="input-field" text="Password" />
-            <Button fx:id="loginButton" mnemonicParsing="false" onAction="#onLoginClicked" prefWidth="300.0" styleClass="btn-black" text="Sign In" />
-            <Label styleClass="text-muted" text="Forgot your password?" />
+            <ImageView fx:id="backgroundImage" fitHeight="673.0" fitWidth="1054.0" pickOnBounds="true" StackPane.alignment="CENTER">
+               <image>
+                  <Image url="@../../../images/ChatGPT%20Image%2012_12_45%204%20thg%205,%202026.png" />
+               </image>
+            </ImageView>
+            <VBox alignment="CENTER" maxHeight="300.0" maxWidth="400.0" opacity="0.88" prefHeight="673.0" prefWidth="1021.0" spacing="20.0" styleClass="root" stylesheets="@com/auction/client/css/style.css">
+               <children>
+                  <Label prefHeight="41.0" prefWidth="71.0" styleClass="heading-2" stylesheets="@css/style.css" text="Log In" />
+                  <TextField fx:id="emailInput" maxWidth="300.0" styleClass="input-field" text="Email" />
+                  <PasswordField fx:id="passwordInput" maxWidth="300.0" styleClass="input-field" text="Password" />
+                  <Button fx:id="loginButton" mnemonicParsing="false" onAction="#onLoginClicked" prefWidth="300.0" styleClass="btn-black" text="Sign In" />
+                  <Button fx:id="btnSignUp" mnemonicParsing="false" onAction="#onSignUpClick" prefHeight="25.0" prefWidth="296.0" text="Sign Up" />
+                  <Label prefHeight="33.0" prefWidth="122.0" styleClass="text-muted" text="Forgot your password?" />
+               </children>
+               <StackPane.margin>
+                  <Insets bottom="175.0" right="100.0" />
+               </StackPane.margin>
+            </VBox>
          </children>
-      </VBox>
+      </StackPane>
    </children>
 </AnchorPane>
