@@ -43,7 +43,7 @@
                                                 <Label alignment="CENTER_RIGHT" prefHeight="92.0" prefWidth="251.0" stylesheets="@css/style.css" text="CURRENT BID" BorderPane.alignment="CENTER" />
                                              </left>
                                              <bottom>
-                                                <Label prefHeight="47.0" prefWidth="362.0" styleClass="heading-2" stylesheets="@css/style.css" text="68,68$" BorderPane.alignment="CENTER" />
+                                                <Label prefHeight="73.0" prefWidth="362.0" styleClass="heading-2" stylesheets="@css/style.css" text="68,68$" BorderPane.alignment="CENTER" />
                                              </bottom>
                                              <right>
                                                 <Button alignment="CENTER" mnemonicParsing="false" onAction="#onHeroBidClicked" prefHeight="51.0" prefWidth="212.0" styleClass="heading-2" stylesheets="@css/style.css" text="Place Bid" BorderPane.alignment="CENTER" />
@@ -171,6 +171,7 @@
                   <Label lineSpacing="20.0" prefHeight="70.0" prefWidth="72.0" text="Auctions" />
                   <Label lineSpacing="20.0" prefHeight="70.0" prefWidth="83.0" text="Categories" />
                   <Label lineSpacing="20.0" prefHeight="70.0" prefWidth="100.0" text="Private Sales" />
+                  <Button fx:id="btnSellerDash" mnemonicParsing="false" onAction="#onSellerDashboardClick" prefHeight="76.0" prefWidth="138.0" text="Đăng sản phẩm" />
                   <Region prefHeight="70.0" prefWidth="403.0" HBox.hgrow="ALWAYS" />
                   <TextField fx:id="searchField" onKeyPressed="#onSearchEnter" prefHeight="70.0" prefWidth="176.0" promptText="Search lots, artists..." />
                   <Button mnemonicParsing="false" prefHeight="69.0" prefWidth="66.0" text="ACC" />

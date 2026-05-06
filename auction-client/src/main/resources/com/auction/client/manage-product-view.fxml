@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+
+<AnchorPane prefHeight="672.0" prefWidth="1053.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.ManageProductController">
+   <children>
+      <SplitPane dividerPositions="0.46241674595623217" layoutX="-1.0" layoutY="-2.0" prefHeight="672.0" prefWidth="1053.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+        <items>
+          <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="160.0" prefWidth="100.0">
+               <children>
+                  <VBox layoutY="-1.0" prefHeight="672.0" prefWidth="483.0">
+                     <children>
+                        <Label alignment="CENTER" prefHeight="66.0" prefWidth="444.0" styleClass="heading-1" stylesheets="@css/style.css" text="INFORMATION" />
+                        <HBox prefHeight="55.0" prefWidth="463.0">
+                           <children>
+                              <Label prefHeight="42.0" prefWidth="87.0" text="Name:" />
+                              <TextField fx:id="txtName" maxWidth="1.7976931348623157E308" prefHeight="41.0" prefWidth="343.0" />
+                           </children>
+                        </HBox>
+                        <HBox layoutX="30.0" layoutY="50.0" prefHeight="59.0" prefWidth="463.0">
+                           <children>
+                              <Label prefHeight="38.0" prefWidth="87.0" text="Starting Price:" />
+                              <TextField fx:id="txtStartingPrice" maxWidth="1.7976931348623157E308" prefHeight="38.0" prefWidth="343.0" />
+                           </children>
+                        </HBox>
+                        <HBox layoutX="30.0" layoutY="105.0" prefHeight="61.0" prefWidth="463.0">
+                           <children>
+                              <Label prefHeight="39.0" prefWidth="87.0" text="Bid Increment:" />
+                              <TextField fx:id="txtBidIncrement" maxWidth="1.7976931348623157E308" prefHeight="38.0" prefWidth="342.0" />
+                           </children>
+                        </HBox>
+                        <HBox layoutX="30.0" layoutY="160.0" prefHeight="102.0" prefWidth="463.0">
+                           <children>
+                              <Label prefHeight="52.0" prefWidth="87.0" text="Description:" />
+                              <TextArea fx:id="txtDescription" maxWidth="1.7976931348623157E308" prefHeight="82.0" prefWidth="342.0" />
+                           </children>
+                           <VBox.margin>
+                              <Insets bottom="20.0" />
+                           </VBox.margin>
+                        </HBox>
+                        <HBox layoutX="30.0" layoutY="215.0" prefHeight="48.0" prefWidth="463.0">
+                           <children>
+                              <Label prefHeight="33.0" prefWidth="87.0" text="End Date:" />
+                              <DatePicker fx:id="dateEnd" maxWidth="1.7976931348623157E308" prefHeight="33.0" prefWidth="341.0" />
+                           </children>
+                        </HBox>
+                        <ImageView fx:id="imgPreview" fitHeight="186.0" fitWidth="366.0" pickOnBounds="true" preserveRatio="true">
+                           <VBox.margin>
+                              <Insets bottom="10.0" left="40.0" />
+                           </VBox.margin>
+                        </ImageView>
+                        <HBox prefHeight="70.0" prefWidth="443.0">
+                           <VBox.margin>
+                              <Insets right="20.0" />
+                           </VBox.margin>
+                           <children>
+                              <Button mnemonicParsing="false" onAction="#onSelectImageClick" prefHeight="44.0" prefWidth="90.0" text="Select Image">
+                                 <HBox.margin>
+                                    <Insets left="60.0" />
+                                 </HBox.margin>
+                              </Button>
+                              <Button mnemonicParsing="false" onAction="#onAddProductClick" prefHeight="45.0" prefWidth="139.0" text="Add Product">
+                                 <HBox.margin>
+                                    <Insets left="130.0" />
+                                 </HBox.margin>
+                              </Button>
+                           </children>
+                        </HBox>
+                     </children>
+                     <padding>
+                        <Insets left="50.0" top="30.0" />
+                     </padding>
+                  </VBox>
+               </children>
+            </AnchorPane>
+          <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="160.0" prefWidth="100.0">
+               <children>
+                  <VBox layoutX="-4.0" prefHeight="672.0" prefWidth="570.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                     <children>
+                        <Label alignment="CENTER" prefHeight="78.0" prefWidth="563.0" styleClass="heading-1" stylesheets="@css/style.css" text="LIST PRODUCTS">
+                           <padding>
+                              <Insets left="200.0" top="30.0" />
+                           </padding>
+                        </Label>
+                        <TableView fx:id="tableProducts" prefHeight="499.0" prefWidth="570.0" VBox.vgrow="ALWAYS">
+                          <columns>
+                            <TableColumn fx:id="colImage" prefWidth="119.5" text="Ảnh" />
+                            <TableColumn fx:id="colName" prefWidth="114.0" text="Tên sản phẩm" />
+                              <TableColumn fx:id="colPrice" prefWidth="116.5" text="Giá khởi điểm" />
+                              <TableColumn fx:id="colTime" prefWidth="112.0" text="Kết thúc" />
+                              <TableColumn fx:id="colStatus" prefWidth="107.0" text="Trạng thái" />
+                          </columns>
+                           <VBox.margin>
+                              <Insets left="5.0" right="5.0" />
+                           </VBox.margin>
+                        </TableView>
+                        <HBox prefHeight="95.0" prefWidth="562.0">
+                           <children>
+                              <Button mnemonicParsing="false" onAction="#onDeleteClick" prefHeight="51.0" prefWidth="112.0" text="Delete">
+                                 <HBox.margin>
+                                    <Insets left="80.0" top="20.0" />
+                                 </HBox.margin>
+                              </Button>
+                              <Button mnemonicParsing="false" onAction="#onBackHomeClick" prefHeight="51.0" prefWidth="111.0" text="Back Home">
+                                 <HBox.margin>
+                                    <Insets left="300.0" top="20.0" />
+                                 </HBox.margin>
+                              </Button>
+                           </children>
+                        </HBox>
+                     </children>
+                  </VBox>
+               </children>
+            </AnchorPane>
+        </items>
+      </SplitPane>
+   </children>
+</AnchorPane>

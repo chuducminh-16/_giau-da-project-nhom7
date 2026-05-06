@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+
+<AnchorPane prefHeight="672.0" prefWidth="1053.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.LiveBiddingController">
+   <children>
+      <BorderPane layoutY="1.0" prefHeight="712.0" prefWidth="1035.0" styleClass="root" stylesheets="@css/style.css" AnchorPane.bottomAnchor="9.0" AnchorPane.leftAnchor="9.0" AnchorPane.rightAnchor="9.0" AnchorPane.topAnchor="-49.0">
+         <top>
+            <HBox prefHeight="100.0" prefWidth="1064.0" BorderPane.alignment="CENTER">
+               <children>
+                  <Button fx:id="btLeaveRoom" alignment="BASELINE_LEFT" mnemonicParsing="false" onAction="#onLeaveRoomClick" prefHeight="54.0" prefWidth="140.0" text="LEAVE ROOM">
+                     <padding>
+                        <Insets left="30.0" />
+                     </padding>
+                     <HBox.margin>
+                        <Insets left="30.0" />
+                     </HBox.margin>
+                  </Button>
+                  <Label alignment="CENTER" nodeOrientation="LEFT_TO_RIGHT" prefHeight="57.0" prefWidth="461.0" styleClass="heading-2" text="PRODUCT NAME" HBox.hgrow="ALWAYS" />
+                  <Label fx:id="lblCountdown" alignment="CENTER_RIGHT" prefHeight="57.0" prefWidth="532.0" styleClass="heading-2" text="05:00" textFill="RED">
+                     <HBox.margin>
+                        <Insets />
+                     </HBox.margin>
+                  </Label>
+               </children>
+            </HBox>
+         </top>
+         <opaqueInsets>
+            <Insets right="10.0" top="10.0" />
+         </opaqueInsets>
+         <center>
+            <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
+               <children>
+                  <Label prefHeight="86.0" prefWidth="325.0" styleClass="heading-2" text="Current Bid: 500.000 VNĐ">
+                     <padding>
+                        <Insets left="20.0" />
+                     </padding>
+                  </Label>
+                  <HBox prefHeight="95.0" prefWidth="557.0">
+                     <children>
+                        <TextField fx:id="txtBidAmount" prefHeight="71.0" prefWidth="312.0">
+                           <padding>
+                              <Insets left="20.0" />
+                           </padding>
+                           <HBox.margin>
+                              <Insets left="20.0" />
+                           </HBox.margin>
+                        </TextField>
+                        <Button alignment="CENTER" mnemonicParsing="false" onAction="#onPlaceBidClick" prefHeight="71.0" prefWidth="147.0" styleClass="heading-2" text="Place Bid" />
+                     </children>
+                  </HBox>
+                  <LineChart fx:id="priceChart" prefWidth="557.0">
+                    <xAxis>
+                      <CategoryAxis side="BOTTOM" fx:id="xAxis" />
+                    </xAxis>
+                    <yAxis>
+                      <NumberAxis fx:id="yAxis" side="LEFT" />
+                    </yAxis>
+                  </LineChart>
+               </children>
+            </VBox>
+         </center>
+         <right>
+            <VBox prefHeight="554.0" prefWidth="478.0" BorderPane.alignment="CENTER">
+               <children>
+                  <TableView fx:id="tableBidHistory" prefHeight="444.0" prefWidth="471.0">
+                    <columns>
+                      <TableColumn fx:id="colTime" prefWidth="150.0" text="Time" />
+                      <TableColumn fx:id="colUser" prefWidth="175.5" text="User" />
+                        <TableColumn fx:id="colAmount" prefWidth="151.5" text="Amount" />
+                    </columns>
+                  </TableView>
+                  <ListView fx:id="listNotifications" prefHeight="111.0" prefWidth="478.0" />
+               </children>
+            </VBox>
+         </right>
+         <padding>
+            <Insets top="50.0" />
+         </padding>
+      </BorderPane>
+   </children>
+   <padding>
+      <Insets top="50.0" />
+   </padding>
+</AnchorPane>

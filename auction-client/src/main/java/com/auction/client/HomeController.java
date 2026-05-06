@@ -44,7 +44,7 @@ public class HomeController {
      */
     @FXML
     public void onHeroBidClicked(ActionEvent event) {
-        System.out.println("Đã bấm Place Bid cho The Eames Prototype Archive!");
+        System.out.println("Đã bấm Place Bid");
 
         // SỬ DỤNG SCENE ENGINE ĐỂ CHUYỂN MÀN HÌNH
         // Tham số: (Sự kiện, Tên file FXML đích, Tiêu đề cửa sổ mới)
@@ -64,12 +64,6 @@ public class HomeController {
     }
 
     @FXML
-    public void onProductClicked(ActionEvent event) {
-        // Khi bấm vào sản phẩm, chuyển sang trang chi tiết đấu giá
-        SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiết đấu giá");
-    }
-
-    @FXML
     public void onLogoutClick(ActionEvent event) {
         System.out.println("Đang đăng xuất...");
 
@@ -78,6 +72,15 @@ public class HomeController {
                 event,
                 "login-view.fxml",
                 "The Curator - Đăng nhập"
+        );
+    }
+
+    @FXML
+    public void onSellerDashboardClick(ActionEvent event) {
+        SceneEngine.changeScene(
+                event,
+                "manage-product-view.fxml",
+                "The Curator - Seller Dashboard"
         );
     }
 }
