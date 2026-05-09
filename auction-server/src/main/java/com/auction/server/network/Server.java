@@ -1,7 +1,10 @@
+package com.auction.server.network;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 
 public class Server {
+    public static ArrayList<ClientHandler> clients = new ArrayList<>();
     public static void main(String[] args) {
         try {
             System.out.println("Server đang chạy...");
@@ -12,6 +15,9 @@ public class Server {
                 Socket client = server.accept();
 
                 ClientHandler handler = new ClientHandler(client);
+
+                clients.add(handler);
+                
                 handler.start();
 
                 System.out.println("Có client kết nối!");
