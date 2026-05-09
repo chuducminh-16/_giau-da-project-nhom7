@@ -1,24 +1,11 @@
 package item;
-
-public abstract class Item {
-    private final String id;
-    private String name;
+import Model.Entity;
+public abstract class Item extends Entity {
     private double startingPrice; // giá khởi điểm
 
     public Item(String id, String name, double startingPrice) {
-        this.id = id;
-        this.name = name;
+        super(id, name); // Gửi id và name lên lớp cha Entity
         this.startingPrice = startingPrice;
-
-    }
-    public String getId() {
-        return id;
-    }
-    public String getName() {
-        return name;
-    }
-    public void setName(String name) {
-        this.name = name;
     }
     public double getStartingPrice() {
         return startingPrice;

@@ -1,21 +1,21 @@
-public class abtract class User {
-    private final String id;
-    private String username;
+package user;
+import Model.Entity;
+
+public abstract class User extends Entity {
     private String email;
     private String password;
 
-    public User(String id,String username,String email,String password) {
-        this.id = id;
-        this.username = username;
+    public User(String id, String username, String email, String password) {
+        super(id, username); // username được lưu vào biến name của Entity
         this.email = email;
         this.password = password;
     }
-    //  id và username hiển thị đc còn pass và email thì ko 
-    public String getId() {
-        return id;
-    }
     public String getUsername() {
-        return username;
+        return getName(); 
+    }
+
+    public void setUsername(String username) {
+        setName(username);
     }
     // username , email , pass có thể sửa đc còn id thì ko sửa đc
     public void setUsername(String username) {
