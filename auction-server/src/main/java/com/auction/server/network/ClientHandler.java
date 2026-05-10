@@ -3,6 +3,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.Socket;
 import java.io.PrintWriter;
+import com.auction.server.model.Auction;
 
 public class ClientHandler extends Thread {
 
@@ -35,6 +36,17 @@ public class ClientHandler extends Thread {
 
             
             System.out.println("Server nhận: " + message);
+
+            if (message.startsWith("BID: ")) {
+
+                // lấy tiền sau BID
+                int amount = Integer.parseInt(message.substring(4));
+
+                Server.auction.placeBid(amount);
+
+                // gửi tất cả client
+                broadcast("Giá mới: "+amount);
+            }
 
             broadcast(message);
 
