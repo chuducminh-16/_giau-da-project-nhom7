@@ -11,22 +11,16 @@ public class AuctionClientApp extends Application {
     public void start(Stage stage) throws IOException {
 
         FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("login-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 1053, 672);
-
-//        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("detail-view.fxml"));
-//        Scene scene = new Scene(fxmlLoader.load(), 1000, 700);
-
-//        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("home-view.fxml"));
-//        Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
-
-//        FXMLLoader fxmlLoader = new FXMLLoader(AuctionClientApp.class.getResource("profile-view.fxml"));
-//        Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
+        Scene scene = new Scene(fxmlLoader.load());
 
         // Add global CSS
         scene.getStylesheets().add(getClass().getResource("css/style.css").toExternalForm());
 
         stage.setTitle("UET Auction - Login");
         stage.setScene(scene);
+
+        stage.setMaximized(true);
+
         stage.show();
     }
 

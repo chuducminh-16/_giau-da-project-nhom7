@@ -2,6 +2,7 @@ package com.auction.client.model;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -19,7 +20,9 @@ public class Product implements Serializable {
     private String description;
     private String status; // "ACTIVE", "SOLD", "PENDING"
     private LocalDateTime endTime;
+    private LocalDateTime startTime;
     private String imagePath;
+    private Double currentBid;
 
     // --- CONSTRUCTORS ---
 
@@ -28,7 +31,7 @@ public class Product implements Serializable {
 
     // Constructor đầy đủ dùng khi thêm mới sản phẩm từ Seller Dashboard
     public Product(String name, double startingPrice, double bidIncrement,
-                   String description, String status, LocalDateTime endTime, String imagePath) {
+                   String description, String status, LocalDateTime endTime, String imagePath, LocalDateTime startTime) {
         this.name = name;
         this.startingPrice = startingPrice;
         this.currentPrice = startingPrice; // Lúc mới đăng, giá hiện tại bằng giá khởi điểm
@@ -37,6 +40,7 @@ public class Product implements Serializable {
         this.status = status;
         this.endTime = endTime;
         this.imagePath = imagePath;
+        this.startTime = startTime;
     }
 
     // --- GETTERS AND SETTERS ---
@@ -68,6 +72,20 @@ public class Product implements Serializable {
     public String getImagePath() { return imagePath; }
     public void setImagePath(String imagePath) { this.imagePath = imagePath; }
 
+    public void setStartTime(LocalDateTime startTime) {
+        this.startTime = startTime;
+    }
+    public LocalDateTime getStartTime() {
+        return startTime;
+    }
+
+    public Double getCurrentBid() {
+        return currentBid;
+    }
+    public void setCurrentBid(Double currentBid) {
+        this.currentBid = currentBid;
+    }
+
     // --- HELPER METHODS (Dùng để hiển thị lên TableView đẹp hơn) ---
 
     /**
@@ -89,5 +107,9 @@ public class Product implements Serializable {
     @Override
     public String toString() {
         return "Product{" + "name='" + name + '\'' + ", status='" + status + '\'' + '}';
+    }
+
+    public OffsetDateTime setStartTime() {
+        return OffsetDateTime.now();
     }
 }

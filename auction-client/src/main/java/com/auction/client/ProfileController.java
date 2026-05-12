@@ -13,30 +13,15 @@ import javafx.stage.Stage;
 import java.io.IOException;
 
 public class ProfileController {
-    // --- KHAI BÁO CÁC Ô NHẬP LIỆU ---
-    @FXML
-    private TextField fullNameField;
-
-    @FXML
-    private TextField usernameField;
-
-    @FXML
-    private TextField emailField;
-
-    @FXML
-    private TextField phoneField;
-
-    @FXML
-    private PasswordField passwordField;
-
-    @FXML
-    private PasswordField confirmPasswordField;
-
-    @FXML
-    private TextField addressField;
-
-    @FXML
-    private Button registerButton;
+    @FXML private TextField fullNameField;
+    @FXML private TextField usernameField;
+    @FXML private TextField emailField;
+    @FXML private TextField phoneField;
+    @FXML private PasswordField passwordField;
+    @FXML private PasswordField confirmPasswordField;
+    @FXML private TextField addressField;
+    @FXML private Button registerButton;
+    @FXML private Button btnBackToLogin;
 
     // --- CÁC HÀM XỬ LÝ SỰ KIỆN ---
 
@@ -60,14 +45,11 @@ public class ProfileController {
 
     @FXML
     public void onProfileClicked(ActionEvent event) {
-        // Logic kiểm tra mật khẩu... (như bài trước)
+        // Logic kiểm tra mật khẩu
         System.out.println("Đăng ký thành công!");
         // Đăng ký xong thì cho họ về trang Login để đăng nhập lại
         SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập");
     }
-
-    @FXML
-    private Button btnBackToLogin;
 
     // Hàm xử lý khi bấm nút Back
     @FXML
@@ -78,7 +60,11 @@ public class ProfileController {
 
         // Lấy cửa sổ hiện tại và đổi cảnh
         Stage currentStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+
+        currentStage.setMaximized(false);
         currentStage.setScene(loginScene);
+        currentStage.setMaximized(true);
+
         currentStage.show();
     }
 
@@ -88,10 +74,6 @@ public class ProfileController {
         System.out.println("Đăng ký thành công!");
 
         // 2. Chuyển sang trang Home
-        SceneEngine.changeScene(
-                event,
-                "home-view.fxml",
-                "UET Auction - Trang chủ"
-        );
+        SceneEngine.changeScene(event, "home-view.fxml", "UET Auction - Trang chủ");
     }
 }
