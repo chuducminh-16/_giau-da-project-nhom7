@@ -15,10 +15,11 @@ public abstract class User implements Serializable {
         this.role = role;
     }
 
-    // Encapsulation: Chỉ dùng Getter, không cho sửa username bừa bãi
+
+    public String getId()       { return id; }
     public String getUsername() { return username; }
-    public String getRole() { return role; }
-    
-    // Phương thức trừu tượng để các lớp con tự định nghĩa quyền hạn
+    public String getPassword() { return password; }  // ← FIX lỗi getPassword()
+    public String getRole()     { return role; }
+
     public abstract void displayPermissions();
 }
