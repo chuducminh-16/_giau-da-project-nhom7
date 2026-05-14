@@ -1,5 +1,9 @@
+package com.auction.pattern;
+
 import java.util.ArrayList;
 import java.util.List;
+
+import com.auction.model.Entity.Auction_Bid.Auction;
 
 public class AuctionManager {
     // 1. Tạo biến static duy nhất để chứa instance của class

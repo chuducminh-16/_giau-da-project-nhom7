@@ -1,10 +1,7 @@
-package user;
+package com.auction.model.Entity.User;
 import java.util.ArrayList;
 import java.util.List;
-
-import user.abtract.User;
 public class Seller extends User {
-    public class Seller extends User {
     private double rating;
     private List<String> itemIds; // Danh sách ID các món hàng đang bán
     public Seller(String id, String username, String email, String password, double rating) {
@@ -25,7 +22,10 @@ public class Seller extends User {
     }
 
     @Override
+    public void displayRole(){
         System.out.println("[Seller] Username: " + getUsername() + " | Rating: " + rating + "⭐");
     }
+    @Override
+    public String getRole() { return "SELLER"; }
 }
 

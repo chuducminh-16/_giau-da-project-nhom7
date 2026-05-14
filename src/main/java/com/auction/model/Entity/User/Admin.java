@@ -1,6 +1,4 @@
-package user;
-
-import user.abtract.User;
+package com.auction.model.Entity.User;
 
 public class Admin extends User {
     private int adminLevel; // Cấp độ quản trị viên
@@ -17,7 +15,9 @@ public class Admin extends User {
     }
     @Override
     public void displayRole() {
-        System.out.println("[Admin] Username: " + getUsername() + " | Access Level: " + accessLevel);
+        System.out.println("[Admin] Username: " + getUsername() + " | Access Level: " + adminLevel);
     }
+    @Override
+    public String getRole() { return "ADMIN"; }
 }
 

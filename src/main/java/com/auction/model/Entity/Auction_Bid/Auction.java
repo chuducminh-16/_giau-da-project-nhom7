@@ -1,9 +1,10 @@
-package Auction_Bid;
+package com.auction.model.Entity.Auction_Bid;
 import java.util.ArrayList;
 import java.util.List;
 
-import item.Item;
-import user.Bidder;
+import com.auction.model.Entity.Item.Item;
+import com.auction.model.Entity.User.Bidder;
+import com.auction.model.Entity.User.Seller;
 
 public class Auction {
     private Item item;  //vật phẩm
@@ -36,10 +37,11 @@ public class Auction {
             System.out.println("Giá đặt phải cao hơn giá hiện tại: " + currentPrice);
             return false;
         }
-        public Bid getHighestBid() {
+    }
+
+    public Bid getHighestBid() {
         if (bidHistory.isEmpty()) return null; // Nếu chưa có giá nào được đặt trả về null
         return bidHistory.get(bidHistory.size() - 1); // Giá cao nhất luôn là giá cuối cùng trong danh sách
-
     }
     public void endAuction() {
         this.isActive = false;   // Kết thúc phiên đấu giá

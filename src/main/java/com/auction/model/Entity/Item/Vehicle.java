@@ -1,16 +1,20 @@
-package item;
+package com.auction.model.Entity.Item;
 
 public class Vehicle extends Item {
-    private int mileage; // số km đã đi
-    public Vehicle(String id, String name, double price, int mileage) {
-        super(id, name, price);
+    private int mileage;
+
+    public Vehicle(String id, String name, double startingPrice, String endTime, String sellerId, int mileage) {
+        super(id, name, startingPrice, endTime, sellerId);
         this.mileage = mileage;
     }
 
+    public int getMileage() { return mileage; }
+
     @Override
-    public void showDetails() {
-        System.out.println("[Vehicle] " + getName() + " | Odo: " + mileage + " km");
+    public String getType() { return "VEHICLE"; }
+
+    @Override
+    public String showDetails() {
+        return "[Vehicle] " + getName() + " | Odo: " + mileage + " km";
     }
 }
-    
-

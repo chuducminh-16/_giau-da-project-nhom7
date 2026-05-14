@@ -1,17 +1,37 @@
-package item;
-import Model.Entity;
-public abstract class Item extends Entity {
-    private double startingPrice; // giá khởi điểm
+package com.auction.model.Entity.Item;
 
-    public Item(String id, String name, double startingPrice) {
-        super(id, name); // Gửi id và name lên lớp cha Entity
+import com.auction.model.Entity.Entity;
+
+public abstract class Item extends Entity {
+    private double startingPrice;  // giá khởi điểm
+    private double currentPrice;   // giá hiện tại (thay đổi khi có bid)
+    private String endTime;        // thời gian kết thúc đấu giá
+    private String sellerId;       // ID người bán
+    private String status;         // OPEN / CLOSED
+
+    public Item(String id, String name, double startingPrice, String endTime, String sellerId) {
+        super(id, name);
         this.startingPrice = startingPrice;
+        this.currentPrice  = startingPrice; // ban đầu giá hiện tại = giá khởi điểm
+        this.endTime       = endTime;
+        this.sellerId      = sellerId;
+        this.status        = "OPEN";
     }
-    public double getStartingPrice() {
-        return startingPrice;
-    }
-    public void setStartingPrice(double startingPrice) {
-        this.startingPrice = startingPrice;
-    }
+
+    // Getters
+    public double getStartingPrice() { return startingPrice; }
+    public double getCurrentPrice()  { return currentPrice; }
+    public String getEndTime()       { return endTime; }
+    public String getSellerId()      { return sellerId; }
+    public String getStatus()        { return status; }
+
+    // Setters
+    public void setCurrentPrice(double currentPrice) { this.currentPrice = currentPrice; }
+    public void setStatus(String status)             { this.status = status; }
+
+    // Mỗi loại Item tự mô tả mình
     public abstract String showDetails();
+
+    // Trả về loại item — class con override
+    public abstract String getType();
 }

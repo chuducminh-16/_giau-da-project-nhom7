@@ -1,4 +1,7 @@
-package Auction_Bid;
+package com.auction.model.Entity.Auction_Bid;
+
+import com.auction.model.Entity.User.Bidder;
+
 public class Bid {
     private Bidder bidder; //người đặt giá
     private double amount;  //số tiền đặt giá

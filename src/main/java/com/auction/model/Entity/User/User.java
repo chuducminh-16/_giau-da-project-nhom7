@@ -1,25 +1,26 @@
-package user;
-import Model.Entity;
+package com.auction.model.Entity.User;
+
+import com.auction.model.Entity.Entity;
 
 public abstract class User extends Entity {
     private String email;
     private String password;
 
     public User(String id, String username, String email, String password) {
-        super(id, username); // username được lưu vào biến name của Entity
+        super(id, username);
         this.email = email;
         this.password = password;
     }
+
     public String getUsername() {
-        return getName(); 
+        return getName();
     }
 
+    public String getEmail() { return email; }       // ← thêm
+    public String getPassword() { return password; } // ← thêm
+
     public void setUsername(String username) {
-        setName(username);
-    }
-    // username , email , pass có thể sửa đc còn id thì ko sửa đc
-    public void setUsername(String username) {
-        this.username = username;
+        this.name = username;
     }
 
     public void setEmail(String email) {
@@ -30,7 +31,6 @@ public abstract class User extends Entity {
         this.password = password;
     }
 
-// hàm check email và pass có khớp với nhau hay ko
     public boolean isEmailMatch(String inputEmail) {
         return this.email.equalsIgnoreCase(inputEmail);
     }
@@ -39,6 +39,7 @@ public abstract class User extends Entity {
         return this.password.equals(inputPassword);
     }
 
-    public abstract void displayRole(); // Phương thức trừu tượng 
-    
+    public abstract void displayRole();
+    // Thêm vào User.java
+    public abstract String getRole(); // ← abstract, bắt class con tự trả về
 }

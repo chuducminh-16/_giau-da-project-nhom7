@@ -1,4 +1,4 @@
-package user;
+package com.auction.model.Entity.User;
 
 public class Bidder extends User {
     private double balance; //số dư
@@ -21,5 +21,7 @@ public class Bidder extends User {
         System.out.println("[Bidder] Username: " + getUsername() + " | Wallet: $" + balance);
         // Hiển thị thông tin người dùng với vai trò Bidder
     }
+    @Override
+    public String getRole() { return "BIDDER"; }
 }
 

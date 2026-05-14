@@ -1,4 +1,4 @@
-package Model;
+package com.auction.model.Entity;
 
 public abstract class Entity {
     protected final String id;
