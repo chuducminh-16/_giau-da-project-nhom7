@@ -1,43 +1,67 @@
 package com.auction.pattern;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.auction.model.Entity.Auction_Bid.Auction;
 
+/**
+ * Singleton quản lý toàn bộ phiên đấu giá.
+ *
+ * Bản gốc không thread-safe (double-checked locking thiếu volatile).
+ * Bản này dùng Initialization-on-demand holder – lazy, thread-safe, không cần synchronized.
+ */
 public class AuctionManager {
-    // 1. Tạo biến static duy nhất để chứa instance của class
-    private static AuctionManager instance;
-    
-    // Danh sách quản lý tất cả các phiên đấu giá
-    private List<Auction> auctions;
 
-    // 2. Private Constructor: Ngăn không cho bên ngoài dùng từ khóa 'new'
-    private AuctionManager() {
-        auctions = new ArrayList<>();
+    // CopyOnWriteArrayList: đọc không cần lock, phù hợp nhiều thread đọc ít ghi
+    private final List<Auction> auctions = new CopyOnWriteArrayList<>();
+
+    // ---- Singleton: Initialization-on-demand holder ----
+    private AuctionManager() {}
+
+    private static final class Holder {
+        static final AuctionManager INSTANCE = new AuctionManager();
     }
 
-    // 3. Method static để lấy instance duy nhất
     public static AuctionManager getInstance() {
-        if (instance == null) {
-            instance = new AuctionManager();
-        }
-        return instance;
+        return Holder.INSTANCE;
     }
 
-    // Các hàm nghiệp vụ của Manager
+    // ------------------------------------------------------------------ //
+    //  Nghiệp vụ                                                          //
+    // ------------------------------------------------------------------ //
+
     public void addAuction(Auction auction) {
-        auctions.add(auction); // Thêm một phiên đấu giá mới vào danh sách quản lý
+        auctions.add(auction);
     }
 
-    public List<Auction> getActiveAuctions() {
-        return auctions; // Trả về danh sách tất cả các phiên đấu giá
+    public void removeAuction(long auctionId) {
+        auctions.removeIf(a -> a.getId() == auctionId);
     }
-    
-    public Auction findAuctionByItemName(String name) {
+
+    /** Trả về danh sách bất biến để tránh thay đổi ngoài ý muốn. */
+    public List<Auction> getAllAuctions() {
+        return Collections.unmodifiableList(auctions);
+    }
+
+    /** Chỉ lấy phiên đang active. */
+    public List<Auction> getActiveAuctions() {
         return auctions.stream()
-            .filter(a -> a.getItem().getName().equalsIgnoreCase(name))
-            .findFirst()
-            .orElse(null);       // Tìm kiếm phiên đấu giá theo tên vật phẩm, nếu không tìm thấy trả về null
+                .filter(Auction::isActive)
+                .toList();
+    }
+
+    public Optional<Auction> findById(long id) {
+        return auctions.stream()
+                .filter(a -> a.getId() == id)
+                .findFirst();
+    }
+
+    public Optional<Auction> findByItemName(String name) {
+        return auctions.stream()
+                .filter(a -> a.getItem().getName().equalsIgnoreCase(name))
+                .findFirst();
     }
 }
