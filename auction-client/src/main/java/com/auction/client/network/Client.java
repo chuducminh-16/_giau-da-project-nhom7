@@ -48,7 +48,15 @@ public class Client {
 
                 int bid = scanner.nextInt();
 
-                out.println(username + ":" + bid);
+                String json =
+                    "{\"type\":\"BID\","
+                    + "\"username\":\""
+                    + username
+                    + "\","
+                    + "\"amount\":"
+                    + bid
+                    + "}";
+                out.println(json);
             }
 
 

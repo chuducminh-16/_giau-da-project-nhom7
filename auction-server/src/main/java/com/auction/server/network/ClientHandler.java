@@ -4,6 +4,8 @@ import java.io.InputStreamReader;
 import java.net.Socket;
 import java.io.PrintWriter;
 import com.auction.server.model.Auction;
+import com.google.gson.Gson;
+import com.auction.server.model.Message;
 
 public class ClientHandler extends Thread {
 
@@ -44,9 +46,13 @@ public class ClientHandler extends Thread {
 
             System.out.println("Server nhận: " + message);
 
-            String[] data = message.split(":");
+            Gson gson = new Gson();
 
-            username = data[0];
+            Message msg = gson.fromJson(message, Message.class);
+
+            username = msg.username;
+
+            int amount = msg.amount;
 
             if (!joined) {
 
@@ -54,11 +60,7 @@ public class ClientHandler extends Thread {
 
                 joined = true;
             }
-            
-
-        
-
-            int amount = Integer.parseInt(data[1].trim());
+    
 
             boolean success = Server.auction.placeBid(username, amount);
 
