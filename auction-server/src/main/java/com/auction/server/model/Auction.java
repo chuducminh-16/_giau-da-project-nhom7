@@ -4,17 +4,29 @@ public class Auction {
 
     private int highestBid = 0;
 
-    public synchronized void placeBid(int amount) {
+    private String highestBidder = "Chưa có ai";
+   
+    public synchronized boolean placeBid(String username, int amount) {
 
         if (amount > highestBid) {
 
             highestBid = amount;
 
-            System.out.println("Bid mới cao nhất: " + highestBid);
+            highestBidder = username;
 
-        } else {
-
-            System.out.println("Bid bị từ chối");
+            return true;
         }
+
+        return false;
+    }
+
+    public int getHighestBid() {
+
+        return highestBid;
+    }
+
+    public String getHighestBidder() {
+
+        return highestBidder;
     }
 }

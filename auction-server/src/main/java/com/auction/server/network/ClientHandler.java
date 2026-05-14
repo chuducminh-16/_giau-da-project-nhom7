@@ -8,6 +8,9 @@ import com.auction.server.model.Auction;
 public class ClientHandler extends Thread {
 
     private Socket socket;
+    private String username;
+    private boolean joined = false;
+
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
@@ -32,29 +35,58 @@ public class ClientHandler extends Thread {
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
             
-            String message = in.readLine();
+           PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
+           String message;
+
+           while  ((message = in.readLine()) != null) {
             
+
             System.out.println("Server nhận: " + message);
 
-            if (message.startsWith("BID: ")) {
+            String[] data = message.split(":");
 
-                // lấy tiền sau BID
-                int amount = Integer.parseInt(message.substring(4));
+            username = data[0];
 
-                Server.auction.placeBid(amount);
+            if (!joined) {
 
-                // gửi tất cả client
-                broadcast("Giá mới: "+amount);
+                broadcast(username + "đã tham gia phòng đấu giá");
+
+                joined = true;
             }
+            
 
-            broadcast(message);
+        
 
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println("Server đã nhận: "+message);
+            int amount = Integer.parseInt(data[1].trim());
+
+            boolean success = Server.auction.placeBid(username, amount);
+
+            if (success) {
+                System.out.println("Bid mới cao nhất: " + amount);
+
+                broadcast(
+                    username + " bid: " + amount
+                    + "\nGiá cao nhất hiện tại: "
+                    + Server.auction.getHighestBid()
+                    + "\nNgười dẫn đầu: "
+                    + Server.auction.getHighestBidder()
+                );
+                
+            } else {
+                out.println("Bid thất bại! Giá hiện tại là " + Server.auction.getHighestBid());
+            }
+           }
 
         } catch (Exception e) {
-            e.printStackTrace();
+
+            System.out.println(username + " đã rời phòng");
+
+            Server.clients.remove(this);
+
+            broadcast(username + " đã rời phòng");
+            
+
         }
     }
 }
