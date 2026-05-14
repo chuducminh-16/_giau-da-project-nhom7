@@ -1,4 +1,9 @@
--- 1. Tạo database
+-- 1. Xóa bảng cũ (thứ tự: con trước, cha sau)
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS bids;
+DROP TABLE IF EXISTS items;
+DROP TABLE IF EXISTS users;
+
 CREATE DATABASE IF NOT EXISTS auction_db;
 USE auction_db;
 
@@ -6,11 +11,14 @@ USE auction_db;
 -- 2. BẢNG USERS
 -- =====================================
 CREATE TABLE users (
-    id VARCHAR(50) PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(50) NOT NULL,
-    balance DECIMAL(15, 2) DEFAULT 1000.00,
-    role VARCHAR(20) DEFAULT 'BIDDER'  -- ← FIX: thêm role
+    id          VARCHAR(50)    PRIMARY KEY,
+    username    VARCHAR(50)    UNIQUE NOT NULL,
+    email       VARCHAR(100)   UNIQUE,                -- ← thêm
+    password    VARCHAR(50)    NOT NULL,
+    balance     DECIMAL(15, 2) DEFAULT 1000.00,
+    role        VARCHAR(20)    DEFAULT 'BIDDER',
+    rating      DECIMAL(3, 1)  DEFAULT 5.0,           -- ← thêm (dùng cho Seller)
+    admin_level INT            DEFAULT 1              -- ← thêm (dùng cho Admin)
 );
 
 -- =====================================
@@ -56,10 +64,11 @@ CREATE TABLE transactions (
 -- =====================================
 -- 6. DỮ LIỆU MẪU
 -- =====================================
-INSERT INTO users (id, username, password, balance, role) VALUES 
-('U01', 'minh_dz',   '123456', 5000.00, 'BIDDER'),
-('U02', 'test_user', '1111',   2000.00, 'BIDDER'),
-('U03', 'admin',     'admin',  0.00,    'ADMIN');
+INSERT INTO users (id, username, email, password, balance, role, rating, admin_level) VALUES
+('U01', 'minh_dz',   'minh@gmail.com',   '123456', 5000.00, 'BIDDER', 5.0, 1),
+('U02', 'test_user', 'test@gmail.com',   '1111',   2000.00, 'BIDDER', 5.0, 1),
+('U03', 'admin',     'admin@gmail.com',  'admin',  0.00,    'ADMIN',  5.0, 3),
+('U04', 'seller1',   'seller@gmail.com', 'sell123',0.00,    'SELLER', 4.5, 1);
 
 INSERT INTO items (id, name, current_price, end_time, type, seller_id, status) VALUES 
 ('I01', 'Macbook Pro M3', 2000.00, '2026-12-31 23:59:59', 'ELECTRONICS', 'U03', 'OPEN'),
