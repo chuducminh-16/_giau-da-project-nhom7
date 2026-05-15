@@ -18,7 +18,7 @@
     MANAGE-PRODUCT-VIEW
 -->
 
-<AnchorPane prefHeight="737" prefWidth="1187" style="-fx-background-color: #f0f2f5;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.ManageProductController">
+   <AnchorPane prefHeight="737" prefWidth="1187" style="-fx-background-color: #f0f2f5;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.controller.ManageProductController">
    <children>
 
       <!-- Navbar mini — back home + tiêu đề -->

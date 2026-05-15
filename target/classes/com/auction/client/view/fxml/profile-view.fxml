@@ -20,7 +20,7 @@
     Controller: ProfileController
 -->
 
-<AnchorPane style="-fx-background-color: #f0f2f5;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.ProfileController">
+<AnchorPane style="-fx-background-color: #f0f2f5;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.controller.ProfileController">
    <children>
 
       <BorderPane AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
@@ -60,7 +60,7 @@
                         <!-- Ảnh brand — giữ nguyên url -->
                         <ImageView fitHeight="580" fitWidth="380" pickOnBounds="true" preserveRatio="true" style="-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.25),16,0,0,6);">
                            <image>
-                              <Image url="@../../../../../../../../../giau-da-nhom7/auction-client/src/main/resources/images/profile-pic.png" />
+                              <Image url="@../images/profile-pic.png" />
                            </image>
                         </ImageView>
                         <!-- Overlay text -->
