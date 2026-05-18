@@ -1,27 +1,48 @@
 package com.auction.model.Entity.Auction_Bid;
- 
-import com.auction.model.Entity.User.Bidder;
- 
+
+import java.time.LocalDateTime;
+
+/**
+ * Đại diện cho một lần đặt giá trong phiên đấu giá.
+ * Fix: thêm id, timestamp, itemId theo yêu cầu đề bài.
+ */
 public class Bid {
-    private Bidder bidder;   // người đặt giá
-    private double amount;   // số tiền đặt giá  ← field bị thiếu trong bản gốc
-    private long   timestamp; // thời điểm đặt giá (ms)
- 
-    public Bid(Bidder bidder, double amount) {
-        this.bidder    = bidder;
+
+    private final String        id;          // UUID của lần bid này
+    private final String        itemId;      // ID sản phẩm đang đấu giá
+    private final String        bidderId;    // ID người đặt giá
+    private final double        amount;      // Số tiền đặt giá
+    private final LocalDateTime timestamp;   // Thời điểm đặt giá
+
+    public Bid(String id, String itemId, String bidderId, double amount) {
+        this.id        = id;
+        this.itemId    = itemId;
+        this.bidderId  = bidderId;
         this.amount    = amount;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = LocalDateTime.now();
     }
- 
-    // Getters
-    public Bidder getBidder()   { return bidder; }
-    public double getAmount()   { return amount; }
-    public long   getTimestamp(){ return timestamp; }
- 
+
+    /** Constructor cho BidDAO khi đọc từ DB (có timestamp cụ thể). */
+    public Bid(String id, String itemId, String bidderId,
+               double amount, LocalDateTime timestamp) {
+        this.id        = id;
+        this.itemId    = itemId;
+        this.bidderId  = bidderId;
+        this.amount    = amount;
+        this.timestamp = timestamp;
+    }
+
+    // ── Getters ─────────────────────────────────────────────────────────
+
+    public String        getId()        { return id; }
+    public String        getItemId()    { return itemId; }
+    public String        getBidderId()  { return bidderId; }
+    public double        getAmount()    { return amount; }
+    public LocalDateTime getTimestamp() { return timestamp; }
+
     @Override
     public String toString() {
-        return "Bid{bidder=" + bidder.getUsername()
-                + ", amount=" + amount
-                + ", timestamp=" + timestamp + "}";
+        return String.format("Bid{id='%s', itemId='%s', bidderId='%s', amount=%.0f, time=%s}",
+                id, itemId, bidderId, amount, timestamp);
     }
 }

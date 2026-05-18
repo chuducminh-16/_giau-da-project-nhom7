@@ -8,7 +8,6 @@ import com.auction.model.Entity.Item.Item;
 
 public class ItemSaveDAO {
 
-    // Thêm sản phẩm mới
     public boolean saveItem(Item item) {
         String sql = "INSERT INTO items (id, name, current_price, end_time, type, seller_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -16,9 +15,10 @@ public class ItemSaveDAO {
 
             pstmt.setString(1, item.getId());
             pstmt.setString(2, item.getName());
-            pstmt.setDouble(3, item.getCurrentPrice());
-            pstmt.setString(4, item.getEndTime());
-            pstmt.setString(5, item.getType());        // ART / ELECTRONICS / VEHICLE
+            pstmt.setDouble(3, item.getStartingPrice());
+            pstmt.setString(4, item.getEndTime() != null
+                    ? item.getEndTime().toString() : null);
+            pstmt.setString(5, item.getType());
             pstmt.setString(6, item.getSellerId());
             pstmt.setString(7, "OPEN");
 
@@ -30,7 +30,6 @@ public class ItemSaveDAO {
         }
     }
 
-    // Cập nhật giá khi có bid mới
     public boolean updatePrice(String itemId, double newPrice) {
         String sql = "UPDATE items SET current_price = ? WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -46,7 +45,6 @@ public class ItemSaveDAO {
         }
     }
 
-    // Đóng sản phẩm khi hết giờ
     public boolean closeItem(String itemId) {
         String sql = "UPDATE items SET status = 'CLOSED' WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
