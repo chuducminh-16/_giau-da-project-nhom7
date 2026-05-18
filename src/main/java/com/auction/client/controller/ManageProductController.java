@@ -2,6 +2,11 @@ package com.auction.client.controller;
 
 import com.auction.client.SceneEngine;
 import com.auction.client.model.Product;
+import com.auction.client.network.Message;
+import com.auction.client.network.NetworkClient;
+import com.auction.client.session.UserSession;
+import com.google.gson.Gson;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -12,272 +17,330 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.FileChooser;
+
 import java.io.File;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.ResourceBundle;
 
 public class ManageProductController implements Initializable {
 
-    // --- FXML Components (Khai báo đúng ID trong Scene Builder) ---
-    @FXML private TextField txtName, txtStartingPrice, txtBidIncrement;
-    @FXML private TextArea txtDescription;
-    @FXML private DatePicker dateEnd;
-    @FXML private ImageView imgPreview;
+    // ── FXML fields ────────────────────────────────────
+    @FXML private TextField  txtName;
+    @FXML private TextField  txtStartingPrice;
+    @FXML private TextField  txtBidIncrement;
+    @FXML private TextArea   txtDescription;
     @FXML private DatePicker dpStartDate;
-    @FXML private TableView<Product> tableProducts;
-    @FXML private TableColumn<Product, String> colName, colStatus;
-    @FXML private TableColumn<Product, Double> colPrice;
-    @FXML private TableColumn<Product, LocalDateTime> colTime;
-    @FXML private TableColumn<Product, Double> colCurrentBid;
+    @FXML private DatePicker dateEnd;
+    @FXML private ImageView  imgPreview;
 
-    // Danh sách quan sát để tự động cập nhật TableView
-    private ObservableList<Product> productData = FXCollections.observableArrayList();
+    @FXML private TableView<Product>              tableProducts;
+    @FXML private TableColumn<Product, String>    colName;
+    @FXML private TableColumn<Product, Double>    colPrice;
+    @FXML private TableColumn<Product, LocalDateTime> colTime;
+    @FXML private TableColumn<Product, String>    colStatus;
+    @FXML private TableColumn<Product, Double>    colCurrentBid;
+
+    @FXML private Label  statusLabel;   // ← thêm vào FXML để hiện kết quả
+
+    // ── State ──────────────────────────────────────────
+    private final ObservableList<Product> productData =
+            FXCollections.observableArrayList();
     private String currentImagePath = "";
 
+    // ── Tools ──────────────────────────────────────────
+    private final Gson          gson   = new Gson();
+    private final NetworkClient client = NetworkClient.getInstance();
+
+    private final NetworkClient.MessageListener listener =
+            this::handleServerResponse;
+
+    // ── initialize ─────────────────────────────────────
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // 1. Kết nối các cột của bảng với các thuộc tính trong Model Product
+        setupTable();
+        setupRowClickListener();
+        client.addListener(listener);
+
+        // Load danh sách sản phẩm của seller này từ server
+        loadMyProducts();
+    }
+
+    // ── Setup bảng ─────────────────────────────────────
+    private void setupTable() {
         colName.setCellValueFactory(new PropertyValueFactory<>("name"));
-        colPrice.setCellValueFactory(new PropertyValueFactory<>("currentPrice"));
-        colTime.setCellValueFactory(new PropertyValueFactory<>("formattedEndTime"));
+        colPrice.setCellValueFactory(new PropertyValueFactory<>("startingPrice"));
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
         colCurrentBid.setCellValueFactory(new PropertyValueFactory<>("currentBid"));
 
-        // 2. Cấu hình đổ màu cho cột Status
-        setupStatusColumnColor();
-
-        // 3. Gắn danh sách dữ liệu vào bảng
-        tableProducts.setItems(productData);
-
-        // Lắng nghe sự kiện khi người dùng click vào 1 dòng trong TableView
-        tableProducts.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue != null) {
-                // Đổ dữ liệu từ đối tượng (newValue) lên các ô nhập liệu
-                txtName.setText(newValue.getName()); // Tùy tên hàm getter của em
-                txtStartingPrice.setText(String.valueOf(newValue.getStartingPrice()));
-                txtBidIncrement.setText(String.valueOf(newValue.getBidIncrement()));
-                txtDescription.setText(newValue.getDescription());
-
-                // Đổ ngày tháng (Chuyển LocalDateTime -> LocalDate cho DatePicker)
-                if (newValue.setStartTime() != null) {
-                    dpStartDate.setValue(newValue.setStartTime().toLocalDate());
-                }
-                if (newValue.getEndTime() != null) {
-                    dateEnd.setValue(newValue.getEndTime().toLocalDate());
-                }
-            }
-        });
-
-        // --- 2. CHÈN ĐOẠN ĐỊNH DẠNG THỜI GIAN VÀO ĐÂY ---
-        colTime.setCellFactory(column -> new TableCell<Product, LocalDateTime>() {
+        // Format thời gian kết thúc
+        colTime.setCellValueFactory(new PropertyValueFactory<>("endTime"));
+        colTime.setCellFactory(col -> new TableCell<>() {
+            private final DateTimeFormatter fmt =
+                    DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
             @Override
             protected void updateItem(LocalDateTime item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    // Định dạng hiển thị: Ngày/Tháng/Năm Giờ:Phút
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-                    setText(item.format(formatter));
-                }
+                setText(empty || item == null ? null : item.format(fmt));
             }
         });
 
-        // Mock data để em chạy thử giao diện
-        productData.add(new Product("Đồng hồ Rolex", 1000, 100, "Mô tả...", "ACTIVE", LocalDateTime.now().plusDays(1), "", LocalDateTime.now().plusDays(2)));
-    }
-
-    // --- A. Chức năng chọn ảnh ---
-    @FXML
-    private void onSelectImageClick() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Chọn ảnh sản phẩm");
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg")
-        );
-        File selectedFile = fileChooser.showOpenDialog(null);
-
-        if (selectedFile != null) {
-            Image image = new Image(selectedFile.toURI().toString());
-            imgPreview.setImage(image);
-            currentImagePath = selectedFile.getAbsolutePath();
-        }
-    }
-
-    // --- B. Chức năng Thêm sản phẩm ---
-    @FXML
-    private void onAddProductClick() {
-        try {
-            // Kiểm tra validate cơ bản
-            if (txtName.getText().isEmpty() || dateEnd.getValue() == null) {
-                showAlert(Alert.AlertType.WARNING, "Thông báo", "Vui lòng điền đầy đủ thông tin!");
-                return;
-            }
-
-            String name = txtName.getText();
-            double startPrice = Double.parseDouble(txtStartingPrice.getText());
-            double increment = Double.parseDouble(txtBidIncrement.getText());
-            String desc = txtDescription.getText();
-            LocalDateTime end = LocalDateTime.of(dateEnd.getValue(), LocalTime.now());
-
-            // Tạo Object mới
-            Product newProduct = new Product(name, startPrice, increment, desc, "PENDING", end, currentImagePath, LocalDateTime.now());
-
-            // TODO: Gửi newProduct qua Socket lên Server ở đây
-
-            // Cập nhật lên giao diện
-            productData.add(0, newProduct);
-            clearForm();
-            showAlert(Alert.AlertType.INFORMATION, "Thành công", "Đã đăng bán sản phẩm!");
-
-        } catch (NumberFormatException e) {
-            showAlert(Alert.AlertType.ERROR, "Lỗi", "Giá tiền và bước giá phải là số!");
-        }
-
-        // 1. Lấy ngày từ DatePicker
-        LocalDate startDate = dpStartDate.getValue();
-        LocalDate endDate = dateEnd.getValue();
-
-        // 2. Chuyển sang LocalDateTime (Ví dụ đặt mặc định là 8h sáng và 21h tối)
-        LocalDateTime startDateTime = startDate.atTime(8, 0, 0);
-        LocalDateTime endDateTime = endDate.atTime(21, 0, 0);
-
-        // 3. Tạo đối tượng Product và set giá trị
-        Product newProduct = new Product();
-        newProduct.setStartTime(startDateTime);
-        newProduct.setEndTime(endDateTime);
-    }
-
-    // --- C. Nút Back To Home ---
-    @FXML
-    private void onBackHomeClick(ActionEvent event) {
-        // Quay về màn hình danh sách chính (home-view.fxml)
-        SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
-    }
-
-    // --- D. Chỉnh màu cột Status (Logic phần 4) ---
-    private void setupStatusColumnColor() {
-        colStatus.setCellFactory(column -> new TableCell<Product, String>() {
+        // Màu cột Status
+        colStatus.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                    setStyle("");
-                } else {
-                    setText(item);
-                    if (item.equals("ACTIVE")) {
-                        setStyle("-fx-text-fill: #2ecc71; -fx-font-weight: bold;"); // Xanh lá
-                    } else if (item.equals("SOLD")) {
-                        setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;"); // Đỏ
+                if (empty || item == null) { setText(null); setStyle(""); return; }
+                setText(item);
+                setStyle(switch (item) {
+                    case "ACTIVE"  -> "-fx-text-fill:#2ecc71; -fx-font-weight:bold;";
+                    case "SOLD"    -> "-fx-text-fill:#e74c3c; -fx-font-weight:bold;";
+                    default        -> "-fx-text-fill:#f1c40f; -fx-font-weight:bold;";
+                });
+            }
+        });
+
+        tableProducts.setItems(productData);
+    }
+
+    // Click vào hàng → đổ dữ liệu lên form
+    private void setupRowClickListener() {
+        tableProducts.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((obs, oldVal, newVal) -> {
+                    if (newVal == null) return;
+                    txtName.setText(newVal.getName());
+                    txtStartingPrice.setText(
+                            String.valueOf(newVal.getStartingPrice()));
+                    txtBidIncrement.setText(
+                            String.valueOf(newVal.getBidIncrement()));
+                    txtDescription.setText(newVal.getDescription());
+                    if (newVal.getEndTime() != null)
+                        dateEnd.setValue(newVal.getEndTime().toLocalDate());
+                });
+    }
+
+    // ── Load sản phẩm từ server ─────────────────────────
+    private void loadMyProducts() {
+        String sellerId = UserSession.getInstance().getUserId();
+        client.send(new Message("GET_MY_PRODUCTS",
+                gson.toJson(Map.of("sellerId", sellerId))));
+    }
+
+    // ── Chọn ảnh ───────────────────────────────────────
+    @FXML
+    private void onSelectImageClick() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Chọn ảnh sản phẩm");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter(
+                        "Image Files", "*.png", "*.jpg", "*.jpeg"));
+
+        File file = chooser.showOpenDialog(imgPreview.getScene().getWindow());
+        if (file != null) {
+            imgPreview.setImage(new Image(file.toURI().toString()));
+            currentImagePath = file.getAbsolutePath();
+        }
+    }
+
+    // ── ADD: Thêm sản phẩm mới ─────────────────────────
+    @FXML
+    private void onAddProductClick() {
+        if (!validateForm()) return;
+
+        // Lấy dữ liệu từ form
+        LocalDateTime startDT = dpStartDate.getValue() != null
+                ? dpStartDate.getValue().atTime(8, 0)
+                : LocalDateTime.now();
+        LocalDateTime endDT = dateEnd.getValue().atTime(21, 0);
+
+        // Đóng gói payload
+        String payload = gson.toJson(Map.of(
+                "sellerId",     UserSession.getInstance().getUserId(),
+                "name",         txtName.getText().trim(),
+                "startPrice",   txtStartingPrice.getText().trim(),
+                "bidIncrement", txtBidIncrement.getText().trim(),
+                "description",  txtDescription.getText().trim(),
+                "startTime",    startDT.toString(),
+                "endTime",      endDT.toString(),
+                "imagePath",    currentImagePath,
+                "status",       "PENDING"
+        ));
+
+        client.send(new Message("ADD_PRODUCT", payload));
+        showStatus("Đang gửi...", false);
+    }
+
+    // ── UPDATE: Sửa sản phẩm đang chọn ────────────────
+    @FXML
+    public void handleUpdateProduct(ActionEvent event) {
+        Product selected = tableProducts.getSelectionModel()
+                .getSelectedItem();
+        if (selected == null) {
+            showStatus("Vui lòng chọn sản phẩm cần sửa!", true);
+            return;
+        }
+        if (!validateForm()) return;
+
+        LocalDateTime endDT = dateEnd.getValue() != null
+                ? dateEnd.getValue().atTime(21, 0)
+                : selected.getEndTime();
+
+        String payload = gson.toJson(Map.of(
+                "productId",    selected.getId(),  // server cần biết sửa cái nào
+                "name",         txtName.getText().trim(),
+                "startPrice",   txtStartingPrice.getText().trim(),
+                "bidIncrement", txtBidIncrement.getText().trim(),
+                "description",  txtDescription.getText().trim(),
+                "endTime",      endDT.toString()
+        ));
+
+        client.send(new Message("UPDATE_PRODUCT", payload));
+        showStatus("Đang cập nhật...", false);
+    }
+
+    // ── DELETE: Xoá sản phẩm đang chọn ────────────────
+    @FXML
+    private void onDeleteClick(ActionEvent event) {
+        Product selected = tableProducts.getSelectionModel()
+                .getSelectedItem();
+        if (selected == null) {
+            showStatus("Vui lòng chọn sản phẩm cần xoá!", true);
+            return;
+        }
+
+        // Hỏi xác nhận trước khi xoá
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Xoá sản phẩm: " + selected.getName() + "?",
+                ButtonType.YES, ButtonType.NO);
+        confirm.setTitle("Xác nhận xoá");
+        confirm.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.YES) {
+                client.send(new Message("DELETE_PRODUCT",
+                        gson.toJson(Map.of("productId", selected.getId()))));
+                showStatus("Đang xoá...", false);
+            }
+        });
+    }
+
+    // ── Nhận phản hồi từ server ────────────────────────
+    private void handleServerResponse(Message msg) {
+        Platform.runLater(() -> {
+            switch (msg.getType()) {
+
+                case "MY_PRODUCTS_RESPONSE" -> {
+                    // Server trả về danh sách sản phẩm
+                    ProductListResponse resp = gson.fromJson(
+                            msg.getPayload(), ProductListResponse.class);
+                    if (resp.products != null) {
+                        productData.setAll(resp.products);
+                    }
+                }
+
+                case "ADD_PRODUCT_RESPONSE" -> {
+                    ProductResponse resp = gson.fromJson(
+                            msg.getPayload(), ProductResponse.class);
+                    if (resp.success) {
+                        // Thêm vào bảng ngay không cần reload
+                        if (resp.product != null)
+                            productData.add(0, resp.product);
+                        clearForm();
+                        showStatus("✓ Thêm sản phẩm thành công!", false);
                     } else {
-                        setStyle("-fx-text-fill: #f1c40f; -fx-font-weight: bold;"); // Vàng (Pending)
+                        showStatus("⚠ " + resp.message, true);
+                    }
+                }
+
+                case "UPDATE_PRODUCT_RESPONSE" -> {
+                    ProductResponse resp = gson.fromJson(
+                            msg.getPayload(), ProductResponse.class);
+                    if (resp.success) {
+                        tableProducts.refresh();
+                        showStatus("✓ Cập nhật thành công!", false);
+                    } else {
+                        showStatus("⚠ " + resp.message, true);
+                    }
+                }
+
+                case "DELETE_PRODUCT_RESPONSE" -> {
+                    ProductResponse resp = gson.fromJson(
+                            msg.getPayload(), ProductResponse.class);
+                    if (resp.success) {
+                        Product selected = tableProducts
+                                .getSelectionModel().getSelectedItem();
+                        if (selected != null) productData.remove(selected);
+                        clearForm();
+                        showStatus("✓ Đã xoá sản phẩm!", false);
+                    } else {
+                        showStatus("⚠ " + resp.message, true);
                     }
                 }
             }
         });
     }
 
+    // ── Back Home ──────────────────────────────────────
+    @FXML
+    private void onBackHomeClick(ActionEvent event) {
+        client.removeListener(listener);
+        SceneEngine.changeScene(event,
+                "home-view.fxml", "The Curator - Trang chủ");
+    }
+
+    // ── Validate form ──────────────────────────────────
+    private boolean validateForm() {
+        if (txtName.getText().trim().isEmpty()) {
+            showStatus("⚠ Tên sản phẩm không được để trống.", true);
+            return false;
+        }
+        try {
+            Double.parseDouble(txtStartingPrice.getText().trim());
+            Double.parseDouble(txtBidIncrement.getText().trim());
+        } catch (NumberFormatException e) {
+            showStatus("⚠ Giá tiền và bước giá phải là số.", true);
+            return false;
+        }
+        if (dateEnd.getValue() == null) {
+            showStatus("⚠ Vui lòng chọn ngày kết thúc.", true);
+            return false;
+        }
+        if (dpStartDate.getValue() != null &&
+                dpStartDate.getValue().isAfter(dateEnd.getValue())) {
+            showStatus("⚠ Ngày bắt đầu phải trước ngày kết thúc.", true);
+            return false;
+        }
+        return true;
+    }
+
+    // ── Helpers ────────────────────────────────────────
     private void clearForm() {
         txtName.clear();
         txtStartingPrice.clear();
         txtBidIncrement.clear();
         txtDescription.clear();
+        dpStartDate.setValue(null);
         dateEnd.setValue(null);
         imgPreview.setImage(null);
         currentImagePath = "";
+        tableProducts.getSelectionModel().clearSelection();
     }
 
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setContentText(content);
-        alert.showAndWait();
+    private void showStatus(String msg, boolean isError) {
+        if (statusLabel == null) return;
+        statusLabel.setText(msg);
+        statusLabel.setStyle(isError
+                ? "-fx-text-fill: #e53e3e; -fx-font-size: 12px;"
+                : "-fx-text-fill: #38a169; -fx-font-size: 12px;");
+        statusLabel.setVisible(true);
+        statusLabel.setManaged(true);
     }
 
-    // --- E. Chức năng Xóa sản phẩm ---
-    @FXML
-    private void onDeleteClick(javafx.event.ActionEvent event) {
-        // Lấy sản phẩm đang được chọn trong bảng
-        Product selectedProduct = tableProducts.getSelectionModel().getSelectedItem();
-
-        if (selectedProduct != null) {
-            // Xóa khỏi danh sách hiển thị
-            productData.remove(selectedProduct);
-
-            // TODO: (Sau này) Gửi lệnh xóa lên Server qua Socket
-
-            showAlert(Alert.AlertType.INFORMATION, "Thành công", "Đã xóa sản phẩm: " + selectedProduct.getName());
-        } else {
-            // Nếu người dùng chưa chọn dòng nào mà bấm Xóa
-            showAlert(Alert.AlertType.WARNING, "Cảnh báo", "Vui lòng chọn một sản phẩm trong bảng để xóa!");
-        }
-    }
-
-    // 2. Khi em viết hàm Thêm sản phẩm (Add Product), nhớ lấy giá trị từ nó:
-    public void handleAddProduct(ActionEvent event) {
-        LocalDate startDate = dpStartDate.getValue();
-        LocalDate endDate = dateEnd.getValue();
-
-        // Kiểm tra xem người dùng đã chọn ngày chưa
-        if (startDate == null || endDate == null) {
-            System.out.println("Vui lòng chọn đầy đủ ngày bắt đầu và kết thúc!");
-            return;
-        }
-
-        // Lưu ý logic thực tế: Ngày bắt đầu không được lớn hơn ngày kết thúc
-        if (startDate.isAfter(endDate)) {
-            System.out.println("Ngày bắt đầu phải trước ngày kết thúc!");
-            return;
-        }
-    }
-
-// hàm cho update
-    @FXML
-    public void handleUpdateProduct(ActionEvent event) {
-        // 1. Lấy ra sản phẩm đang được chọn (bôi xanh) trong bảng
-        Product selectedProduct = tableProducts.getSelectionModel().getSelectedItem();
-
-        if (selectedProduct == null) {
-            System.out.println("Vui lòng chọn một sản phẩm trong bảng để sửa!");
-            return;
-        }
-
-        try {
-            // 2. Cập nhật thông tin mới từ Form vào đối tượng này
-            selectedProduct.setName(txtName.getText());
-            selectedProduct.setStartingPrice(Double.parseDouble(txtStartingPrice.getText()));
-            selectedProduct.setBidIncrement(Double.parseDouble(txtBidIncrement.getText()));
-            selectedProduct.setDescription(txtDescription.getText());
-//            selectedProduct.setStartTime(dpStartDate.getValue());
-//            selectedProduct.setEndTime(dateEnd.getValue());
-
-            // Lấy sản phẩm đang được chọn trong bảng
-
-            if (selectedProduct != null) {
-                // Chuyển đổi ngày từ Form sang LocalDateTime
-                if (dpStartDate.getValue() != null) {
-                    selectedProduct.setStartTime(dpStartDate.getValue().atTime(8, 0, 0));
-                }
-                if (dateEnd.getValue() != null) {
-                    selectedProduct.setEndTime(dateEnd.getValue().atTime(21, 0, 0));
-                }
-            }
-
-            // 3. Làm mới bảng (Refresh) để hiển thị thông tin mới
-            tableProducts.refresh();
-
-            System.out.println("Cập nhật sản phẩm thành công!");
-
-            // (Tùy chọn) Xóa trắng các ô nhập liệu sau khi update xong
-            // clearForm();
-
-        } catch (NumberFormatException e) {
-            System.out.println("Lỗi: Giá tiền hoặc bước giá phải là số!");
-        }
-    }
+    // ── DTOs ───────────────────────────────────────────
+    private record ProductResponse(
+            boolean success, String message, Product product) {}
+    private record ProductListResponse(
+            boolean success, java.util.List<Product> products) {}
 }

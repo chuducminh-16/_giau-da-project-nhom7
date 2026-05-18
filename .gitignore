@@ -29,3 +29,15 @@ bin/
 ### Mac OS ###
 .DS_Store
 .target/
+
+# Build output — không commit
+target/
+*.class
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+echo "target/" >> .gitignore
+echo "*.class" >> .gitignore

@@ -43,4 +43,8 @@ public abstract class Item extends Entity {
     public void setEndTime(String endTime) {
         this.endTime = endTime;
     }
+
+    public abstract String getCategory();
+
+    public abstract String getSummary();
 }
