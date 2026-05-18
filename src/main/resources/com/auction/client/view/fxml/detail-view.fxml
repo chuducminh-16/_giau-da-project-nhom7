@@ -80,14 +80,18 @@
                            <font><Font size="15" /></font>
                         </Label>
 
-                        <!-- ScrollPane mô tả — giữ nguyên TextFlow bên trong -->
-                        <ScrollPane fitToWidth="true" prefHeight="110" prefWidth="500" style="-fx-background-color: white;                                            -fx-background-radius: 8;                                            -fx-border-color: #e2e8f0;                                            -fx-border-radius: 8;">
+                        <!-- Mô tả sản phẩm — hiện dữ liệu từ server -->
+                        <ScrollPane fitToWidth="true" prefHeight="110" prefWidth="500"
+                                    style="-fx-background-color: white;
+                   -fx-background-radius: 8;
+                   -fx-border-color: #e2e8f0;
+                   -fx-border-radius: 8;">
                            <content>
-                              <AnchorPane minHeight="0" minWidth="0" prefHeight="100" prefWidth="490" style="-fx-background-color: white; -fx-padding: 8;">
-                                 <children>
-                                    <TextFlow layoutX="0" layoutY="0" prefHeight="100" prefWidth="480" />
-                                 </children>
-                              </AnchorPane>
+                              <Label fx:id="lblDescription"
+                                     wrapText="true"
+                                     prefWidth="480"
+                                     style="-fx-text-fill: #4a5568; -fx-font-size: 13;
+                    -fx-padding: 8; -fx-background-color: white;"/>
                            </content>
                         </ScrollPane>
 
@@ -130,24 +134,29 @@
                               </Label>
 
                               <!-- Labels cột phải (giá trị) -->
-                              <Label style="-fx-text-fill: #2d3748; -fx-font-weight: bold; -fx-font-size: 13;" text="..." GridPane.columnIndex="1">
-                                 <font><Font size="13" /></font>
-                              </Label>
-                              <Label style="-fx-text-fill: #2d3748; -fx-font-weight: bold; -fx-font-size: 13;" text="..." GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                 <font><Font size="13" /></font>
-                              </Label>
-                              <Label style="-fx-text-fill: #2d3748; -fx-font-weight: bold; -fx-font-size: 13;" text="..." GridPane.columnIndex="1" GridPane.rowIndex="2">
-                                 <font><Font size="13" /></font>
-                              </Label>
-                              <Label style="-fx-text-fill: #2d3748; -fx-font-weight: bold; -fx-font-size: 13;" text="..." GridPane.columnIndex="1" GridPane.rowIndex="3">
-                                 <font><Font size="13" /></font>
-                              </Label>
-                              <Label style="-fx-text-fill: #2d3748; -fx-font-weight: bold; -fx-font-size: 13;" text="..." GridPane.columnIndex="1" GridPane.rowIndex="4">
-                                 <font><Font size="13" /></font>
-                              </Label>
-                              <Label style="-fx-text-fill: #2d3748; -fx-font-weight: bold; -fx-font-size: 13;" text="..." GridPane.columnIndex="1" GridPane.rowIndex="5">
-                                 <font><Font size="13" /></font>
-                              </Label>
+                              <Label fx:id="lblStartingPrice"
+                                     text="—" GridPane.columnIndex="1"
+                                     style="-fx-text-fill: #2d3748; -fx-font-weight: bold;"/>
+
+                              <Label fx:id="lblBidIncrement"
+                                     text="—" GridPane.columnIndex="1" GridPane.rowIndex="1"
+                                     style="-fx-text-fill: #2d3748; -fx-font-weight: bold;"/>
+
+                              <Label fx:id="lblStatus"
+                                     text="—" GridPane.columnIndex="1" GridPane.rowIndex="2"
+                                     style="-fx-text-fill: #2d3748; -fx-font-weight: bold;"/>
+
+                              <Label fx:id="lblCategory"
+                                     text="—" GridPane.columnIndex="1" GridPane.rowIndex="3"
+                                     style="-fx-text-fill: #2d3748; -fx-font-weight: bold;"/>
+
+                              <Label fx:id="lblOrigin"
+                                     text="—" GridPane.columnIndex="1" GridPane.rowIndex="4"
+                                     style="-fx-text-fill: #2d3748; -fx-font-weight: bold;"/>
+
+                              <Label fx:id="lblSeller"
+                                     text="—" GridPane.columnIndex="1" GridPane.rowIndex="5"
+                                     style="-fx-text-fill: #2d3748; -fx-font-weight: bold;"/>
                            </children>
                         </GridPane>
 

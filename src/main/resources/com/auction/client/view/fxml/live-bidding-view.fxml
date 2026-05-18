@@ -45,9 +45,11 @@
                   </Button>
 
                   <!-- Tên sản phẩm -->
-                  <Label text="PRODUCT NAME" HBox.hgrow="ALWAYS"
+                  <Label fx:id="lblProductName"
+                         text="PRODUCT NAME"
+                         HBox.hgrow="ALWAYS"
                          style="-fx-text-fill: white; -fx-font-size: 16;
-                                -fx-font-weight: bold; -fx-alignment: CENTER;"
+              -fx-font-weight: bold; -fx-alignment: CENTER;"/>
                          prefHeight="57" prefWidth="461" />
 
                   <!-- Countdown — giữ nguyên fx:id -->
@@ -71,9 +73,10 @@
                <children>
 
                   <!-- Current Bid label -->
-                  <Label text="Current Bid: 500.000 VNĐ"
+                  <Label fx:id="lblCurrentBid"
+                         text="Current Bid: --"
                          style="-fx-text-fill: #38a169; -fx-font-size: 22;
-                                -fx-font-weight: bold; -fx-padding: 0 0 16 0;" />
+              -fx-font-weight: bold; -fx-padding: 0 0 16 0;"/>
 
                   <!-- Card nhập giá -->
                   <VBox spacing="0"

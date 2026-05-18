@@ -1,8 +1,10 @@
 package com.auction.model.Entity.Auction_Bid;
 
+import java.time.chrono.ChronoLocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.time.LocalDateTime;
 
 import com.auction.model.Entity.Item.Item;
 import com.auction.model.Entity.User.Bidder;
@@ -15,10 +17,10 @@ public class Auction {
     private double currentPrice; // giá hiện tại
     private boolean isActive;    // phiên còn mở không
     private String status;       // OPEN / RUNNING / FINISHED / PAID / CANCELED
-    private String endTime;      // thời gian kết thúc (ISO string)
+    private ChronoLocalDateTime<?> endTime;      // thời gian kết thúc (ISO string)
     private List<Bid> bidHistory; // lịch sử bid
 
-    public Auction(long id, Item item, Seller seller, String endTime) {
+    public Auction(long id, Item item, Seller seller, double currentPrice, ChronoLocalDateTime<?> endTime) {
         this.id           = id;
         this.item         = item;
         this.seller       = seller;
@@ -78,14 +80,14 @@ public class Auction {
     public double  getCurrentPrice() { return currentPrice; }
     public boolean isActive()        { return isActive; }
     public String  getStatus()       { return status; }
-    public String  getEndTime()      { return endTime; }
+    public ChronoLocalDateTime<?> getEndTime()      { return endTime; }
 
     public List<Bid> getBidHistory() {
         return Collections.unmodifiableList(bidHistory);
     }
 
     public void setStatus(String status) { this.status = status; }
-    public void setEndTime(String endTime) { this.endTime = endTime; }
+    public void setEndTime(ChronoLocalDateTime<?> endTime) { this.endTime = endTime; }
 
     /** Dùng nội bộ bởi AuctionEngine khi apply auto-bid. */
     public void applyBidDirectly(Bid bid) {

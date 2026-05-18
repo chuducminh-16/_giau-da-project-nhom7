@@ -58,6 +58,13 @@
                            </children>
                         </VBox>
 
+                        <Label fx:id="errorLabel"
+                               visible="false"
+                               managed="false"
+                               maxWidth="300"
+                               wrapText="true"
+                               style="-fx-text-fill: #fc8181; -fx-font-size: 12px;"/>
+
                         <!-- Nút Sign In — giữ nguyên fx:id, onAction -->
                         <Button fx:id="loginButton" mnemonicParsing="false" onAction="#onLoginClicked" prefHeight="44" prefWidth="300" style="-fx-background-color: #4299e1; -fx-text-fill: white;                                        -fx-font-size: 14; -fx-font-weight: bold;                                        -fx-background-radius: 8; -fx-cursor: hand;" text="Sign In">
                            <VBox.margin><Insets top="8" /></VBox.margin>

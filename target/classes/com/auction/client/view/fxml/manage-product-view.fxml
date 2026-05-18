@@ -136,6 +136,13 @@
                            <children>
                               <Button mnemonicParsing="false" onAction="#onDeleteClick" prefHeight="42" prefWidth="110" style="-fx-background-color: #e53e3e; -fx-text-fill: white;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-weight: bold; -fx-font-size: 12;" text="🗑 Delete" />
                               <Button mnemonicParsing="false" onAction="#onBackHomeClick" prefHeight="42" prefWidth="120" style="-fx-background-color: #2d3748; -fx-text-fill: #a0aec0;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-size: 12;" text="← Back Home" />
+
+                              <Label fx:id="statusLabel"
+                                     visible="false"
+                                     managed="false"
+                                     wrapText="true"
+                                     style="-fx-font-size: 12px;"/>
+
                            </children>
                         </HBox>
 

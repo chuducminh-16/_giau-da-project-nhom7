@@ -8,7 +8,11 @@ C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\controller\ProfileController.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\Launcher.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\model\Product.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\network\Message.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\network\NetworkClient.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\SceneEngine.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\session\SelectedProductSession.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\session\UserSession.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\client\utils\NavigationUtils.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\dao\bid\BidDAO.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\dao\item\ItemFindDAO.java
@@ -32,4 +36,12 @@ C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\model\Entity\User\User.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\pattern\AuctionManager.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\pattern\ItemFactory.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\server\dao\DBConnection.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\server\dao\ProductDAO.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\server\dao\UserDAO.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\server\Main.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\server\network\ClientHandler.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\server\network\NetworkServer.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\server\service\AuctionService.java
+C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\com\auction\server\service\UserService.java
 C:\Users\OS\OneDrive\Documents\_giau-da-project-nhom7\src\main\java\module-info.java
