@@ -111,15 +111,24 @@
                                        <HBox alignment="CENTER_LEFT" spacing="10">
                                           <children>
                                              <Label style="-fx-text-fill: #fc8181;                                                            -fx-font-size: 11; -fx-font-weight: bold;                                                            -fx-background-color: #742a2a;                                                            -fx-background-radius: 20;                                                            -fx-padding: 3 10;" text="🔴  LIVE NOW" />
-                                             <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 12;" text="Lot 001" />
+                                             <Label fx:id="heroStatus"
+                                                    text="Lot 001"
+                                                    style="-fx-text-fill: #a0aec0; -fx-font-size: 12;" />
                                           </children>
                                        </HBox>
 
-                                       <!-- Tên sản phẩm -->
-                                       <Label style="-fx-text-fill: white; -fx-font-size: 24;                                                      -fx-font-weight: bold;" text="The Eames Prototype Archive" wrapText="true" />
+                                       <!-- Tên sản phẩm — thêm fx:id -->
+                                       <Label fx:id="heroName"
+                                              text="Đang tải..."
+                                              wrapText="true"
+                                              style="-fx-text-fill: white; -fx-font-size: 24;
+              -fx-font-weight: bold;" />
 
                                        <!-- Mô tả -->
-                                       <Label style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Description" />
+                                       <Label fx:id="heroDesc"
+                                              text=""
+                                              wrapText="true"
+                                              style="-fx-text-fill: #718096; -fx-font-size: 13;" />
 
                                        <Region VBox.vgrow="ALWAYS" />
 
@@ -132,7 +141,11 @@
                                              <VBox spacing="2">
                                                 <children>
                                                    <Label style="-fx-text-fill: #a0aec0;                                                                  -fx-font-size: 10;                                                                  -fx-font-weight: bold;" text="CURRENT BID" />
-                                                   <Label style="-fx-text-fill: #68d391;                                                                  -fx-font-size: 26;                                                                  -fx-font-weight: bold;" text="68,68 $" />
+                                                   <Label fx:id="heroBid"
+                                                          text="--"
+                                                          style="-fx-text-fill: #68d391;
+              -fx-font-size: 26;
+              -fx-font-weight: bold;" />
                                                 </children>
                                              </VBox>
                                              <Region HBox.hgrow="ALWAYS" />

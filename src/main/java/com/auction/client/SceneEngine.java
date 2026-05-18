@@ -3,25 +3,31 @@ package com.auction.client;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
-import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import java.io.IOException;
 
 public class SceneEngine {
-    public static void changeScene(ActionEvent event, String fxmlFile, String title) {
+
+    // Overload 1: dùng khi có ActionEvent (từ @FXML handler)
+    public static void changeScene(ActionEvent event, String fxml, String title) {
+        Node source = (Node) event.getSource();
+        changeScene(source, fxml, title);
+    }
+
+    // Overload 2: dùng khi chỉ có Node (dùng trong Platform.runLater)
+    public static void changeScene(Node node, String fxml, String title) {
         try {
-            Parent root = FXMLLoader.load(SceneEngine.class.getResource("view/fxml/" + fxmlFile));
-            Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-
-            stage.setMaximized(false);
+            FXMLLoader loader = new FXMLLoader(
+                    SceneEngine.class.getResource(fxml)
+            );
+            Scene scene = new Scene(loader.load());
+            Stage stage = (Stage) node.getScene().getWindow();
+            stage.setScene(scene);
             stage.setTitle(title);
-            stage.setScene(new Scene(root));
             stage.setMaximized(true);
-
             stage.show();
         } catch (IOException e) {
-            System.err.println("Không thể chuyển màn hình: " + fxmlFile);
             e.printStackTrace();
         }
     }
@@ -34,3 +40,6 @@ public class SceneEngine {
         stage.setMaximized(true);
     }
 }
+
+
+
