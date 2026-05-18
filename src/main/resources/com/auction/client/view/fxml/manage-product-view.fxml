@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<!--
+    MANAGE-PRODUCT-VIEW
+-->
+
+   <AnchorPane prefHeight="737" prefWidth="1187" style="-fx-background-color: #f0f2f5;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.controller.ManageProductController">
+   <children>
+
+      <!-- Navbar mini — back home + tiêu đề -->
+      <HBox alignment="CENTER_LEFT" prefHeight="56" prefWidth="1187" spacing="0" style="-fx-background-color: #1a1f2e; -fx-padding: 0 24 0 24;" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
+         <children>
+            <Label style="-fx-text-fill: white; -fx-font-size: 15; -fx-font-weight: bold;" text="🔨 THE CURATOR  —  Seller Dashboard" />
+         </children>
+      </HBox>
+
+      <!-- SplitPane bắt đầu dưới navbar -->
+      <SplitPane dividerPositions="0.46241674595623217" style="-fx-background-color: #f0f2f5;" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="56">
+         <items>
+
+            <!-- ══ Cột trái: Form nhập liệu ══ -->
+            <AnchorPane minHeight="0" minWidth="0" style="-fx-background-color: #f0f2f5;">
+               <children>
+                  <VBox prefHeight="681" prefWidth="545" spacing="0" style="-fx-background-color: white;                                -fx-background-radius: 0;                                -fx-padding: 28 36 28 36;                                -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,0);" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
+                     <children>
+
+                        <!-- Tiêu đề -->
+                        <Label prefWidth="440" style="-fx-text-fill: #1a1f2e; -fx-font-size: 18;                                       -fx-font-weight: bold; -fx-padding: 0 0 20 0;" text="INFORMATION" />
+
+                        <!-- Name -->
+                        <HBox alignment="CENTER_LEFT" prefHeight="52" prefWidth="440" spacing="0">
+                           <children>
+                              <Label prefWidth="120" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Name:" />
+                              <TextField fx:id="txtName" prefHeight="38" style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                 -fx-background-radius: 6; -fx-padding: 0 10;" HBox.hgrow="ALWAYS" />
+                           </children>
+                        </HBox>
+
+                        <!-- Starting Price -->
+                        <HBox alignment="CENTER_LEFT" prefHeight="52" prefWidth="440" spacing="0">
+                           <children>
+                              <Label prefWidth="120" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Starting Price:" />
+                              <TextField fx:id="txtStartingPrice" prefHeight="38" style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                 -fx-background-radius: 6; -fx-padding: 0 10;" HBox.hgrow="ALWAYS" />
+                           </children>
+                        </HBox>
+
+                        <!-- Bid Increment -->
+                        <HBox alignment="CENTER_LEFT" prefHeight="52" prefWidth="440" spacing="0">
+                           <children>
+                              <Label prefWidth="120" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Bid Increment:" />
+                              <TextField fx:id="txtBidIncrement" prefHeight="38" style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                 -fx-background-radius: 6; -fx-padding: 0 10;" HBox.hgrow="ALWAYS" />
+                           </children>
+                        </HBox>
+
+                        <!-- Description -->
+                        <HBox alignment="TOP_LEFT" prefHeight="100" prefWidth="440" spacing="0">
+                           <VBox.margin><Insets bottom="8" /></VBox.margin>
+                           <children>
+                              <Label prefHeight="38" prefWidth="120" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Description:" />
+                              <TextArea fx:id="txtDescription" prefHeight="100.0" prefWidth="357.0" style="-fx-background-color: #f7fafc;                                                -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                -fx-background-radius: 6;" HBox.hgrow="ALWAYS" />
+                           </children>
+                        </HBox>
+
+                        <!-- Start Date -->
+                        <HBox alignment="CENTER_LEFT" prefHeight="46" prefWidth="440" spacing="0">
+                           <children>
+                              <Label prefWidth="120" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Start Date:" />
+                              <DatePicker fx:id="dpStartDate" prefHeight="36" style="-fx-background-radius: 6;" HBox.hgrow="ALWAYS" />
+                           </children>
+                        </HBox>
+
+                        <!-- End Date -->
+                        <HBox alignment="CENTER_LEFT" prefHeight="46" prefWidth="440" spacing="0">
+                           <children>
+                              <Label prefWidth="120" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="End Date:" />
+                              <DatePicker fx:id="dateEnd" prefHeight="36" style="-fx-background-radius: 6;" HBox.hgrow="ALWAYS" />
+                           </children>
+                        </HBox>
+
+                        <!-- Image preview — giữ nguyên fx:id -->
+                        <ImageView fx:id="imgPreview" fitHeight="140" fitWidth="360" pickOnBounds="true" preserveRatio="true">
+                           <VBox.margin><Insets bottom="10" left="20" top="10" /></VBox.margin>
+                        </ImageView>
+
+                        <!-- Nút hành động — giữ nguyên onAction, fx:id -->
+                        <HBox alignment="CENTER_LEFT" prefHeight="56" prefWidth="440" spacing="12">
+                           <children>
+                              <Button mnemonicParsing="false" onAction="#onSelectImageClick" prefHeight="40" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-size: 12;" text="Select Image" />
+                              <Button mnemonicParsing="false" onAction="#onAddProductClick" prefHeight="40" prefWidth="120" style="-fx-background-color: #4299e1; -fx-text-fill: white;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-weight: bold; -fx-font-size: 12;" text="Add Product" />
+                              <Button fx:id="btnUpdate" mnemonicParsing="false" onAction="#handleUpdateProduct" prefHeight="40" prefWidth="90" style="-fx-background-color: #38a169; -fx-text-fill: white;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-weight: bold; -fx-font-size: 12;" text="Update" />
+                           </children>
+                        </HBox>
+
+                     </children>
+                  </VBox>
+               </children>
+            </AnchorPane>
+
+            <!-- ══ Cột phải: Bảng danh sách sản phẩm ══ -->
+            <AnchorPane minHeight="0" minWidth="0" style="-fx-background-color: #f0f2f5;">
+               <children>
+                  <VBox prefHeight="681" prefWidth="570" spacing="0" style="-fx-background-color: #f0f2f5; -fx-padding: 24 20 20 20;" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
+                     <children>
+
+                        <!-- Tiêu đề bảng -->
+                        <Label style="-fx-text-fill: #1a1f2e; -fx-font-size: 18;                                       -fx-font-weight: bold; -fx-padding: 0 0 16 0;" text="LIST PRODUCTS" />
+
+                        <!-- TableView — giữ nguyên fx:id tất cả cột -->
+                        <TableView fx:id="tableProducts" style="-fx-background-color: white;                                           -fx-background-radius: 10;                                           -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);" VBox.vgrow="ALWAYS">
+                           <VBox.margin><Insets bottom="16" /></VBox.margin>
+                           <columns>
+                              <TableColumn fx:id="colImage" prefWidth="80" text="Ảnh" />
+                              <TableColumn fx:id="colName" prefWidth="120" text="Tên sản phẩm" />
+                              <TableColumn fx:id="colPrice" prefWidth="110" text="Giá khởi điểm" />
+                              <TableColumn fx:id="colTime" prefWidth="100" text="Kết thúc" />
+                              <TableColumn fx:id="colStatus" prefWidth="90" text="Trạng thái" />
+                              <TableColumn fx:id="colCurrentBid" prefWidth="110" text="Giá hiện tại" />
+                           </columns>
+                        </TableView>
+
+                        <!-- Nút Delete + Back Home — giữ nguyên onAction -->
+                        <HBox alignment="CENTER_LEFT" prefHeight="52" prefWidth="530" spacing="12">
+                           <children>
+                              <Button mnemonicParsing="false" onAction="#onDeleteClick" prefHeight="42" prefWidth="110" style="-fx-background-color: #e53e3e; -fx-text-fill: white;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-weight: bold; -fx-font-size: 12;" text="🗑 Delete" />
+                              <Button mnemonicParsing="false" onAction="#onBackHomeClick" prefHeight="42" prefWidth="120" style="-fx-background-color: #2d3748; -fx-text-fill: #a0aec0;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-size: 12;" text="← Back Home" />
+
+                              <Label fx:id="statusLabel"
+                                     visible="false"
+                                     managed="false"
+                                     wrapText="true"
+                                     style="-fx-font-size: 12px;"/>
+
+                           </children>
+                        </HBox>
+
+                     </children>
+                  </VBox>
+               </children>
+            </AnchorPane>
+
+         </items>
+      </SplitPane>
+
+   </children>
+</AnchorPane>
