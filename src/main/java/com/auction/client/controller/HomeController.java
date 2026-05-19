@@ -2,7 +2,7 @@ package com.auction.client.controller;
 
 import com.auction.client.SceneEngine;
 import com.auction.client.model.Product;
-import com.auction.client.network.Message;
+import com.auction.client.network.MessageListener;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
 import com.auction.client.session.UserSession;
@@ -67,7 +67,7 @@ public class HomeController implements Initializable {
         client.addListener(listener);
 
         // Lấy danh sách phiên đang active từ server
-        client.send(new Message("GET_AUCTIONS", "{}"));
+        client.send(new MessageListener("GET_AUCTIONS", "{}"));
     }
 
     // ── Setup bảng ──────────────────────────────────────
@@ -130,7 +130,7 @@ public class HomeController implements Initializable {
     }
 
     // ── Nhận message từ server ──────────────────────────
-    private void handleServerMessage(Message msg) {
+    private void handleServerMessage(MessageListener msg) {
         switch (msg.getType()) {
 
             case "AUCTIONS_LIST" -> {
@@ -200,7 +200,7 @@ public class HomeController implements Initializable {
     // ── Refresh ─────────────────────────────────────────
     @FXML
     public void onRefreshAuctions(ActionEvent event) {
-        client.send(new Message("GET_AUCTIONS", "{}"));
+        client.send(new MessageListener("GET_AUCTIONS", "{}"));
     }
 
     // ── Search ──────────────────────────────────────────
@@ -209,7 +209,7 @@ public class HomeController implements Initializable {
         if (event.getCode() != KeyCode.ENTER) return;
         String keyword = searchField.getText().trim().toLowerCase();
         if (keyword.isEmpty()) {
-            client.send(new Message("GET_AUCTIONS", "{}"));
+            client.send(new MessageListener("GET_AUCTIONS", "{}"));
             return;
         }
         // Lọc local trước — đủ dùng cho demo

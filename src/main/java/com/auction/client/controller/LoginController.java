@@ -1,7 +1,7 @@
 package com.auction.client.controller;
 
 import com.auction.client.SceneEngine;
-import com.auction.client.network.Message;
+import com.auction.client.network.MessageListener;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.UserSession;
 import com.google.gson.Gson;
@@ -77,7 +77,7 @@ public class LoginController {
                 "email",    email,
                 "password", password
         ));
-        client.send(new Message("LOGIN", payload));
+        client.send(new MessageListener("LOGIN", payload));
 
         // 3. Khoá nút, xoá lỗi cũ
         setLoading(true);
@@ -86,7 +86,7 @@ public class LoginController {
 
     // ── Nhận phản hồi từ server ────────────────────────
     // Chạy trên network thread → PHẢI dùng Platform.runLater
-    private void handleServerResponse(Message msg) {
+    private void handleServerResponse(MessageListener msg) {
         if (!"LOGIN_RESPONSE".equals(msg.getType())) return;
 
         LoginResponse resp = gson.fromJson(msg.getPayload(),
