@@ -41,3 +41,4 @@ target/
 
 echo "target/" >> .gitignore
 echo "*.class" >> .gitignore
+.DS_Store
