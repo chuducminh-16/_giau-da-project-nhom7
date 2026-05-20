@@ -1,8 +1,8 @@
 package com.auction.server.service;
 
-import com.auction.dao.bid.BidDAO;
+import com.auction.server.dao.bid.BidDAO;
 import com.auction.server.dao.ProductDAO;
-import com.auction.model.Entity.Auction_Bid.Auction;
+import com.auction.shared.model.Entity.Auction_Bid.Auction;
 
 import java.time.LocalDateTime;
 import java.util.List;

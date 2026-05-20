@@ -24,6 +24,10 @@ public class ProfileController {
     @FXML private Button        registerButton;
     @FXML private Button        btnBackToLogin;
     @FXML private Label         errorLabel;   // thêm cái này vào FXML để hiện lỗi
+    @FXML private RadioButton radioBidder;
+    @FXML private RadioButton radioSeller;
+    @FXML private RadioButton radioAdmin;
+    @FXML private ToggleGroup roleToggleGroup;
 
     // ── Công cụ ──────────────────────────────────────────
     private final Gson          gson   = new Gson();
@@ -38,6 +42,7 @@ public class ProfileController {
         // Đăng ký lắng nghe phản hồi từ server
         client.addListener(listener);
         hideError();
+        radioBidder.setSelected(true);
     }
 
     // ── Xử lý bấm nút Đăng ký ───────────────────────────
@@ -52,6 +57,8 @@ public class ProfileController {
         String password = passwordField.getText();
         String confirm  = confirmPasswordField.getText();
         String address  = addressField.getText().trim();
+
+        String selectedRole = getSelectedRole();
 
         // 2. Validate phía client — không gửi nếu sai
         if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
@@ -79,7 +86,8 @@ public class ProfileController {
                 "email",    email,
                 "phone",    phone,
                 "password", password,
-                "address",  address
+                "address",  address,
+                "role",     selectedRole
         ));
 
         // 4. Bọc vào Message và gửi lên server qua socket
@@ -89,6 +97,20 @@ public class ProfileController {
         registerButton.setDisable(true);
         registerButton.setText("Đang xử lý...");
         hideError();
+    }
+    // ── Lấy role String từ ToggleGroup ─
+    private String getSelectedRole() {
+        RadioButton selected =
+                (RadioButton) roleToggleGroup.getSelectedToggle();
+
+        if (selected == null) return "BIDDER"; // fallback an toàn
+
+        // So sánh theo fx:id
+        return switch (selected.getId()) {
+            case "radioSeller" -> "SELLER";
+            case "radioAdmin"  -> "ADMIN";
+            default            -> "BIDDER";
+        };
     }
 
     // ── Nhận phản hồi từ server ──────────────────────────
@@ -114,18 +136,13 @@ public class ProfileController {
             if (response.success) {
                 // ✅ Thành công → gỡ listener rồi về Login
                 client.removeListener(listener);
-                showInfo("Đăng ký thành công! Vui lòng đăng nhập.");
+                showInfo("Đăng ký thành công! Đang chuyển hướng...");
 
-                // Chờ 1 giây cho user đọc thông báo rồi chuyển màn hình
+                // điều hướng theo role sau 1.2s
+                String role = getSelectedRole();
                 new Thread(() -> {
-                    try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
-                    Platform.runLater(() ->
-                            SceneEngine.changeScene(
-                                    registerButton,          // node để lấy Stage
-                                    "login-view.fxml",
-                                    "The Curator — Đăng nhập"
-                            )
-                    );
+                    try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
+                    Platform.runLater(() -> navigateByRole(role));
                 }).start();
 
             } else {
@@ -136,6 +153,37 @@ public class ProfileController {
             }
         });
     }
+
+    // ── Điều hướng màn hình theo role ──
+    private void navigateByRole(String role) {
+        switch (role) {
+            case "ADMIN" -> {
+                System.out.println("Chuyển sang Admin Dashboard");
+                SceneEngine.changeScene(
+                        registerButton,
+                        "home-view.fxml",
+                        "The Curator — Admin Dashboard"
+                );
+            }
+            case "SELLER" -> {
+                System.out.println("Chuyển sang Seller Dashboard");
+                SceneEngine.changeScene(
+                        registerButton,
+                        "manage-product-view.fxml",
+                        "The Curator — Seller Dashboard"
+                );
+            }
+            default -> {    // BIDDER
+                System.out.println("Chuyển sang Home");
+                SceneEngine.changeScene(
+                        registerButton,
+                        "home-view.fxml",
+                        "The Curator — Trang chủ"
+                );
+            }
+        }
+    }
+
 
     // ── Nút Back về Login ────────────────────────────────
     @FXML

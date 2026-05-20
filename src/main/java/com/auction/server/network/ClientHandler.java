@@ -2,8 +2,8 @@ package com.auction.server.network;
 
 import com.auction.server.service.AuctionService;
 import com.auction.server.service.UserService;
-import com.auction.model.Entity.Auction_Bid.Auction;
-import com.auction.model.Entity.User.User;
+import com.auction.shared.model.Entity.Auction_Bid.Auction;
+import com.auction.shared.model.Entity.User.User;
 import com.auction.client.network.Message;
 import com.google.gson.Gson;
 

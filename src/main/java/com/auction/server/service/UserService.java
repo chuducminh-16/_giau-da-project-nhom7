@@ -1,7 +1,7 @@
 package com.auction.server.service;
 
 import com.auction.server.dao.UserDAO;
-import com.auction.model.Entity.User.User;
+import com.auction.shared.model.Entity.User.User;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

@@ -48,9 +48,12 @@
                   <Label fx:id="lblProductName"
                          text="PRODUCT NAME"
                          HBox.hgrow="ALWAYS"
-                         style="-fx-text-fill: white; -fx-font-size: 16;
-              -fx-font-weight: bold; -fx-alignment: CENTER;"/>
-                         prefHeight="57" prefWidth="461" />
+                         prefHeight="57"
+                         prefWidth="461"
+                         style="-fx-text-fill: white;
+                         -fx-font-size: 16;
+                         -fx-font-weight: bold;
+                         -fx-alignment: CENTER;"/>
 
                   <!-- Countdown — giữ nguyên fx:id -->
                   <Label fx:id="lblCountdown" text="05:00"
