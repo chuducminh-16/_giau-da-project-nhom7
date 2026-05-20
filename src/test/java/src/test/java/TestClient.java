@@ -1,5 +1,4 @@
-
-
+package src.test.java
 // Cách đơn giản nhất: đặt TestClient trong src/test/java/ (không có subfolder)
 // và bỏ khai báo package
 
