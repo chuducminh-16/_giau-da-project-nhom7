@@ -4,10 +4,14 @@ import com.auction.client.BidItem;
 import com.auction.client.SceneEngine;
 import com.auction.client.model.Product;
 <<<<<<< HEAD
+<<<<<<< HEAD
 import com.auction.client.network.MessageListener;
 =======
 import com.auction.client.network.Message;
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+import com.auction.client.network.Message;
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
 import com.auction.client.session.UserSession;
@@ -84,10 +88,14 @@ public class LiveBiddingController implements Initializable {
 
             // Đăng ký nhận BID_UPDATE cho phiên này
 <<<<<<< HEAD
+<<<<<<< HEAD
             client.send(new MessageListener("WATCH_AUCTION",
 =======
             client.send(new Message("WATCH_AUCTION",
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+            client.send(new Message("WATCH_AUCTION",
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
                     gson.toJson(Map.of("auctionId",
                             currentProduct.getId()))));
 
@@ -203,10 +211,14 @@ public class LiveBiddingController implements Initializable {
                 "amount",    newAmount
         ));
 <<<<<<< HEAD
+<<<<<<< HEAD
         client.send(new MessageListener("PLACE_BID", payload));
 =======
         client.send(new Message("PLACE_BID", payload));
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+        client.send(new Message("PLACE_BID", payload));
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
         txtBidAmount.clear();
         addLog(String.format("Đã gửi mức giá: %,.0f VNĐ — Đang chờ xác nhận...",
                 newAmount));
@@ -214,10 +226,14 @@ public class LiveBiddingController implements Initializable {
 
     // ── Nhận message từ server ────────────────────────────
 <<<<<<< HEAD
+<<<<<<< HEAD
     private void handleServerMessage(MessageListener msg) {
 =======
     private void handleServerMessage(Message msg) {
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+    private void handleServerMessage(Message msg) {
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
         switch (msg.getType()) {
 
             case "BID_UPDATE" -> {

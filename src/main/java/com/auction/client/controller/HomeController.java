@@ -3,10 +3,14 @@ package com.auction.client.controller;
 import com.auction.client.SceneEngine;
 import com.auction.client.model.Product;
 <<<<<<< HEAD
+<<<<<<< HEAD
 import com.auction.client.network.MessageListener;
 =======
 import com.auction.client.network.Message;
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+import com.auction.client.network.Message;
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
 import com.auction.client.session.UserSession;
@@ -72,10 +76,14 @@ public class HomeController implements Initializable {
 
         // Lấy danh sách phiên đang active từ server
 <<<<<<< HEAD
+<<<<<<< HEAD
         client.send(new MessageListener("GET_AUCTIONS", "{}"));
 =======
         client.send(new Message("GET_AUCTIONS", "{}"));
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+        client.send(new Message("GET_AUCTIONS", "{}"));
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
     }
 
     // ── Setup bảng ──────────────────────────────────────
@@ -139,10 +147,14 @@ public class HomeController implements Initializable {
 
     // ── Nhận message từ server ──────────────────────────
 <<<<<<< HEAD
+<<<<<<< HEAD
     private void handleServerMessage(MessageListener msg) {
 =======
     private void handleServerMessage(Message msg) {
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+    private void handleServerMessage(Message msg) {
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
         switch (msg.getType()) {
 
             case "AUCTIONS_LIST" -> {
@@ -213,10 +225,14 @@ public class HomeController implements Initializable {
     @FXML
     public void onRefreshAuctions(ActionEvent event) {
 <<<<<<< HEAD
+<<<<<<< HEAD
         client.send(new MessageListener("GET_AUCTIONS", "{}"));
 =======
         client.send(new Message("GET_AUCTIONS", "{}"));
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+        client.send(new Message("GET_AUCTIONS", "{}"));
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
     }
 
     // ── Search ──────────────────────────────────────────
@@ -226,10 +242,14 @@ public class HomeController implements Initializable {
         String keyword = searchField.getText().trim().toLowerCase();
         if (keyword.isEmpty()) {
 <<<<<<< HEAD
+<<<<<<< HEAD
             client.send(new MessageListener("GET_AUCTIONS", "{}"));
 =======
             client.send(new Message("GET_AUCTIONS", "{}"));
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+            client.send(new Message("GET_AUCTIONS", "{}"));
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
             return;
         }
         // Lọc local trước — đủ dùng cho demo

@@ -2,10 +2,14 @@ package com.auction.client.controller;
 
 import com.auction.client.SceneEngine;
 <<<<<<< HEAD
+<<<<<<< HEAD
 import com.auction.client.network.MessageListener;
 =======
 import com.auction.client.network.Message;
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+import com.auction.client.network.Message;
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.UserSession;
 import com.google.gson.Gson;
@@ -82,10 +86,14 @@ public class LoginController {
                 "password", password
         ));
 <<<<<<< HEAD
+<<<<<<< HEAD
         client.send(new MessageListener("LOGIN", payload));
 =======
         client.send(new Message("LOGIN", payload));
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+        client.send(new Message("LOGIN", payload));
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
 
         // 3. Khoá nút, xoá lỗi cũ
         setLoading(true);
@@ -95,10 +103,14 @@ public class LoginController {
     // ── Nhận phản hồi từ server ────────────────────────
     // Chạy trên network thread → PHẢI dùng Platform.runLater
 <<<<<<< HEAD
+<<<<<<< HEAD
     private void handleServerResponse(MessageListener msg) {
 =======
     private void handleServerResponse(Message msg) {
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+    private void handleServerResponse(Message msg) {
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935
         if (!"LOGIN_RESPONSE".equals(msg.getType())) return;
 
         LoginResponse resp = gson.fromJson(msg.getPayload(),

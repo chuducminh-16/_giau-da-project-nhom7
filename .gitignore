@@ -43,5 +43,9 @@ echo "target/" >> .gitignore
 echo "*.class" >> .gitignore
 <<<<<<< HEAD
 .DS_Store
+<<<<<<< HEAD
 =======
 >>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
+=======
+echo "*.class" >> .gitignore
+>>>>>>> 22190fa5f4cf91b7b51e964d33cd4d3d25722935

@@ -6,7 +6,6 @@ module com.auction.client {
     requires javafx.graphics;
     requires javafx.base;
 
-
     // ── Database ──────────────────────────────────────────
     requires java.sql;
     requires mysql.connector.j;
