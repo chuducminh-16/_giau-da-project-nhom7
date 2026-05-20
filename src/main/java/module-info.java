@@ -23,8 +23,9 @@ module com.auction.client {
     // Nếu không opens, Gson sẽ ném IllegalAccessException lúc runtime
     // ngay cả khi compile không báo lỗi.
     opens com.auction.shared.network to com.google.gson;
-    opens com.auction.model.Entity.User to com.google.gson;
-    opens com.auction.model.Entity.Auction_Bid to com.google.gson;
+    opens com.auction.shared.model.Entity.User to com.google.gson;
+    opens com.auction.shared.model.Entity.Auction_Bid to com.google.gson;
+    opens com.auction.shared.model.Entity.Item   to com.google.gson;
 
     // ← THÊM: Gson cần reflect vào session và controller package
     opens com.auction.client.session       to com.google.gson;
