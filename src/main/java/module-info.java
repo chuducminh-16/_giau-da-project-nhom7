@@ -6,6 +6,7 @@ module com.auction.client {
     requires javafx.graphics;
     requires javafx.base;
 
+
     // ── Database ──────────────────────────────────────────
     requires java.sql;
     requires mysql.connector.j;
@@ -25,10 +26,19 @@ module com.auction.client {
     opens com.auction.model.Entity.User to com.google.gson;
     opens com.auction.model.Entity.Auction_Bid to com.google.gson;
 
+    // ← THÊM: Gson cần reflect vào session và controller package
+    opens com.auction.client.session       to com.google.gson;
+    opens com.auction.server.controller    to com.google.gson;
+
     // ── Export package để các module khác nhìn thấy ───────
     exports com.auction.client;
+
 
     // export shared.network để server module dùng được Message.java
     // (nếu client và server là 2 module riêng trong cùng 1 project)
     exports com.auction.shared.network;
+
+     // ← THÊM: export controller để các phần khác dùng
+    exports com.auction.server.controller;
+    exports com.auction.client.session;
 }

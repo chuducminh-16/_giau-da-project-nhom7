@@ -1,49 +1,72 @@
 package com.auction.client.session;
 
 /**
- * Singleton — lưu thông tin user đang đăng nhập.
- * Mọi Controller đều có thể gọi UserSession.getInstance().getCurrentUser()
+ * Singleton lưu trạng thái đăng nhập của user hiện tại.
+ * Tất cả Controller dùng class này để biết ai đang đăng nhập.
+ *
+ * Cách dùng trong Controller:
+ *   UserSession session = UserSession.getInstance();
+ *   String role = session.getRole(); // "BIDDER", "SELLER", "ADMIN"
+ *   boolean loggedIn = session.isLoggedIn();
  */
 public class UserSession {
 
-    private static UserSession instance;
+    // ── Singleton (Holder pattern — thread-safe) ────────
+    private static class Holder {
+        private static final UserSession INSTANCE = new UserSession();
+    }
 
     public static UserSession getInstance() {
-        if (instance == null) instance = new UserSession();
-        return instance;
+        return Holder.INSTANCE;
     }
 
     private UserSession() {}
 
-    // ── Dữ liệu user hiện tại ──────────────────────────
-    private String userId;
-    private String username;
-    private String email;
-    private String role;     // "BIDDER" | "SELLER" | "ADMIN"
-    private String token;    // nếu server trả về token
+    // ── Fields ──────────────────────────────────────────
+    private String  userId;
+    private String  username;
+    private String  email;
+    private String  role;     // "BIDDER" | "SELLER" | "ADMIN"
+    private boolean loggedIn = false;
 
-    // ── Gán sau khi login thành công ──────────────────
+    // ── Đăng nhập thành công → lưu thông tin ───────────
     public void login(String userId, String username,
                       String email, String role) {
         this.userId   = userId;
         this.username = username;
         this.email    = email;
         this.role     = role;
+        this.loggedIn = true;
+        System.out.println("[UserSession] Đăng nhập: "
+                + username + " (" + role + ")");
     }
 
-    // ── Xoá khi logout ────────────────────────────────
+    // ── Đăng xuất → xóa toàn bộ thông tin ─────────────
     public void logout() {
-        userId = username = email = role = token = null;
+        this.userId   = null;
+        this.username = null;
+        this.email    = null;
+        this.role     = null;
+        this.loggedIn = false;
+        System.out.println("[UserSession] Đã đăng xuất.");
     }
 
-    // ── Kiểm tra ──────────────────────────────────────
-    public boolean isLoggedIn() { return userId != null; }
-    public boolean isSeller()   { return "SELLER".equals(role); }
-    public boolean isBidder()   { return "BIDDER".equals(role); }
+    // ── Getters ─────────────────────────────────────────
+    public boolean isLoggedIn() { return loggedIn; }
+    public String  getUserId()  { return userId;   }
+    public String  getUsername(){ return username; }
+    public String  getEmail()   { return email;    }
+    public String  getRole()    { return role;     }
 
-    // ── Getters ───────────────────────────────────────
-    public String getUserId()   { return userId; }
-    public String getUsername() { return username; }
-    public String getEmail()    { return email; }
-    public String getRole()     { return role; }
+    // ── Tiện ích kiểm tra quyền ─────────────────────────
+    public boolean isBidder() { return "BIDDER".equals(role); }
+    public boolean isSeller() { return "SELLER".equals(role); }
+    public boolean isAdmin()  { return "ADMIN".equals(role);  }
+
+    @Override
+    public String toString() {
+        return "UserSession{userId='" + userId
+                + "', username='" + username
+                + "', role='" + role + "'}";
+    }
 }

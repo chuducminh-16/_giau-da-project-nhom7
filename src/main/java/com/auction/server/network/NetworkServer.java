@@ -8,6 +8,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -25,6 +26,8 @@ public class NetworkServer {
     // Thread pool — mỗi client 1 thread
     private final ExecutorService pool =
             Executors.newCachedThreadPool();
+
+    private final AuctionScheduler scheduler = new AuctionScheduler(this);
     
     // tách serverSocket ra ngoài để stop() sau này
     private ServerSocket serverSocket;
@@ -35,7 +38,7 @@ public class NetworkServer {
             serverSocket = new ServerSocket(PORT);
             System.out.println("[Server] Sẵn sàng nhận kết nối...");
 
-
+            scheduler.start();
             while (!serverSocket.isClosed()) {
                 Socket socket = serverSocket.accept();
                 System.out.println("[Server] Client mới: "
@@ -58,6 +61,8 @@ public class NetworkServer {
     public void stop() {
         System.out.println("[Server] Đang dừng server...");
         try {
+
+            scheduler.stop();
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
@@ -71,12 +76,13 @@ public class NetworkServer {
     // Broadcast đến tất cả client xem 1 phiên cụ thể (Observer)
     public void broadcastToAuction(String auctionId, Message msg) {
         synchronized (clients) {
-            long count = clients.stream()
+
+            List<ClientHandler> targets = clients.stream()
                     .filter(c -> c.isWatchingAuction(auctionId))
-                    .peek(c -> c.send(msg))
-                    .count();
-            System.out.println("[Server] Broadcast BID_UPDATE đến "
-                    + count + " client đang xem phiên " + auctionId);
+                    .toList();
+            targets.forEach(c -> c.send(msg));
+            System.out.println("[Server] Broadcast đến "
+                    + targets.size() + " client xem phiên " + auctionId);
         }
     }
 
