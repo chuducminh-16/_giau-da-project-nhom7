@@ -7,6 +7,7 @@ module com.auction.client {
     requires com.google.gson;
 //    requires javafx.web;
     requires java.sql;
+    
 
     opens com.auction.client.controller to javafx.fxml;
     exports com.auction.client;
