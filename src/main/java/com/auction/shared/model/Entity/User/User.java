@@ -27,5 +27,8 @@ public abstract class User extends Entity {
     // Abstract methods - các subclass phải override
     public abstract void displayRole();
     public abstract String getRole();
+
+    protected abstract boolean save(String username, String email2, String hashed, String fullName, String phone,
+            String address, String role);
 }
  

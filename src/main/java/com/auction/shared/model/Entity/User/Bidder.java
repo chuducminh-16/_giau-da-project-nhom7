@@ -23,5 +23,11 @@ public class Bidder extends User {
     }
     @Override
     public String getRole() { return "BIDDER"; }
+    @Override
+    protected boolean save(String username, String email2, String hashed, String fullName, String phone, String address,
+            String role) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'save'");
+    }
 }
 
