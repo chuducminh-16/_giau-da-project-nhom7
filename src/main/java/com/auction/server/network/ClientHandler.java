@@ -1,18 +1,20 @@
 package com.auction.server.network;
 
-import com.auction.server.service.AuctionService;
-import com.auction.server.service.UserService;
-import com.auction.shared.model.Entity.Auction_Bid.Auction;
-import com.auction.shared.model.Entity.User.User;
-import com.auction.client.model.Product;
-import com.auction.client.network.Message;
-import com.google.gson.Gson;
-
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+
+import com.auction.client.model.Product;
+import com.auction.client.network.Message;
+import com.auction.server.service.AuctionService;
+import com.auction.server.service.UserService;
+import com.auction.shared.model.Entity.User.User;
+import com.google.gson.Gson;
 
 public class ClientHandler implements Runnable {
 
@@ -71,7 +73,8 @@ public class ClientHandler implements Runnable {
     // ══════════════════════════════════════════
     // LOGIN — bằng username
     // ══════════════════════════════════════════
-    private void handleLogin(String payload) {
+   private void handleLogin(String payload) {
+    try {
         LoginDto dto = gson.fromJson(payload, LoginDto.class);
         User user = userService.login(dto.username(), dto.password());
 
@@ -90,8 +93,14 @@ public class ClientHandler implements Runnable {
                     "message", "Sai tên đăng nhập hoặc mật khẩu."
             ))));
         }
+    } catch (Exception e) {
+        e.printStackTrace();
+        send(new Message("LOGIN_RESPONSE", gson.toJson(Map.of(
+                "success", false,
+                "message", "Lỗi server: " + e.getMessage()
+        ))));
     }
-
+}
     // ══════════════════════════════════════════
     // REGISTER
     // ══════════════════════════════════════════
