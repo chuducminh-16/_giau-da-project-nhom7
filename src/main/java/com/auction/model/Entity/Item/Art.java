@@ -1,10 +1,25 @@
 package com.auction.model.Entity.Item;
 
-public class Art extends Item {
-    private String artist;
+import java.time.LocalDateTime;
 
-    public Art(String id, String name, double startingPrice, String endTime, String sellerId, String artist) {
+public class Art extends Item {
+
+    private String artist; // tên nghệ sĩ / tác giả
+
+    public Art(String id, String name, double startingPrice,
+               LocalDateTime endTime, String sellerId,
+               String artist) {
         super(id, name, startingPrice, endTime, sellerId);
+        this.artist = artist;
+    }
+
+    /** Overload nhận String endTime — tự parse để tương thích code cũ. */
+    public Art(String id, String name, double startingPrice,
+               String endTime, String sellerId,
+               String artist) {
+        super(id, name, startingPrice,
+                endTime != null ? LocalDateTime.parse(endTime) : null,
+                sellerId);
         this.artist = artist;
     }
 
@@ -15,6 +30,6 @@ public class Art extends Item {
 
     @Override
     public String showDetails() {
-        return "[Art] " + getName() + " | Họa sĩ: " + artist;
+        return "[Art] " + getName() + " | Tác giả: " + artist;
     }
 }

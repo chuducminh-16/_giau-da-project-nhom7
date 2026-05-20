@@ -113,7 +113,7 @@
                         <VBox spacing="4">
                            <children>
                               <Label style="-fx-text-fill: #4a5568; -fx-font-size: 10;                                             -fx-font-weight: bold;" text="PHONE NUMBER" />
-                              <TextField prefHeight="36" prefWidth="392" style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                 -fx-background-radius: 6; -fx-padding: 0 10;" />
+                              <TextField fx:id="phoneField" prefHeight="36" prefWidth="392" style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                 -fx-background-radius: 6; -fx-padding: 0 10;" />
                            </children>
                         </VBox>
 
@@ -139,9 +139,16 @@
                         <VBox spacing="4">
                            <children>
                               <Label style="-fx-text-fill: #4a5568; -fx-font-size: 10;                                             -fx-font-weight: bold;" text="ADDRESS" />
-                              <TextField prefHeight="36" prefWidth="392" style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                 -fx-background-radius: 6; -fx-padding: 0 10;" />
+                              <TextField fx:id="addressField" prefHeight="36" prefWidth="392" style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                 -fx-background-radius: 6; -fx-padding: 0 10;" />
                            </children>
                         </VBox>
+
+                        <Label fx:id="errorLabel"
+                               visible="false"
+                               managed="false"
+                               wrapText="true"
+                               prefWidth="392"
+                               style="-fx-font-size: 12px; -fx-padding: 4 0 0 0;"/>
 
                         <!-- Nút REGISTER + Back to login — giữ nguyên fx:id, onAction -->
                         <HBox alignment="CENTER_LEFT" prefHeight="52" spacing="12">

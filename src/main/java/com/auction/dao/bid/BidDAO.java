@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import com.auction.database.DatabaseConnection;
 
@@ -34,8 +35,8 @@ public class BidDAO {
     public List<Map<String, Object>> getBidHistory(String itemId) {
         List<Map<String, Object>> history = new ArrayList<>();
         String sql = "SELECT b.bidder_id, u.username, b.bid_price, b.bid_time " +
-                     "FROM bids b JOIN users u ON b.bidder_id = u.id " +
-                     "WHERE b.item_id = ? ORDER BY b.bid_time DESC";
+                "FROM bids b JOIN users u ON b.bidder_id = u.id " +
+                "WHERE b.item_id = ? ORDER BY b.bid_time DESC";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -76,7 +77,8 @@ public class BidDAO {
 
     // Lấy người đang thắng (đặt giá cao nhất)
     public String getHighestBidder(String itemId) {
-        String sql = "SELECT bidder_id FROM bids WHERE item_id = ? ORDER BY bid_price DESC LIMIT 1";
+        String sql = "SELECT bidder_id FROM bids WHERE item_id = ?" +
+                " ORDER BY bid_price DESC LIMIT 1";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -90,4 +92,118 @@ public class BidDAO {
         }
         return null;
     }
+
+    // ══════════════════════════════════════════
+    // BỔ SUNG MỚI — phục vụ AuctionService.placeBid()
+    // ══════════════════════════════════════════
+
+    /**
+     * Lưu 1 lượt bid có id riêng vào DB.
+     * Khác placeBid() cũ ở chỗ: tự sinh UUID, dùng tên cột id thay vì auto-increment.
+     * Dùng trong AuctionService.placeBid() sau khi đã lock.
+     */
+    public boolean save(String productId, String bidderId, double amount) {
+        String sql = "INSERT INTO bids (id, item_id, bidder_id, bid_price)" +
+                " VALUES (?, ?, ?, ?)";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, UUID.randomUUID().toString());
+            ps.setString(2, productId);   // map sang item_id trong DB cũ
+            ps.setString(3, bidderId);
+            ps.setDouble(4, amount);
+            ps.executeUpdate();
+            return true;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Cập nhật current_bid và current_bidder trên bảng products.
+     * Gọi ngay sau save() trong cùng 1 lock để đảm bảo nhất quán.
+     */
+    public boolean updateCurrentBid(String productId, double amount,
+                                    String bidderId) {
+        String sql = "UPDATE products" +
+                " SET current_bid = ?, current_bidder = ?" +
+                " WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setDouble(1, amount);
+            ps.setString(2, bidderId);
+            ps.setString(3, productId);
+            return ps.executeUpdate() > 0;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Lấy giá hiện tại của sản phẩm từ cột current_bid.
+     * Nếu chưa có bid nào thì fallback về starting_price.
+     * Dùng trong AuctionService.placeBid() để validate trong lock.
+     */
+    public double getCurrentBid(String productId) {
+        String sql = "SELECT COALESCE(current_bid, starting_price)" +
+                " FROM products WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, productId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getDouble(1);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
+     * Lấy lịch sử bid dạng List<BidRecord> — dùng cho ClientHandler
+     * khi client gửi GET_BID_HISTORY.
+     * Trả về tối đa 20 bid gần nhất theo thứ tự mới nhất trước.
+     */
+    public List<BidRecord> getBidRecords(String productId) {
+        List<BidRecord> list = new ArrayList<>();
+        String sql = "SELECT b.bidder_id, u.username," +
+                "       b.bid_price, b.bid_time" +
+                " FROM bids b" +
+                " JOIN users u ON b.bidder_id = u.id" +
+                " WHERE b.item_id = ?" +
+                " ORDER BY b.bid_price DESC" +
+                " LIMIT 20";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, productId);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                list.add(new BidRecord(
+                        rs.getString("bidder_id"),
+                        rs.getString("username"),
+                        rs.getDouble("bid_price"),
+                        rs.getString("bid_time")
+                ));
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    // ── Record kết quả truy vấn — dùng để serialize sang JSON ──
+    public record BidRecord(
+            String bidderId,
+            String username,
+            double amount,
+            String createdAt
+    ) {}
 }
