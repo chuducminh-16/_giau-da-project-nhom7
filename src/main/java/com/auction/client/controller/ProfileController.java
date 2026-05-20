@@ -158,7 +158,7 @@ public class ProfileController {
                 System.out.println("Chuyển sang Admin Dashboard");
                 SceneEngine.changeScene(
                         registerButton,
-                        "admin-dashboard-view.fxml",
+                        "home-view.fxml",
                         "The Curator — Admin Dashboard"
                 );
             }
