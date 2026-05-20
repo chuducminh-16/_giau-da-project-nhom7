@@ -4,9 +4,10 @@ module com.auction.client {
     requires javafx.graphics;
     requires javafx.base;
     requires mysql.connector.j;
-    requires gson;
+    requires com.google.gson;
 //    requires javafx.web;
     requires java.sql;
+    
 
     opens com.auction.client.controller to javafx.fxml;
     exports com.auction.client;
