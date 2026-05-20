@@ -2,14 +2,14 @@ package com.auction.server.network;
 
 import com.auction.server.service.AuctionService;
 import com.auction.server.service.UserService;
-import com.auction.model.Entity.Auction_Bid.Auction;
-import com.auction.model.Entity.User.User;
-import com.auction.shared.network.Message;
+import com.auction.shared.model.Entity.Auction_Bid.Auction;
+import com.auction.shared.model.Entity.User.User;
+import com.auction.client.model.Product;
+import com.auction.client.network.Message;
 import com.google.gson.Gson;
 
 import java.io.*;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -24,44 +24,34 @@ public class ClientHandler implements Runnable {
 
     private PrintWriter    out;
     private BufferedReader in;
-    private User           currentUser;       // null = chưa đăng nhập
-    private String         watchingAuctionId; // null = không xem phiên nào
+    private User           currentUser;
+    private String         watchingAuctionId;
 
     public ClientHandler(Socket socket, NetworkServer server) {
         this.socket = socket;
         this.server = server;
     }
 
-    // ── Vòng lặp chính ──────────────────────────────────
     @Override
     public void run() {
         try {
-            out = new PrintWriter(
-                    new OutputStreamWriter(socket.getOutputStream(),
-                            StandardCharsets.UTF_8),
-                    true);
-
-            in = new BufferedReader(
-                    new InputStreamReader(socket.getInputStream(),
-                            StandardCharsets.UTF_8));
-
+            out = new PrintWriter(socket.getOutputStream(), true);
+            in  = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String line;
             while ((line = in.readLine()) != null) {
                 Message msg = gson.fromJson(line, Message.class);
-                System.out.println("[ClientHandler] Nhận: " + msg.getType());
+                System.out.println("[Server] Nhận: " + msg.getType());
                 route(msg);
             }
-
         } catch (IOException e) {
-            System.out.println("[ClientHandler] Client ngắt kết nối: "
-                    + e.getMessage());
+            System.out.println("[ClientHandler] Client ngắt kết nối.");
         } finally {
             server.removeClient(this);
             try { socket.close(); } catch (IOException ignored) {}
         }
     }
 
-    // ── Router ───────────────────────────────────────────
+    // ── Router ─────────────────────────────────────────
     private void route(Message msg) {
         switch (msg.getType()) {
             case "LOGIN"           -> handleLogin(msg.getPayload());
@@ -72,44 +62,39 @@ public class ClientHandler implements Runnable {
             case "DELETE_PRODUCT"  -> handleDeleteProduct(msg.getPayload());
             case "GET_AUCTIONS"    -> handleGetAuctions();
             case "WATCH_AUCTION"   -> handleWatchAuction(msg.getPayload());
-            case "UNWATCH_AUCTION" -> handleUnwatchAuction();
             case "PLACE_BID"       -> handlePlaceBid(msg.getPayload());
-            default                -> send(new Message("ERROR",
-                    gson.toJson(Map.of(
-                            "message", "Lệnh không hợp lệ: " + msg.getType()
-                    ))));
+            default -> send(new Message("ERROR",
+                    gson.toJson(Map.of("message", "Unknown type: " + msg.getType()))));
         }
     }
 
-    // ════════════════════════════════════════════════════
-    // LUỒNG 1: LOGIN
-    // ════════════════════════════════════════════════════
+    // ══════════════════════════════════════════
+    // LOGIN — bằng username
+    // ══════════════════════════════════════════
     private void handleLogin(String payload) {
         LoginDto dto = gson.fromJson(payload, LoginDto.class);
-        User user = userService.login(dto.email(), dto.password());
+        User user = userService.login(dto.username(), dto.password());
 
         if (user != null) {
             this.currentUser = user;
-            send(new Message("LOGIN_RESPONSE",
-                    gson.toJson(Map.of(
-                            "success",  true,
-                            "userId",   user.getId(),
-                            "username", user.getUsername(),
-                            "email",    user.getEmail(),
-                            "role",     user.getRole()
-                    ))));
+            send(new Message("LOGIN_RESPONSE", gson.toJson(Map.of(
+                    "success",  true,
+                    "userId",   user.getId(),
+                    "username", user.getUsername(),
+                    "email",    user.getEmail() != null ? user.getEmail() : "",
+                    "role",     user.getRole()
+            ))));
         } else {
-            send(new Message("LOGIN_RESPONSE",
-                    gson.toJson(Map.of(
-                            "success", false,
-                            "message", "Sai email hoặc mật khẩu."
-                    ))));
+            send(new Message("LOGIN_RESPONSE", gson.toJson(Map.of(
+                    "success", false,
+                    "message", "Sai tên đăng nhập hoặc mật khẩu."
+            ))));
         }
     }
 
-    // ════════════════════════════════════════════════════
-    // LUỒNG 2: REGISTER
-    // ════════════════════════════════════════════════════
+    // ══════════════════════════════════════════
+    // REGISTER
+    // ══════════════════════════════════════════
     private void handleRegister(String payload) {
         RegisterDto dto = gson.fromJson(payload, RegisterDto.class);
 
@@ -126,51 +111,47 @@ public class ClientHandler implements Runnable {
             default              -> "Lỗi hệ thống, thử lại sau.";
         };
 
-        send(new Message("REGISTER_RESPONSE",
-                gson.toJson(Map.of(
-                        "success", success,
-                        "message", message
-                ))));
+        send(new Message("REGISTER_RESPONSE", gson.toJson(Map.of(
+                "success", success,
+                "message", message
+        ))));
     }
 
-    // ════════════════════════════════════════════════════
-    // LUỒNG 3: QUẢN LÝ SẢN PHẨM
-    // ════════════════════════════════════════════════════
+    // ══════════════════════════════════════════
+    // GET MY PRODUCTS
+    // ══════════════════════════════════════════
     private void handleGetMyProducts(String payload) {
         if (!isAuthenticated()) return;
 
         SellerDto dto = gson.fromJson(payload, SellerDto.class);
-        List<Auction> products =
-                auctionService.getProductsBySeller(dto.sellerId());
+        List<Product> products = auctionService.getProductsBySeller(dto.sellerId());
 
-        send(new Message("MY_PRODUCTS_RESPONSE",
-                gson.toJson(Map.of(
-                        "success",  true,
-                        "products", products
-                ))));
+        send(new Message("MY_PRODUCTS_RESPONSE", gson.toJson(Map.of(
+                "success",  true,
+                "products", products
+        ))));
     }
 
+    // ══════════════════════════════════════════
+    // ADD PRODUCT
+    // ══════════════════════════════════════════
     private void handleAddProduct(String payload) {
         if (!isAuthenticated()) return;
 
-        if (!"SELLER".equals(currentUser.getRole())
-                && !"ADMIN".equals(currentUser.getRole())) {
-            send(new Message("ADD_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of(
-                            "success", false,
-                            "message", "Bạn không có quyền đăng sản phẩm."
-                    ))));
+        if (!"SELLER".equals(currentUser.getRole()) &&
+                !"ADMIN".equals(currentUser.getRole())) {
+            send(errorMsg("Bạn không có quyền đăng sản phẩm."));
             return;
         }
 
         ProductDto dto = gson.fromJson(payload, ProductDto.class);
         try {
-            LocalDateTime startTime = (dto.startTime() != null)
+            LocalDateTime startTime = dto.startTime() != null
                     ? LocalDateTime.parse(dto.startTime())
                     : LocalDateTime.now();
             LocalDateTime endTime = LocalDateTime.parse(dto.endTime());
 
-            Auction created = auctionService.addProduct(
+            Product created = auctionService.addProduct(
                     dto.sellerId(), dto.name(), dto.description(),
                     Double.parseDouble(dto.startPrice()),
                     Double.parseDouble(dto.bidIncrement()),
@@ -178,41 +159,27 @@ public class ClientHandler implements Runnable {
             );
 
             if (created != null) {
-                send(new Message("ADD_PRODUCT_RESPONSE",
-                        gson.toJson(Map.of(
-                                "success", true,
-                                "message", "Thêm sản phẩm thành công!",
-                                "product", created
-                        ))));
+                send(new Message("ADD_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                        "success", true,
+                        "message", "Thêm sản phẩm thành công!",
+                        "product", created
+                ))));
             } else {
-                send(new Message("ADD_PRODUCT_RESPONSE",
-                        gson.toJson(Map.of(
-                                "success", false,
-                                "message", "Không thể lưu sản phẩm."
-                        ))));
+                send(errorMsg("Không thể lưu sản phẩm."));
             }
-
         } catch (Exception e) {
-            send(new Message("ADD_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of(
-                            "success", false,
-                            "message", "Lỗi: " + e.getMessage()
-                    ))));
+            send(new Message("ADD_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                    "success", false,
+                    "message", "Lỗi: " + e.getMessage()
+            ))));
         }
     }
 
+    // ══════════════════════════════════════════
+    // UPDATE PRODUCT
+    // ══════════════════════════════════════════
     private void handleUpdateProduct(String payload) {
         if (!isAuthenticated()) return;
-
-        if (!"SELLER".equals(currentUser.getRole())
-                && !"ADMIN".equals(currentUser.getRole())) {
-            send(new Message("UPDATE_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of(
-                            "success", false,
-                            "message", "Bạn không có quyền sửa sản phẩm."
-                    ))));
-            return;
-        }
 
         UpdateProductDto dto = gson.fromJson(payload, UpdateProductDto.class);
         try {
@@ -224,100 +191,63 @@ public class ClientHandler implements Runnable {
                     endTime
             );
 
-            send(new Message("UPDATE_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of(
-                            "success", ok,
-                            "message", ok
-                                    ? "Cập nhật thành công!"
-                                    : "Cập nhật thất bại."
-                    ))));
-
+            send(new Message("UPDATE_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                    "success", ok,
+                    "message", ok ? "Cập nhật thành công!" : "Cập nhật thất bại."
+            ))));
         } catch (Exception e) {
-            send(new Message("UPDATE_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of(
-                            "success", false,
-                            "message", "Lỗi: " + e.getMessage()
-                    ))));
+            send(new Message("UPDATE_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                    "success", false,
+                    "message", "Lỗi: " + e.getMessage()
+            ))));
         }
     }
 
+    // ══════════════════════════════════════════
+    // DELETE PRODUCT
+    // ══════════════════════════════════════════
     private void handleDeleteProduct(String payload) {
         if (!isAuthenticated()) return;
-
-        if (!"SELLER".equals(currentUser.getRole())
-                && !"ADMIN".equals(currentUser.getRole())) {
-            send(new Message("DELETE_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of(
-                            "success", false,
-                            "message", "Bạn không có quyền xóa sản phẩm."
-                    ))));
-            return;
-        }
 
         DeleteDto dto = gson.fromJson(payload, DeleteDto.class);
         boolean ok = auctionService.deleteProduct(dto.productId());
 
-        send(new Message("DELETE_PRODUCT_RESPONSE",
-                gson.toJson(Map.of(
-                        "success", ok,
-                        "message", ok ? "Đã xoá sản phẩm!" : "Xoá thất bại."
-                ))));
+        send(new Message("DELETE_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                "success", ok,
+                "message", ok ? "Đã xoá sản phẩm!" : "Xoá thất bại."
+        ))));
     }
 
-    // ════════════════════════════════════════════════════
-    // LUỒNG 4: DANH SÁCH ĐẤU GIÁ
-    // ════════════════════════════════════════════════════
+    // ══════════════════════════════════════════
+    // GET AUCTIONS
+    // ══════════════════════════════════════════
     private void handleGetAuctions() {
-        List<Auction> list = auctionService.getActiveAuctions();
-        send(new Message("AUCTIONS_LIST",
-                gson.toJson(Map.of(
-                        "success",  true,
-                        "auctions", list
-                ))));
+        List<Product> list = auctionService.getActiveAuctions();
+        send(new Message("AUCTIONS_LIST", gson.toJson(Map.of(
+                "success",  true,
+                "auctions", list
+        ))));
     }
 
-    // ════════════════════════════════════════════════════
-    // LUỒNG 5: WATCH / UNWATCH (Observer)
-    // ════════════════════════════════════════════════════
+    // ══════════════════════════════════════════
+    // WATCH AUCTION
+    // ══════════════════════════════════════════
     private void handleWatchAuction(String payload) {
         WatchDto dto = gson.fromJson(payload, WatchDto.class);
         this.watchingAuctionId = dto.auctionId();
-
-        System.out.println("[ClientHandler] Theo dõi phiên: "
-                + watchingAuctionId);
-
-        send(new Message("WATCH_RESPONSE",
-                gson.toJson(Map.of(
-                        "success",   true,
-                        "auctionId", dto.auctionId(),
-                        "message",   "Đang theo dõi phiên đấu giá."
-                ))));
     }
 
-    private void handleUnwatchAuction() {
-        String previous = this.watchingAuctionId;
-        this.watchingAuctionId = null;
-
-        send(new Message("UNWATCH_RESPONSE",
-                gson.toJson(Map.of(
-                        "success",   true,
-                        "auctionId", previous != null ? previous : "",
-                        "message",   "Đã dừng theo dõi phiên đấu giá."
-                ))));
-    }
-
-    // ════════════════════════════════════════════════════
-    // LUỒNG 6: PLACE BID
-    // ════════════════════════════════════════════════════
+    // ══════════════════════════════════════════
+    // PLACE BID
+    // ══════════════════════════════════════════
     private void handlePlaceBid(String payload) {
         if (!isAuthenticated()) return;
 
         if (!"BIDDER".equals(currentUser.getRole())) {
-            send(new Message("BID_RESULT",
-                    gson.toJson(Map.of(
-                            "success", false,
-                            "message", "Chỉ Bidder mới được đặt giá."
-                    ))));
+            send(new Message("BID_RESULT", gson.toJson(Map.of(
+                    "success", false,
+                    "message", "Chỉ Bidder mới được đặt giá."
+            ))));
             return;
         }
 
@@ -330,110 +260,71 @@ public class ClientHandler implements Runnable {
         );
 
         switch (outcome.result()) {
-
             case SUCCESS -> {
-                // Phản hồi riêng cho người vừa bid
-                send(new Message("BID_RESULT",
-                        gson.toJson(Map.of(
-                                "success", true,
-                                "message", "Đặt giá thành công!",
-                                "newBid",  outcome.newBid()
-                        ))));
+                send(new Message("BID_RESULT", gson.toJson(Map.of(
+                        "success", true,
+                        "message", "Đặt giá thành công!",
+                        "newBid",  outcome.newBid()
+                ))));
 
-                // Broadcast cho tất cả client xem phiên này
                 server.broadcastToAuction(
                         dto.productId(),
-                        new Message("BID_UPDATE",
-                                gson.toJson(Map.of(
-                                        "productId",  dto.productId(),
-                                        "newBid",     outcome.newBid(),
-                                        "bidderId",   currentUser.getId(),
-                                        "bidderName", currentUser.getUsername(),
-                                        "timestamp",  LocalDateTime.now().toString()
-                                )))
+                        new Message("BID_UPDATE", gson.toJson(Map.of(
+                                "productId",  dto.productId(),
+                                "newBid",     outcome.newBid(),
+                                "bidderId",   currentUser.getId(),
+                                "bidderName", currentUser.getUsername(),
+                                "timestamp",  LocalDateTime.now().toString()
+                        )))
                 );
-
-                // Anti-sniping: kiểm tra gia hạn phiên
-                AuctionService.ExtendResult ext =
-                        auctionService.checkAndExtend(dto.productId());
-
-                if (ext.wasExtended()) {
-                    server.broadcastToAuction(
-                            dto.productId(),
-                            new Message("AUCTION_EXTENDED",
-                                    gson.toJson(Map.of(
-                                            "productId",  dto.productId(),
-                                            "newEndTime", ext.newEndTime().toString(),
-                                            "message",    "Phiên được gia hạn thêm "
-                                                    + ext.extendedSeconds() + " giây!"
-                                    )))
-                    );
-                    System.out.println("[ClientHandler] Anti-sniping: phiên "
-                            + dto.productId() + " gia hạn đến "
-                            + ext.newEndTime());
-                }
             }
-
-            case PRICE_TOO_LOW ->
-                    send(new Message("BID_RESULT",
-                            gson.toJson(Map.of(
-                                    "success",    false,
-                                    "message",    outcome.message(),
-                                    "currentBid", outcome.newBid()
-                            ))));
-
-            case AUCTION_ENDED ->
-                    send(new Message("BID_RESULT",
-                            gson.toJson(Map.of(
-                                    "success", false,
-                                    "message", "Phiên đấu giá đã kết thúc."
-                            ))));
-
-            case AUCTION_NOT_FOUND ->
-                    send(new Message("BID_RESULT",
-                            gson.toJson(Map.of(
-                                    "success", false,
-                                    "message", "Phiên đấu giá không tồn tại."
-                            ))));
-
-            default ->
-                    send(new Message("BID_RESULT",
-                            gson.toJson(Map.of(
-                                    "success", false,
-                                    "message", "Lỗi hệ thống, thử lại sau."
-                            ))));
+            case PRICE_TOO_LOW -> send(new Message("BID_RESULT", gson.toJson(Map.of(
+                    "success",    false,
+                    "message",    outcome.message(),
+                    "currentBid", outcome.newBid()
+            ))));
+            case AUCTION_ENDED -> send(new Message("BID_RESULT", gson.toJson(Map.of(
+                    "success", false,
+                    "message", "Phiên đấu giá đã kết thúc."
+            ))));
+            case AUCTION_NOT_FOUND -> send(new Message("BID_RESULT", gson.toJson(Map.of(
+                    "success", false,
+                    "message", "Sản phẩm không tồn tại."
+            ))));
+            default -> send(new Message("BID_RESULT", gson.toJson(Map.of(
+                    "success", false,
+                    "message", "Lỗi hệ thống."
+            ))));
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────
     public synchronized void send(Message msg) {
-        if (out != null) {
-            out.println(gson.toJson(msg));
-        }
+        if (out != null) out.println(gson.toJson(msg));
     }
 
     private boolean isAuthenticated() {
         if (currentUser == null) {
-            send(new Message("ERROR",
-                    gson.toJson(Map.of(
-                            "message", "Vui lòng đăng nhập trước."
-                    ))));
+            send(errorMsg("Vui lòng đăng nhập trước."));
             return false;
         }
         return true;
     }
 
-    public boolean isWatchingAuction(String auctionId) {
-        return auctionId != null && auctionId.equals(watchingAuctionId);
+    private Message errorMsg(String text) {
+        return new Message("ERROR", gson.toJson(Map.of("message", text)));
     }
 
-    // ── Inner DTOs ───────────────────────────────────────
-    private record LoginDto(String email, String password) {}
+    public boolean isWatchingAuction(String auctionId) {
+        return auctionId.equals(watchingAuctionId);
+    }
+
+    // ── DTOs ───────────────────────────────────────────
+    private record LoginDto(String username, String password) {}   // ← đổi email → username
 
     private record RegisterDto(
             String username, String email, String password,
-            String fullName, String phone, String address,
-            String role) {}
+            String fullName, String phone, String address, String role) {}
 
     private record SellerDto(String sellerId) {}
 
@@ -444,8 +335,7 @@ public class ClientHandler implements Runnable {
 
     private record UpdateProductDto(
             String productId, String name, String description,
-            String startPrice, String bidIncrement,
-            String endTime) {}
+            String startPrice, String bidIncrement, String endTime) {}
 
     private record DeleteDto(String productId) {}
 
