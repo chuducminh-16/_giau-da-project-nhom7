@@ -4,12 +4,18 @@ module com.auction.client {
     requires javafx.graphics;
     requires javafx.base;
     requires mysql.connector.j;
-//    requires gson;
     requires com.google.gson;
-//    requires javafx.web;
     requires java.sql;
-    
 
-    opens com.auction.client.controller to javafx.fxml;
+    opens com.auction.client.controller to javafx.fxml, com.google.gson;
+    opens com.auction.client.network to com.google.gson;
+    opens com.auction.client.model to com.google.gson;
+    opens com.auction.client.session to com.google.gson;
+    opens com.auction.server.network to com.google.gson;
+    opens com.auction.server.service to com.google.gson;
+    opens com.auction.shared.model.Entity.User to com.google.gson;
+    opens com.auction.shared.model.Entity.Item to com.google.gson;
+    opens com.auction.shared.model.Entity.Auction_Bid to com.google.gson;
+    
     exports com.auction.client;
 }

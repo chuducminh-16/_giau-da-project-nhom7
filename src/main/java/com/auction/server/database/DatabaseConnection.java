@@ -21,7 +21,7 @@ public class DatabaseConnection {
                                          + "?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh"
                                          + "&allowPublicKeyRetrieval=true";
     private static final String USER     = "root";
-    private static final String PASSWORD = "";   // ← đổi thành password MySQL của bạn
+    private static final String PASSWORD = "123456";   // ← đổi thành password MySQL của bạn
 
     static {
         try {
