@@ -1,11 +1,12 @@
 package com.auction.client;
 
+import java.io.IOException;
+
 import javafx.event.ActionEvent;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import java.io.IOException;
 
 public class SceneEngine {
 
@@ -19,7 +20,7 @@ public class SceneEngine {
     public static void changeScene(Node node, String fxml, String title) {
         try {
             FXMLLoader loader = new FXMLLoader(
-                    SceneEngine.class.getResource(fxml)
+                SceneEngine.class.getResource("/com/auction/client/view/fxml/" + fxml)
             );
             Scene scene = new Scene(loader.load());
             Stage stage = (Stage) node.getScene().getWindow();
