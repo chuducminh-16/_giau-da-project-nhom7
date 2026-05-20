@@ -5,6 +5,7 @@ import java.io.IOException;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
@@ -22,10 +23,19 @@ public class SceneEngine {
             FXMLLoader loader = new FXMLLoader(
                 SceneEngine.class.getResource("/com/auction/client/view/fxml/" + fxml)
             );
-            Scene scene = new Scene(loader.load());
+
+            Parent root = loader.load();
+
+            // Lấy kích thước màn hình thật (sau khi đã tính scale của Windows)
+            javafx.geometry.Rectangle2D screen =
+                    javafx.stage.Screen.getPrimary().getVisualBounds();
+
+            Scene scene = new Scene(root, screen.getWidth(), screen.getHeight());
             Stage stage = (Stage) node.getScene().getWindow();
             stage.setScene(scene);
             stage.setTitle(title);
+            stage.setX(screen.getMinX());
+            stage.setY(screen.getMinY());
             stage.setMaximized(true);
             stage.show();
         } catch (IOException e) {
