@@ -4,10 +4,7 @@ import com.auction.server.service.AuctionService;
 import com.auction.server.service.UserService;
 import com.auction.shared.model.Entity.Auction_Bid.Auction;
 import com.auction.shared.model.Entity.User.User;
-<<<<<<< HEAD
-=======
 import com.auction.client.model.Product;
->>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
 import com.auction.client.network.Message;
 import com.google.gson.Gson;
 

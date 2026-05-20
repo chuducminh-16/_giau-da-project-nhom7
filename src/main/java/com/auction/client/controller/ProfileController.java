@@ -59,8 +59,6 @@ public class ProfileController {
         String address  = addressField.getText().trim();
         String selectedRole = getSelectedRole();
 
-        String selectedRole = getSelectedRole();
-
         // 2. Validate phía client — không gửi nếu sai
         if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
             showError("Vui lòng điền đầy đủ thông tin bắt buộc.");
@@ -100,19 +98,6 @@ public class ProfileController {
         hideError();
     }
     // ── Lấy role String từ ToggleGroup ─
-    private String getSelectedRole() {
-        RadioButton selected =
-                (RadioButton) roleToggleGroup.getSelectedToggle();
-
-        if (selected == null) return "BIDDER"; // fallback an toàn
-
-        // So sánh theo fx:id
-        return switch (selected.getId()) {
-            case "radioSeller" -> "SELLER";
-            case "radioAdmin"  -> "ADMIN";
-            default            -> "BIDDER";
-        };
-    }
 
     private String getSelectedRole() {
         RadioButton selected = (RadioButton) roleToggleGroup.getSelectedToggle();
@@ -152,17 +137,11 @@ public class ProfileController {
                 client.removeListener(listener);
                 showInfo("Đăng ký thành công! Đang chuyển hướng...");
 
-<<<<<<< HEAD
                 // điều hướng theo role sau 1.2s
-                String role = getSelectedRole();
-                new Thread(() -> {
-                    try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
-=======
                 String role = getSelectedRole();
                 new Thread(() -> {
                     try { Thread.sleep(1200); }
                     catch (InterruptedException ignored) {}
->>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
                     Platform.runLater(() -> navigateByRole(role));
                 }).start();
 
@@ -174,22 +153,15 @@ public class ProfileController {
             }
         });
     }
-
-<<<<<<< HEAD
     // ── Điều hướng màn hình theo role ──
-=======
->>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
+
     private void navigateByRole(String role) {
         switch (role) {
             case "ADMIN" -> {
                 System.out.println("Chuyển sang Admin Dashboard");
                 SceneEngine.changeScene(
                         registerButton,
-<<<<<<< HEAD
                         "home-view.fxml",
-=======
-                        "admin-dashboard-view.fxml",
->>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
                         "The Curator — Admin Dashboard"
                 );
             }
@@ -212,10 +184,6 @@ public class ProfileController {
         }
     }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
     // ── Nút Back về Login ────────────────────────────────
     @FXML
     protected void onBackToLoginClick(ActionEvent event) {
