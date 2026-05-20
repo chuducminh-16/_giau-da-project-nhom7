@@ -3,7 +3,11 @@ package com.auction.client.controller;
 import com.auction.client.BidItem;
 import com.auction.client.SceneEngine;
 import com.auction.client.model.Product;
+<<<<<<< HEAD
 import com.auction.client.network.MessageListener;
+=======
+import com.auction.client.network.Message;
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
 import com.auction.client.session.UserSession;
@@ -79,7 +83,11 @@ public class LiveBiddingController implements Initializable {
             startCountdownFromProduct();
 
             // Đăng ký nhận BID_UPDATE cho phiên này
+<<<<<<< HEAD
             client.send(new MessageListener("WATCH_AUCTION",
+=======
+            client.send(new Message("WATCH_AUCTION",
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
                     gson.toJson(Map.of("auctionId",
                             currentProduct.getId()))));
 
@@ -194,14 +202,22 @@ public class LiveBiddingController implements Initializable {
                 "bidderId",  UserSession.getInstance().getUserId(),
                 "amount",    newAmount
         ));
+<<<<<<< HEAD
         client.send(new MessageListener("PLACE_BID", payload));
+=======
+        client.send(new Message("PLACE_BID", payload));
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
         txtBidAmount.clear();
         addLog(String.format("Đã gửi mức giá: %,.0f VNĐ — Đang chờ xác nhận...",
                 newAmount));
     }
 
     // ── Nhận message từ server ────────────────────────────
+<<<<<<< HEAD
     private void handleServerMessage(MessageListener msg) {
+=======
+    private void handleServerMessage(Message msg) {
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
         switch (msg.getType()) {
 
             case "BID_UPDATE" -> {

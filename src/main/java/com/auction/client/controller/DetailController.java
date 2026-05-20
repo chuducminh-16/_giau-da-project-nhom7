@@ -2,7 +2,11 @@ package com.auction.client.controller;
 
 import com.auction.client.SceneEngine;
 import com.auction.client.model.Product;
+<<<<<<< HEAD
 import com.auction.client.network.MessageListener;
+=======
+import com.auction.client.network.Message;
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
 import com.google.gson.Gson;
@@ -60,7 +64,11 @@ public class DetailController implements Initializable {
             populateUI(currentProduct);
 
             // Đăng ký nhận BID_UPDATE realtime cho sản phẩm này
+<<<<<<< HEAD
             client.send(new MessageListener("WATCH_AUCTION",
+=======
+            client.send(new Message("WATCH_AUCTION",
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
                     gson.toJson(Map.of("auctionId",
                             currentProduct.getId()))));
         } else {
@@ -98,7 +106,11 @@ public class DetailController implements Initializable {
     }
 
     // ── Nhận message realtime từ server ─────────────────
+<<<<<<< HEAD
     private void handleServerMessage(MessageListener msg) {
+=======
+    private void handleServerMessage(Message msg) {
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
         if (!"BID_UPDATE".equals(msg.getType())) return;
 
         BidUpdateDto dto = gson.fromJson(

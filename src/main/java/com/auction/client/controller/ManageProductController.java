@@ -2,7 +2,11 @@ package com.auction.client.controller;
 
 import com.auction.client.SceneEngine;
 import com.auction.client.model.Product;
+<<<<<<< HEAD
 import com.auction.client.network.MessageListener;
+=======
+import com.auction.client.network.Message;
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.UserSession;
 import com.google.gson.Gson;
@@ -126,7 +130,11 @@ public class ManageProductController implements Initializable {
     // ── Load sản phẩm từ server ─────────────────────────
     private void loadMyProducts() {
         String sellerId = UserSession.getInstance().getUserId();
+<<<<<<< HEAD
         client.send(new MessageListener("GET_MY_PRODUCTS",
+=======
+        client.send(new Message("GET_MY_PRODUCTS",
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
                 gson.toJson(Map.of("sellerId", sellerId))));
     }
 
@@ -170,7 +178,11 @@ public class ManageProductController implements Initializable {
                 "status",       "PENDING"
         ));
 
+<<<<<<< HEAD
         client.send(new MessageListener("ADD_PRODUCT", payload));
+=======
+        client.send(new Message("ADD_PRODUCT", payload));
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
         showStatus("Đang gửi...", false);
     }
 
@@ -198,7 +210,11 @@ public class ManageProductController implements Initializable {
                 "endTime",      endDT.toString()
         ));
 
+<<<<<<< HEAD
         client.send(new MessageListener("UPDATE_PRODUCT", payload));
+=======
+        client.send(new Message("UPDATE_PRODUCT", payload));
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
         showStatus("Đang cập nhật...", false);
     }
 
@@ -219,7 +235,11 @@ public class ManageProductController implements Initializable {
         confirm.setTitle("Xác nhận xoá");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.YES) {
+<<<<<<< HEAD
                 client.send(new MessageListener("DELETE_PRODUCT",
+=======
+                client.send(new Message("DELETE_PRODUCT",
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
                         gson.toJson(Map.of("productId", selected.getId()))));
                 showStatus("Đang xoá...", false);
             }
@@ -227,7 +247,11 @@ public class ManageProductController implements Initializable {
     }
 
     // ── Nhận phản hồi từ server ────────────────────────
+<<<<<<< HEAD
     private void handleServerResponse(MessageListener msg) {
+=======
+    private void handleServerResponse(Message msg) {
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
         Platform.runLater(() -> {
             switch (msg.getType()) {
 

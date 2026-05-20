@@ -2,7 +2,11 @@ package com.auction.client.controller;
 
 import com.auction.client.SceneEngine;
 import com.auction.client.network.NetworkClient;
+<<<<<<< HEAD
 import com.auction.client.network.MessageListener;
+=======
+import com.auction.client.network.Message;
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
 import com.google.gson.Gson;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
@@ -83,7 +87,11 @@ public class ProfileController {
         ));
 
         // 4. Bọc vào Message và gửi lên server qua socket
+<<<<<<< HEAD
         client.send(new MessageListener("REGISTER", payload));
+=======
+        client.send(new Message("REGISTER", payload));
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
 
         // 5. Khoá nút để tránh bấm 2 lần trong khi chờ server
         registerButton.setDisable(true);
@@ -94,7 +102,11 @@ public class ProfileController {
     // ── Nhận phản hồi từ server ──────────────────────────
     //    Hàm này chạy trên thread của NetworkClient, KHÔNG phải JavaFX thread
     //    → bắt buộc dùng Platform.runLater() để cập nhật UI
+<<<<<<< HEAD
     private void handleServerResponse(MessageListener msg) {
+=======
+    private void handleServerResponse(Message msg) {
+>>>>>>> f8f268f89cbfbd54731738e4b358cbe1b4ac4b0a
 
         // Chỉ xử lý message loại REGISTER_RESPONSE, bỏ qua loại khác
         if (!"REGISTER_RESPONSE".equals(msg.getType())) return;
