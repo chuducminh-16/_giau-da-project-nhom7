@@ -1,15 +1,21 @@
 package com.auction.client.controller;
 
+import java.util.Map;
+
 import com.auction.client.SceneEngine;
-import com.auction.client.network.NetworkClient;
 import com.auction.client.network.Message;
+import com.auction.client.network.NetworkClient;
 import com.google.gson.Gson;
+
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.scene.control.*;
-
-import java.util.Map;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
 
 public class ProfileController {
 
@@ -21,35 +27,32 @@ public class ProfileController {
     @FXML private PasswordField passwordField;
     @FXML private PasswordField confirmPasswordField;
     @FXML private TextField     addressField;
-    @FXML private Button        registerButton;
+    @FXML private Button        btnRegister;       // ← khớp fx:id="btnRegister" trong FXML
     @FXML private Button        btnBackToLogin;
-    @FXML private Label         errorLabel;   // thêm cái này vào FXML để hiện lỗi
-    @FXML private RadioButton radioBidder;
-    @FXML private RadioButton radioSeller;
-    @FXML private RadioButton radioAdmin;
-    @FXML private ToggleGroup roleToggleGroup;
+    @FXML private Label         errorLabel;
+    @FXML private RadioButton   radioBidder;
+    @FXML private RadioButton   radioSeller;
+    @FXML private RadioButton   radioAdmin;
+    @FXML private ToggleGroup   roleToggleGroup;
 
     // ── Công cụ ──────────────────────────────────────────
     private final Gson          gson   = new Gson();
     private final NetworkClient client = NetworkClient.getInstance();
 
-    // Listener lưu lại để removeListener khi rời màn hình
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
 
-    // ── Khởi tạo (JavaFX gọi tự động sau khi load FXML) ─
+    // ── Khởi tạo ─────────────────────────────────────────
     @FXML
     public void initialize() {
-        // Đăng ký lắng nghe phản hồi từ server
         client.addListener(listener);
         hideError();
         radioBidder.setSelected(true);
     }
 
-    // ── Xử lý bấm nút Đăng ký ───────────────────────────
+    // ── Xử lý bấm nút Đăng ký ────────────────────────────
     @FXML
     public void onRegisterClick(ActionEvent event) {
 
-        // 1. Lấy dữ liệu từ form
         String fullName = fullNameField.getText().trim();
         String username = usernameField.getText().trim();
         String email    = emailField.getText().trim();
@@ -57,9 +60,9 @@ public class ProfileController {
         String password = passwordField.getText();
         String confirm  = confirmPasswordField.getText();
         String address  = addressField.getText().trim();
-        String selectedRole = getSelectedRole();
+        String role     = getSelectedRole();
 
-        // 2. Validate phía client — không gửi nếu sai
+        // Validate phía client
         if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
             showError("Vui lòng điền đầy đủ thông tin bắt buộc.");
             return;
@@ -77,33 +80,27 @@ public class ProfileController {
             return;
         }
 
-        // 3. Đóng gói dữ liệu thành JSON payload
-        //    Map → Gson → chuỗi JSON
         String payload = gson.toJson(Map.of(
                 "fullName", fullName,
                 "username", username,
                 "email",    email,
-                "phone",    phone,
+                "phone",    phone.isEmpty() ? "" : phone,
                 "password", password,
-                "address",  address,
-                "role",     selectedRole
+                "address",  address.isEmpty() ? "" : address,
+                "role",     role
         ));
 
-        // 4. Bọc vào Message và gửi lên server qua socket
         client.send(new Message("REGISTER", payload));
 
-        // 5. Khoá nút để tránh bấm 2 lần trong khi chờ server
-        registerButton.setDisable(true);
-        registerButton.setText("Đang xử lý...");
+        // Khoá nút chờ server phản hồi
+        btnRegister.setDisable(true);
+        btnRegister.setText("Đang xử lý...");
         hideError();
     }
 
     private String getSelectedRole() {
         RadioButton selected = (RadioButton) roleToggleGroup.getSelectedToggle();
-
-        if (selected == null) return "BIDDER"; // fallback an toàn
-
-        // So sánh theo fx:id
+        if (selected == null) return "BIDDER";
         return switch (selected.getId()) {
             case "radioSeller" -> "SELLER";
             case "radioAdmin"  -> "ADMIN";
@@ -112,97 +109,58 @@ public class ProfileController {
     }
 
     // ── Nhận phản hồi từ server ──────────────────────────
-    //    Hàm này chạy trên thread của NetworkClient, KHÔNG phải JavaFX thread
-    //    → bắt buộc dùng Platform.runLater() để cập nhật UI
     private void handleServerResponse(Message msg) {
-
-        // Chỉ xử lý message loại REGISTER_RESPONSE, bỏ qua loại khác
         if (!"REGISTER_RESPONSE".equals(msg.getType())) return;
 
-        // Parse payload
-        RegisterResponse response = gson.fromJson(
-                msg.getPayload(), RegisterResponse.class
-        );
+        RegisterResponse response = gson.fromJson(msg.getPayload(), RegisterResponse.class);
 
-        // Cập nhật UI phải chạy trên JavaFX thread
         Platform.runLater(() -> {
-
-            // Mở lại nút dù thành công hay thất bại
-            registerButton.setDisable(false);
-            registerButton.setText("Đăng ký");
+            // Khôi phục nút
+            btnRegister.setDisable(false);
+            btnRegister.setText("REGISTER");
 
             if (response.success) {
-                // ✅ Thành công → gỡ listener rồi về Login
                 client.removeListener(listener);
-                showInfo("Đăng ký thành công! Đang chuyển hướng...");
+                showInfo("Đăng ký thành công! Đang chuyển về đăng nhập...");
 
-                String role = getSelectedRole();
+                // Delay nhỏ rồi chuyển về Login
                 new Thread(() -> {
-                    try { Thread.sleep(1200); }
-                    catch (InterruptedException ignored) {}
-                    Platform.runLater(() -> navigateByRole(role));
+                    try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
+                    Platform.runLater(() ->
+                        SceneEngine.changeScene(
+                            btnRegister,
+                            "login-view.fxml",
+                            "The Curator — Đăng nhập"
+                        )
+                    );
                 }).start();
 
             } else {
-                // ❌ Thất bại → hiện lý do server trả về
-                showError(response.message != null
-                        ? response.message
-                        : "Đăng ký thất bại. Tên đăng nhập hoặc email đã tồn tại.");
+                String msg2 = response.message != null ? response.message
+                        : "Đăng ký thất bại. Tên đăng nhập hoặc email đã tồn tại.";
+                showError(msg2);
             }
         });
-    }
-
-    private void navigateByRole(String role) {
-        switch (role) {
-            case "ADMIN" -> {
-                System.out.println("Chuyển sang Admin Dashboard");
-                SceneEngine.changeScene(
-                        registerButton,
-                        "home-view.fxml",
-                        "The Curator — Admin Dashboard"
-                );
-            }
-            case "SELLER" -> {
-                System.out.println("Chuyển sang Seller Dashboard");
-                SceneEngine.changeScene(
-                        registerButton,
-                        "manage-product-view.fxml",
-                        "The Curator — Seller Dashboard"
-                );
-            }
-            default -> {    // BIDDER
-                System.out.println("Chuyển sang Home");
-                SceneEngine.changeScene(
-                        registerButton,
-                        "home-view.fxml",
-                        "The Curator — Trang chủ"
-                );
-            }
-        }
     }
 
     // ── Nút Back về Login ────────────────────────────────
     @FXML
     protected void onBackToLoginClick(ActionEvent event) {
-        client.removeListener(listener); // dọn dẹp trước khi rời
-        SceneEngine.changeScene(
-                event,
-                "login-view.fxml",
-                "The Curator — Đăng nhập"
-        );
+        client.removeListener(listener);
+        SceneEngine.changeScene(event, "login-view.fxml", "The Curator — Đăng nhập");
     }
 
-    // ── Helpers hiện/ẩn lỗi ─────────────────────────────
+    // ── Helpers ──────────────────────────────────────────
     private void showError(String msg) {
         errorLabel.setText("⚠ " + msg);
-        errorLabel.setStyle("-fx-text-fill: #C0392B;");
+        errorLabel.setStyle("-fx-text-fill: #C0392B; -fx-font-size: 12px;");
         errorLabel.setVisible(true);
         errorLabel.setManaged(true);
     }
 
     private void showInfo(String msg) {
         errorLabel.setText("✓ " + msg);
-        errorLabel.setStyle("-fx-text-fill: #1A6B3A;");
+        errorLabel.setStyle("-fx-text-fill: #1A6B3A; -fx-font-size: 12px;");
         errorLabel.setVisible(true);
         errorLabel.setManaged(true);
     }
@@ -212,7 +170,5 @@ public class ProfileController {
         errorLabel.setManaged(false);
     }
 
-    // ── Inner record: cấu trúc phản hồi từ server ───────
-    //    Server phải gửi JSON dạng: {"success":true,"message":"..."}
     private record RegisterResponse(boolean success, String message) {}
 }
