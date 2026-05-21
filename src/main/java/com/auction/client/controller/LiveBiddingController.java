@@ -17,6 +17,7 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.util.Duration;
@@ -71,7 +72,6 @@ public class LiveBiddingController implements Initializable {
 
         client.addListener(listener);
 
-        // Lấy sản phẩm từ Singleton
         currentProduct = SelectedProductSession.getInstance().getProduct();
 
         if (currentProduct != null) {
@@ -80,13 +80,11 @@ public class LiveBiddingController implements Initializable {
 
             // Đăng ký nhận BID_UPDATE cho phiên này
             client.send(new Message("WATCH_AUCTION",
-                    gson.toJson(Map.of("auctionId",
-                            currentProduct.getId()))));
+                    gson.toJson(Map.of("auctionId", currentProduct.getId()))));
 
             // Thêm điểm đầu vào chart = giá hiện tại
             addChartPoint(currentProduct.getCurrentBid());
-            addLog("Chào mừng vào phòng đấu giá: "
-                    + currentProduct.getName());
+            addLog("Chào mừng vào phòng đấu giá: " + currentProduct.getName());
         } else {
             addLog("Không tìm thấy thông tin sản phẩm!");
         }
@@ -121,7 +119,6 @@ public class LiveBiddingController implements Initializable {
                 new KeyFrame(Duration.seconds(1), e -> {
                     secondsRemaining--;
                     updateCountdownLabel();
-
                     if (secondsRemaining <= 0) {
                         countdownTimeline.stop();
                         onAuctionEnded();
@@ -143,7 +140,6 @@ public class LiveBiddingController implements Initializable {
                 : String.format("%02d:%02d", m, s);
         lblCountdown.setText(text);
 
-        // Đổi màu đỏ khi < 1 phút
         if (secondsRemaining <= 60)
             lblCountdown.setStyle(
                     "-fx-text-fill: #fc8181; -fx-font-size: 22;" +
@@ -264,16 +260,42 @@ public class LiveBiddingController implements Initializable {
     // ── Setup chart ───────────────────────────────────────
     private void setupChart() {
         priceSeries = new XYChart.Series<>();
-        priceSeries.setName("Diễn biến giá");
+        priceSeries.setName("Giá đấu cao nhất");
+
         priceChart.getData().add(priceSeries);
-        priceChart.setAnimated(false); // tắt animation để realtime mượt
+        priceChart.setAnimated(false);
+        priceChart.setTitle("Diễn biến giá theo thời gian thực");
+
+        // Đặt label trục
+        priceChart.getXAxis().setLabel("Thời gian");
+        priceChart.getYAxis().setLabel("Giá (VNĐ)");
+
+        // Tắt auto-ranging trục Y để không nhảy loạn
+        NumberAxis yAxis = (NumberAxis) priceChart.getYAxis();
+        yAxis.setForceZeroInRange(false);  // không bắt đầu từ 0, zoom vào vùng giá thật
+        yAxis.setAutoRanging(true);
+        priceChart.setCreateSymbols(true);
     }
 
+    // ── Thêm điểm vào chart ───────────────────────────────
     private void addChartPoint(double price) {
         String time = LocalTime.now().format(timeFmt);
-        priceSeries.getData().add(
-                new XYChart.Data<>(time, price));
-        // Giữ tối đa 20 điểm — tránh chart quá dày
+        XYChart.Data<String, Number> dataPoint = new XYChart.Data<>(time, price);
+        priceSeries.getData().add(dataPoint);
+
+        // Tooltip hiện giá khi hover vào điểm trên chart
+        if (dataPoint.getNode() != null) {
+            Tooltip tooltip = new Tooltip(
+                    String.format("⏱ %s\n💰 %,.0f VNĐ", time, price));
+            tooltip.setStyle(
+                    "-fx-background-color: #1a1f2e;" +
+                            "-fx-text-fill: white;" +
+                            "-fx-font-size: 12px;" +
+                            "-fx-padding: 6 10;");
+            Tooltip.install(dataPoint.getNode(), tooltip);
+        }
+
+        // Giữ tối đa 20 điểm
         if (priceSeries.getData().size() > 20)
             priceSeries.getData().remove(0);
     }

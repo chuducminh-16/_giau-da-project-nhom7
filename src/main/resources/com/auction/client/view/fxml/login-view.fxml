@@ -45,8 +45,8 @@
                         <!-- Email — giữ nguyên fx:id -->
                         <VBox spacing="6">
                            <children>
-                              <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 11;                                             -fx-font-weight: bold;" text="EMAIL" />
-                              <TextField fx:id="emailInput" maxWidth="300" prefHeight="40" promptText="your@email.com" style="-fx-background-color: #2d3748;                                                 -fx-text-fill: white;                                                 -fx-prompt-text-fill: #4a5568;                                                 -fx-background-radius: 6;                                                 -fx-border-color: #4a5568;                                                 -fx-border-radius: 6;                                                 -fx-padding: 0 12; -fx-font-size: 13;" />
+                              <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 11;                                             -fx-font-weight: bold;" text="USER NAME" />
+                              <TextField fx:id="emailInput" maxWidth="300" prefHeight="40" promptText="User_name" style="-fx-background-color: #2d3748;                                                 -fx-text-fill: white;                                                 -fx-prompt-text-fill: #4a5568;                                                 -fx-background-radius: 6;                                                 -fx-border-color: #4a5568;                                                 -fx-border-radius: 6;                                                 -fx-padding: 0 12; -fx-font-size: 13;" />
                            </children>
                         </VBox>
 
@@ -58,12 +58,7 @@
                            </children>
                         </VBox>
 
-                        <Label fx:id="errorLabel"
-                               visible="false"
-                               managed="false"
-                               maxWidth="300"
-                               wrapText="true"
-                               style="-fx-text-fill: #fc8181; -fx-font-size: 12px;"/>
+                        <Label fx:id="errorLabel" managed="false" maxWidth="300" style="-fx-text-fill: #fc8181; -fx-font-size: 12px;" visible="false" wrapText="true" />
 
                         <!-- Nút Sign In — giữ nguyên fx:id, onAction -->
                         <Button fx:id="loginButton" mnemonicParsing="false" onAction="#onLoginClicked" prefHeight="44" prefWidth="300" style="-fx-background-color: #4299e1; -fx-text-fill: white;                                        -fx-font-size: 14; -fx-font-weight: bold;                                        -fx-background-radius: 8; -fx-cursor: hand;" text="Sign In">

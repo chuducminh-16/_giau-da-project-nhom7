@@ -27,7 +27,7 @@ public class ProfileController {
     @FXML private PasswordField passwordField;
     @FXML private PasswordField confirmPasswordField;
     @FXML private TextField     addressField;
-    @FXML private Button        btnRegister;       // ← khớp fx:id="btnRegister" trong FXML
+    @FXML private Button        btnRegister;      
     @FXML private Button        btnBackToLogin;
     @FXML private Label         errorLabel;
     @FXML private RadioButton   radioBidder;
