@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -123,8 +125,13 @@ public class ClientHandler implements Runnable {
         if (!isAuthenticated()) return;
         SellerDto dto = gson.fromJson(payload, SellerDto.class);
         List<Item> items = auctionService.getProductsBySeller(dto.sellerId());
+
+        // Serialize thủ công sang List<Map> để tránh Gson reflection block
+        List<Map<String, Object>> itemMaps = new ArrayList<>();
+        for (Item item : items) itemMaps.add(itemToMap(item));
+
         send(new Message("MY_PRODUCTS_RESPONSE", gson.toJson(Map.of(
-                "success", true, "products", items
+                "success", true, "products", itemMaps
         ))));
     }
 
@@ -152,10 +159,10 @@ public class ClientHandler implements Runnable {
                 send(new Message("ADD_PRODUCT_RESPONSE", gson.toJson(Map.of(
                         "success", true,
                         "message", "Thêm sản phẩm thành công!",
-                        "product", created
+                        "product", itemToMap(created)
                 ))));
             } else {
-                send(errorMsg("Không thể lưu sản phẩm."));
+                send(errorMsg2("ADD_PRODUCT_RESPONSE", "Không thể lưu sản phẩm."));
             }
         } catch (Exception e) {
             send(new Message("ADD_PRODUCT_RESPONSE", gson.toJson(Map.of(
@@ -200,8 +207,13 @@ public class ClientHandler implements Runnable {
     // ── GET AUCTIONS ───────────────────────────────────
     private void handleGetAuctions() {
         List<Item> list = auctionService.getActiveAuctions();
+
+        // Serialize thủ công → tránh Gson reflection block với abstract Item
+        List<Map<String, Object>> maps = new ArrayList<>();
+        for (Item item : list) maps.add(itemToMap(item));
+
         send(new Message("AUCTIONS_LIST", gson.toJson(Map.of(
-                "success", true, "auctions", list
+                "success", true, "auctions", maps
         ))));
     }
 
@@ -255,6 +267,26 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    // ── Chuyển Item → Map để Gson serialize an toàn ───────────────────────
+    private Map<String, Object> itemToMap(Item item) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id",            item.getId());
+        m.put("name",          item.getName());
+        m.put("type",          item.getType());
+        m.put("startingPrice", item.getStartingPrice());
+        m.put("currentBid",    item.getCurrentBid());
+        m.put("currentPrice",  item.getCurrentBid());
+        m.put("bidIncrement",  item.getBidIncrement());
+        m.put("sellerId",      item.getSellerId());
+        m.put("sellerName",    item.getSellerName() != null ? item.getSellerName() : "");
+        m.put("status",        item.getStatus() != null ? item.getStatus() : "OPEN");
+        m.put("description",   item.getDescription() != null ? item.getDescription() : "");
+        m.put("imagePath",     item.getImagePath() != null ? item.getImagePath() : "");
+        m.put("endTime",       item.getEndTime() != null ? item.getEndTime().toString() : null);
+        m.put("startTime",     item.getStartTime() != null ? item.getStartTime().toString() : null);
+        return m;
+    }
+
     // ── Helpers ────────────────────────────────────────
     public synchronized void send(Message msg) {
         if (out != null) out.println(gson.toJson(msg));
@@ -270,6 +302,10 @@ public class ClientHandler implements Runnable {
 
     private Message errorMsg(String text) {
         return new Message("ERROR", gson.toJson(Map.of("message", text)));
+    }
+
+    private Message errorMsg2(String type, String text) {
+        return new Message(type, gson.toJson(Map.of("success", false, "message", text)));
     }
 
     public boolean isWatchingAuction(String auctionId) {

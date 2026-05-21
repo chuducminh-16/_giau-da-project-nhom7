@@ -10,13 +10,6 @@ import java.util.Map;
 
 import com.auction.server.database.DatabaseConnection;
 
-/**
- * AuctionDAO — thêm phương thức findExpiredOpen() cho AuctionScheduler.
- *
- * PATCH: copy toàn bộ class gốc và bổ sung findExpiredOpen() ở cuối.
- * Chú ý: đặt file này vào đúng package com.auction.server.dao.auction,
- * THAY THẾ file AuctionDAO.java cũ.
- */
 public class AuctionDAO {
 
     // ── Lưu phiên mới ────────────────────────────────────────────────────
@@ -52,14 +45,22 @@ public class AuctionDAO {
     // ── Lấy tất cả OPEN/RUNNING chưa hết giờ ────────────────────────────
     public List<Map<String, Object>> findAllOpen() {
         List<Map<String, Object>> list = new ArrayList<>();
-        String sql = "SELECT a.*, i.name as item_name, i.current_price "
-                   + "FROM auctions a JOIN items i ON a.item_id = i.id "
+        String sql = "SELECT a.id, a.item_id, a.seller_id, a.status, a.end_time, "
+                   + "i.name as item_name, i.current_price, "
+                   + "COALESCE(i.description,'') as description, "
+                   + "COALESCE(i.bid_increment,0) as bid_increment, "
+                   + "COALESCE(i.image_path,'') as image_path, "
+                   + "COALESCE(i.starting_price, i.current_price) as starting_price, "
+                   + "u.username as seller_name "
+                   + "FROM auctions a "
+                   + "JOIN items i ON a.item_id = i.id "
+                   + "LEFT JOIN users u ON a.seller_id = u.id "
                    + "WHERE a.status IN ('OPEN','RUNNING') AND a.end_time > NOW() "
                    + "ORDER BY a.end_time ASC";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) list.add(mapRow(rs));
+            while (rs.next()) list.add(mapRowFull(rs));
         } catch (Exception e) { e.printStackTrace(); }
         return list;
     }
@@ -123,17 +124,28 @@ public class AuctionDAO {
         return null;
     }
 
-    // ── Tìm theo seller ──────────────────────────────────────────────────
+    // ── Tìm theo seller — query thẳng items để thấy MỌI status ──────────
+    // FIX: dùng LEFT JOIN để hiện cả sản phẩm chưa có auction (status PENDING/OPEN mới tạo)
     public List<Map<String, Object>> findBySeller(String sellerId) {
         List<Map<String, Object>> list = new ArrayList<>();
-        String sql = "SELECT a.*, i.name as item_name, i.current_price "
-                   + "FROM auctions a JOIN items i ON a.item_id = i.id "
-                   + "WHERE a.seller_id = ? ORDER BY a.end_time DESC";
+        String sql = "SELECT i.id as item_id, i.name as item_name, i.seller_id, "
+                   + "i.current_price, i.status, i.end_time, i.type, "
+                   + "COALESCE(i.description,'') as description, "
+                   + "COALESCE(i.bid_increment,0) as bid_increment, "
+                   + "COALESCE(i.image_path,'') as image_path, "
+                   + "COALESCE(i.starting_price, i.current_price) as starting_price, "
+                   + "u.username as seller_name, "
+                   + "COALESCE(a.id, 0) as id "
+                   + "FROM items i "
+                   + "LEFT JOIN users u ON i.seller_id = u.id "
+                   + "LEFT JOIN auctions a ON a.item_id = i.id "
+                   + "WHERE i.seller_id = ? "
+                   + "ORDER BY i.end_time DESC";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, sellerId);
             ResultSet rs = ps.executeQuery();
-            while (rs.next()) list.add(mapRow(rs));
+            while (rs.next()) list.add(mapRowFull(rs));
         } catch (Exception e) { e.printStackTrace(); }
         return list;
     }
@@ -142,10 +154,6 @@ public class AuctionDAO {
     // MỚI — dùng bởi AuctionScheduler
     // ═══════════════════════════════════════════════════════
 
-    /**
-     * Lấy các phiên OPEN/RUNNING đã quá endTime — cần đóng lại.
-     * Scheduler gọi method này mỗi 10 giây.
-     */
     public List<Map<String, Object>> findExpiredOpen() {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT a.*, i.name as item_name, i.current_price "
@@ -159,10 +167,6 @@ public class AuctionDAO {
         return list;
     }
 
-    /**
-     * Gia hạn endTime — dùng cho Anti-sniping.
-     * Cộng thêm {@code extraSeconds} giây vào end_time hiện tại.
-     */
     public boolean extendEndTime(long auctionId, int extraSeconds) {
         String sql = "UPDATE auctions "
                    + "SET end_time = DATE_ADD(end_time, INTERVAL ? SECOND) "
@@ -175,9 +179,6 @@ public class AuctionDAO {
         } catch (Exception e) { e.printStackTrace(); return false; }
     }
 
-    /**
-     * Lấy endTime hiện tại của 1 phiên (dùng cho Anti-sniping check).
-     */
     public String getEndTime(long auctionId) {
         String sql = "SELECT end_time FROM auctions WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -189,7 +190,7 @@ public class AuctionDAO {
         return null;
     }
 
-    // ── Helper: map ResultSet → Map ──────────────────────────────────────
+    // ── Helper: map cơ bản (auctions JOIN items) ─────────────────────────
     private Map<String, Object> mapRow(ResultSet rs) throws Exception {
         Map<String, Object> row = new HashMap<>();
         row.put("id",           rs.getLong("id"));
@@ -200,5 +201,32 @@ public class AuctionDAO {
         row.put("status",       rs.getString("status"));
         row.put("endTime",      rs.getString("end_time"));
         return row;
+    }
+
+    // ── Helper: map đầy đủ (có description, bidIncrement, imagePath...) ──
+    private Map<String, Object> mapRowFull(ResultSet rs) throws Exception {
+        Map<String, Object> row = new HashMap<>();
+        row.put("id",           rs.getLong("id"));
+        row.put("itemId",       rs.getString("item_id"));
+        row.put("itemName",     rs.getString("item_name"));
+        row.put("sellerId",     rs.getString("seller_id"));
+        row.put("currentPrice", rs.getDouble("current_price"));
+        row.put("status",       rs.getString("status"));
+        row.put("endTime",      rs.getString("end_time"));
+
+        // Các cột mở rộng — dùng try-catch phòng DB cũ không có cột
+        tryPut(row, "description",  () -> rs.getString("description"));
+        tryPut(row, "bidIncrement", () -> rs.getDouble("bid_increment"));
+        tryPut(row, "imagePath",    () -> rs.getString("image_path"));
+        tryPut(row, "startingPrice",() -> rs.getDouble("starting_price"));
+        tryPut(row, "sellerName",   () -> rs.getString("seller_name"));
+        return row;
+    }
+
+    @FunctionalInterface
+    private interface SqlSupplier<T> { T get() throws Exception; }
+
+    private <T> void tryPut(Map<String, Object> row, String key, SqlSupplier<T> supplier) {
+        try { row.put(key, supplier.get()); } catch (Exception ignored) {}
     }
 }

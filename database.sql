@@ -25,16 +25,20 @@ CREATE TABLE users (
 );
 
 -- =====================================
--- 3. BẢNG ITEMS
+-- 3. BẢNG ITEMS (đầy đủ cột)
 -- =====================================
 CREATE TABLE items (
-    id            VARCHAR(50)    PRIMARY KEY,
-    name          VARCHAR(100)   NOT NULL,
-    current_price DECIMAL(15, 2) NOT NULL,
-    end_time      DATETIME       NOT NULL,
-    type          VARCHAR(50)    NOT NULL,
-    seller_id     VARCHAR(50),
-    status        VARCHAR(20)    DEFAULT 'OPEN',
+    id             VARCHAR(50)    PRIMARY KEY,
+    name           VARCHAR(100)   NOT NULL,
+    starting_price DECIMAL(15, 2) NOT NULL DEFAULT 0,
+    current_price  DECIMAL(15, 2) NOT NULL,
+    end_time       DATETIME       NOT NULL,
+    type           VARCHAR(50)    NOT NULL DEFAULT 'ART',
+    seller_id      VARCHAR(50),
+    status         VARCHAR(20)    DEFAULT 'OPEN',
+    description    TEXT,
+    bid_increment  DECIMAL(15, 2) NOT NULL DEFAULT 0,
+    image_path     VARCHAR(500)   DEFAULT '',
     FOREIGN KEY (seller_id) REFERENCES users(id)
 );
 
@@ -46,7 +50,7 @@ CREATE TABLE auctions (
     item_id       VARCHAR(50)    NOT NULL,
     seller_id     VARCHAR(50)    NOT NULL,
     current_price DECIMAL(15, 2) NOT NULL,
-    status        VARCHAR(20)    DEFAULT 'OPEN',  -- OPEN / RUNNING / FINISHED / PAID / CANCELED
+    status        VARCHAR(20)    DEFAULT 'OPEN',
     end_time      DATETIME       NOT NULL,
     created_at    DATETIME       DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (item_id)   REFERENCES items(id),
@@ -80,33 +84,27 @@ CREATE TABLE transactions (
 );
 
 -- =====================================
--- 7. DỮ LIỆU MẪU (thứ tự: cha trước, con sau)
+-- 7. DỮ LIỆU MẪU
 -- =====================================
-
--- 7.1 Users (không phụ thuộc gì)
 INSERT INTO users (id, username, email, password, balance, role, rating, admin_level) VALUES
-('U01', 'minh_dz',   'minh@gmail.com',   '123456', 5000.00, 'BIDDER', 5.0, 1),
-('U02', 'test_user', 'test@gmail.com',   '1111',   2000.00, 'BIDDER', 5.0, 1),
-('U03', 'admin',     'admin@gmail.com',  'admin',  0.00,    'ADMIN',  5.0, 3),
-('U04', 'seller1',   'seller@gmail.com', 'sell123',0.00,    'SELLER', 4.5, 1);
+('U01', 'minh_dz',   'minh@gmail.com',   '123456',  5000.00, 'BIDDER', 5.0, 1),
+('U02', 'test_user', 'test@gmail.com',   '1111',    2000.00, 'BIDDER', 5.0, 1),
+('U03', 'admin',     'admin@gmail.com',  'admin',   0.00,    'ADMIN',  5.0, 3),
+('U04', 'seller1',   'seller@gmail.com', 'sell123', 0.00,    'SELLER', 4.5, 1);
 
--- 7.2 Items (cần seller_id → users phải có trước)
-INSERT INTO items (id, name, current_price, end_time, type, seller_id, status) VALUES
-('I01', 'Macbook Pro M3', 2000.00, '2026-12-31 23:59:59', 'ELECTRONICS', 'U04', 'OPEN'),
-('I02', 'Mô hình Gundam',   50.00, '2026-10-20 12:00:00', 'ART',         'U04', 'OPEN');
+INSERT INTO items (id, name, starting_price, current_price, end_time, type, seller_id, status, description, bid_increment, image_path) VALUES
+('I01', 'Macbook Pro M3', 2000.00, 2000.00, '2026-12-31 23:59:59', 'ELECTRONICS', 'U04', 'OPEN', 'MacBook Pro M3 chip, 16GB RAM', 100.00, ''),
+('I02', 'Mô hình Gundam',   50.00,   50.00, '2026-10-20 12:00:00', 'ART',         'U04', 'OPEN', 'Gundam RX-78-2 Master Grade', 10.00,  '');
 
--- 7.3 Auctions (cần item_id + seller_id → users + items phải có trước)
 INSERT INTO auctions (id, item_id, seller_id, current_price, status, end_time) VALUES
 (1001, 'I01', 'U04', 2000.00, 'RUNNING', '2026-12-31 23:59:59'),
 (1002, 'I02', 'U04',   50.00, 'OPEN',    '2026-10-20 12:00:00');
 
--- 7.4 Bids (cần item_id + bidder_id)
 INSERT INTO bids (item_id, bidder_id, bid_price) VALUES
 ('I01', 'U01', 2200.00),
 ('I01', 'U02', 2400.00),
 ('I01', 'U01', 2500.00);
 
--- 7.5 Transactions (cần item_id + winner_id — sau cùng)
 INSERT INTO transactions (item_id, winner_id, final_price, transaction_time) VALUES
 ('I01', 'U01', 2500.00, '2026-04-13 12:00:00');
 

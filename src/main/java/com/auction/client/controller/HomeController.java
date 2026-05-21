@@ -1,27 +1,41 @@
 package com.auction.client.controller;
 
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.ResourceBundle;
+
 import com.auction.client.SceneEngine;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
 import com.auction.client.session.UserSession;
+import com.auction.shared.model.Entity.Item.Art;
+import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
+import com.auction.shared.model.Entity.Item.Vehicle;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-
-import java.net.URL;
-import java.util.List;
-import java.util.ResourceBundle;
 
 public class HomeController implements Initializable {
 
@@ -45,10 +59,48 @@ public class HomeController implements Initializable {
     private final ObservableList<Item> auctionList = FXCollections.observableArrayList();
     private Item heroItem;
 
-    private final Gson          gson   = new Gson();
+    private final Gson          gson   = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
-
     private final NetworkClient.MessageListener listener = this::handleServerMessage;
+
+    // ── Custom Gson deserializer cho abstract Item ────────────────────────
+    private static Gson buildGson() {
+        return new GsonBuilder()
+                .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
+                    JsonObject obj = json.getAsJsonObject();
+                    String type = "ART";
+                    if (obj.has("type") && !obj.get("type").isJsonNull()) {
+                        type = obj.get("type").getAsString().toUpperCase();
+                    }
+                    return switch (type) {
+                        case "ELECTRONICS" -> ctx.deserialize(obj, Electronics.class);
+                        case "VEHICLE"     -> ctx.deserialize(obj, Vehicle.class);
+                        default            -> ctx.deserialize(obj, Art.class);
+                    };
+                })
+                .create();
+    }
+
+    /**
+     * Deserialize 1 JsonObject → đúng subclass Item theo field "type".
+     * Dùng trong vòng lặp parse AUCTIONS_LIST thay vì cast trực tiếp.
+     */
+    private static Item deserializeItem(JsonObject obj, Gson gson) {
+        try {
+            String type = "ART";
+            if (obj.has("type") && !obj.get("type").isJsonNull()) {
+                type = obj.get("type").getAsString().toUpperCase();
+            }
+            return switch (type) {
+                case "ELECTRONICS" -> gson.fromJson(obj, Electronics.class);
+                case "VEHICLE"     -> gson.fromJson(obj, Vehicle.class);
+                default            -> gson.fromJson(obj, Art.class);
+            };
+        } catch (Exception e) {
+            System.err.println("[HomeController] deserializeItem lỗi: " + e.getMessage());
+            return null;
+        }
+    }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -115,28 +167,48 @@ public class HomeController implements Initializable {
         switch (msg.getType()) {
 
             case "AUCTIONS_LIST" -> {
-                AuctionsResponse resp = gson.fromJson(msg.getPayload(), AuctionsResponse.class);
-                Platform.runLater(() -> {
-                    if (resp.auctions != null && !resp.auctions.isEmpty()) {
-                        auctionList.setAll(resp.auctions);
-                        updateHeroCard(resp.auctions.get(0));
+                try {
+                    JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                    if (!root.has("auctions") || !root.get("auctions").isJsonArray()) return;
+
+                    JsonArray arr = root.getAsJsonArray("auctions");
+                    List<Item> items = new ArrayList<>();
+                    for (JsonElement el : arr) {
+                        Item item = deserializeItem(el.getAsJsonObject(), gson);
+                        if (item != null) items.add(item);
                     }
-                });
+
+                    Platform.runLater(() -> {
+                        auctionList.setAll(items);
+                        if (!items.isEmpty()) updateHeroCard(items.get(0));
+                        System.out.println("[Home] Loaded " + items.size() + " auctions");
+                    });
+                } catch (Exception e) {
+                    System.err.println("[Home] Lỗi parse AUCTIONS_LIST: " + e.getMessage());
+                    e.printStackTrace();
+                }
             }
 
             case "BID_UPDATE" -> {
-                BidUpdateDto dto = gson.fromJson(msg.getPayload(), BidUpdateDto.class);
-                Platform.runLater(() -> {
-                    auctionList.stream()
-                            .filter(p -> p.getId().equals(dto.productId))
-                            .findFirst()
-                            .ifPresent(p -> {
-                                p.setCurrentBid(dto.newBid);
-                                auctionTable.refresh();
-                                if (heroItem != null && heroItem.getId().equals(dto.productId))
-                                    updateHeroCard(p);
-                            });
-                });
+                try {
+                    JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
+                    String productId = dto.get("productId").getAsString();
+                    double newBid    = dto.get("newBid").getAsDouble();
+
+                    Platform.runLater(() -> {
+                        auctionList.stream()
+                                .filter(p -> p.getId().equals(productId))
+                                .findFirst()
+                                .ifPresent(p -> {
+                                    p.setCurrentBid(newBid);
+                                    auctionTable.refresh();
+                                    if (heroItem != null && heroItem.getId().equals(productId))
+                                        updateHeroCard(p);
+                                });
+                    });
+                } catch (Exception e) {
+                    System.err.println("[Home] Lỗi parse BID_UPDATE: " + e.getMessage());
+                }
             }
         }
     }
@@ -146,9 +218,7 @@ public class HomeController implements Initializable {
         if (heroName   != null) heroName.setText(item.getName());
         if (heroBid    != null) heroBid.setText(String.format("%,.0f VNĐ", item.getCurrentBid()));
         if (heroStatus != null) heroStatus.setText("Lot • " + item.getStatus());
-
-        // ✅ FIX: dùng getDescription() thay getSellerName() làm mô tả hero card
-        if (heroDesc != null) {
+        if (heroDesc   != null) {
             String desc = item.getDescription();
             heroDesc.setText(desc != null && !desc.isBlank() ? desc :
                     (item.getSellerName() != null ? item.getSellerName() : ""));
@@ -173,14 +243,18 @@ public class HomeController implements Initializable {
         if (event.getCode() != KeyCode.ENTER) return;
         String keyword = searchField.getText().trim().toLowerCase();
         if (keyword.isEmpty()) {
-            client.send(new Message("GET_AUCTIONS", "{}"));
+            // Reset về toàn bộ danh sách khi xoá keyword
+            auctionTable.setItems(auctionList);
             return;
         }
         auctionTable.setItems(auctionList.filtered(
                 p -> p.getName().toLowerCase().contains(keyword)));
     }
 
-    @FXML public void onSideAuctionsClick(ActionEvent event) {}
+    @FXML public void onSideAuctionsClick(ActionEvent event) {
+        // Reset filter khi bấm tab "Danh sách đấu giá"
+        auctionTable.setItems(auctionList);
+    }
 
     @FXML public void onBidHistoryClick(ActionEvent event) {
         System.out.println("Mở lịch sử đấu giá");
@@ -199,7 +273,4 @@ public class HomeController implements Initializable {
     }
 
     @FXML public void onCardBidClicked(ActionEvent event) {}
-
-    private record AuctionsResponse(boolean success, List<Item> auctions) {}
-    private record BidUpdateDto(String productId, double newBid) {}
 }
