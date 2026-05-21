@@ -16,7 +16,7 @@ import java.util.Map;
 
 public class LoginController {
 
-    @FXML private TextField     emailInput;   // giờ nhập username (giữ fx:id cũ khỏi sửa fxml)
+    @FXML private TextField     emailInput;   // dùng cho username
     @FXML private PasswordField passwordInput;
     @FXML private StackPane     rootPane;
     @FXML private ImageView     backgroundImage;
@@ -46,7 +46,7 @@ public class LoginController {
     }
 
     private void handleLogin() {
-        String username = emailInput.getText().trim();   // lấy username từ field
+        String username = emailInput.getText().trim();
         String password = passwordInput.getText();
 
         if (username.isEmpty() || password.isEmpty()) {
@@ -54,7 +54,6 @@ public class LoginController {
             return;
         }
 
-        // Gửi username thay vì email
         String payload = gson.toJson(Map.of(
                 "username", username,
                 "password", password
@@ -72,6 +71,7 @@ public class LoginController {
             setLoading(false);
 
             if (resp.success) {
+                // Lưu session
                 UserSession.getInstance().login(
                         resp.userId,
                         resp.username,
@@ -79,7 +79,24 @@ public class LoginController {
                         resp.role
                 );
                 client.removeListener(listener);
-                SceneEngine.changeScene(loginButton, "home-view.fxml", "The Curator - Trang chủ");
+
+                // ── PHÂN HƯỚNG THEO ROLE ──────────────────────────────────
+                // ADMIN  → admin-view.fxml
+                // Còn lại → home-view.fxml
+                if ("ADMIN".equalsIgnoreCase(resp.role)) {
+                    SceneEngine.changeScene(
+                            loginButton,
+                            "admin-view.fxml",
+                            "The Curator - Admin Dashboard"
+                    );
+                } else {
+                    SceneEngine.changeScene(
+                            loginButton,
+                            "home-view.fxml",
+                            "The Curator - Trang chủ"
+                    );
+                }
+
             } else {
                 showError(resp.message != null ? resp.message : "Sai tên đăng nhập hoặc mật khẩu.");
             }
