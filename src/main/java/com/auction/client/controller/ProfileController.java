@@ -93,7 +93,7 @@ public class ProfileController {
         client.send(new Message("REGISTER", payload));
 
         // 5. Khoá nút để tránh bấm 2 lần trong khi chờ server
-        registerButton.setDisable(true);
+        btnRegister.setDisable(true);
         registerButton.setText("Đang xử lý...");
         hideError();
     }
