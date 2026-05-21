@@ -31,9 +31,9 @@ public class AuctionService {
         return lockMap.computeIfAbsent(productId, id -> new ReentrantLock());
     }
 
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // PLACE BID
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     public BidOutcome placeBid(String productId, String bidderId, double amount) {
         ReentrantLock lock = getLock(productId);
         lock.lock();
@@ -91,16 +91,16 @@ public class AuctionService {
         }
     }
 
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // GET BID HISTORY
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     public List<BidDAO.BidRecord> getBidHistory(String productId) {
         return bidDAO.getBidRecords(productId);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // GET ACTIVE AUCTIONS — trả về List<Item>
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
+    // GET ACTIVE AUCTIONS
+    // ═══════════════════════════════════════════════════════════
     public List<Item> getActiveAuctions() {
         List<Map<String, Object>> rows = auctionDAO.findAllOpen();
         List<Item> items = new ArrayList<>();
@@ -110,9 +110,9 @@ public class AuctionService {
         return items;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // GET PRODUCTS BY SELLER — trả về List<Item>
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
+    // GET PRODUCTS BY SELLER
+    // ═══════════════════════════════════════════════════════════
     public List<Item> getProductsBySeller(String sellerId) {
         List<Map<String, Object>> rows = auctionDAO.findBySeller(sellerId);
         List<Item> items = new ArrayList<>();
@@ -122,20 +122,22 @@ public class AuctionService {
         return items;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // ADD PRODUCT — trả về Item
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
+    // ADD PRODUCT
+    // ═══════════════════════════════════════════════════════════
     public Item addProduct(String sellerId, String name, String description,
                            double startPrice, double bidIncrement,
                            String imagePath, LocalDateTime startTime,
                            LocalDateTime endTime) {
         String itemId = "I-" + UUID.randomUUID().toString().substring(0, 8);
 
+        // Art: artist = description (theo đề bài)
         Art item = new Art(itemId, name, startPrice, endTime, sellerId, description);
         item.setBidIncrement(bidIncrement);
         item.setImagePath(imagePath);
         item.setStartTime(startTime);
         item.setStatus("PENDING");
+        // description đã được set qua constructor Art (artist = description)
 
         boolean itemSaved = itemSaveDAO.saveItem(item);
         if (!itemSaved) return null;
@@ -148,30 +150,44 @@ public class AuctionService {
         return item;
     }
 
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // UPDATE PRODUCT
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
                                  LocalDateTime endTime) {
-        String sql = "UPDATE items SET name=?, current_price=?, end_time=? WHERE id=?";
+        String sql = "UPDATE items SET name=?, current_price=?, end_time=?, description=?, bid_increment=? WHERE id=?";
         try (java.sql.Connection conn =
                      com.auction.server.database.DatabaseConnection.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, name);
             ps.setDouble(2, startPrice);
             ps.setString(3, endTime.toString());
-            ps.setString(4, productId);
+            ps.setString(4, description != null ? description : "");
+            ps.setDouble(5, bidIncrement);
+            ps.setString(6, productId);
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            // Fallback không có description/bid_increment columns
+            String sqlFallback = "UPDATE items SET name=?, current_price=?, end_time=? WHERE id=?";
+            try (java.sql.Connection conn =
+                         com.auction.server.database.DatabaseConnection.getConnection();
+                 java.sql.PreparedStatement ps = conn.prepareStatement(sqlFallback)) {
+                ps.setString(1, name);
+                ps.setDouble(2, startPrice);
+                ps.setString(3, endTime.toString());
+                ps.setString(4, productId);
+                return ps.executeUpdate() > 0;
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return false;
+            }
         }
     }
 
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // DELETE PRODUCT
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     public boolean deleteProduct(String productId) {
         String delBids    = "DELETE FROM bids WHERE item_id=?";
         String delAuction = "DELETE FROM auctions WHERE item_id=?";
@@ -202,9 +218,9 @@ public class AuctionService {
         }
     }
 
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // END AUCTION
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     public Map<String, Object> endAuction(long auctionId) {
         Map<String, Object> auction = auctionDAO.findById(auctionId);
         if (auction == null) return null;
@@ -228,9 +244,9 @@ public class AuctionService {
         return winner;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // HELPER: Map DB row → Item (dùng Art làm concrete class)
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
+    // HELPER: Map DB row → Item
+    // ═══════════════════════════════════════════════════════════
     private Item mapToItem(Map<String, Object> row) {
         String itemId   = (String) row.get("itemId");
         String itemName = (String) row.get("itemName");
@@ -249,16 +265,36 @@ public class AuctionService {
             catch (Exception ignored) {}
         }
 
-        // Dùng Art làm concrete type (description = "" để tránh null)
-        Art item = new Art(itemId, itemName, currentPrice, endTime, sellerId, "");
+        // Lấy description nếu có trong row
+        String description = "";
+        if (row.containsKey("description") && row.get("description") != null)
+            description = (String) row.get("description");
+
+        // Lấy sellerName nếu có
+        String sellerName = null;
+        if (row.containsKey("sellerName") && row.get("sellerName") != null)
+            sellerName = (String) row.get("sellerName");
+
+        // Lấy bidIncrement nếu có
+        double bidIncrement = 0;
+        if (row.containsKey("bidIncrement") && row.get("bidIncrement") != null) {
+            Object bi = row.get("bidIncrement");
+            if (bi instanceof Number n) bidIncrement = n.doubleValue();
+        }
+
+        // Dùng Art làm concrete type, truyền description đúng
+        Art item = new Art(itemId, itemName, currentPrice, endTime, sellerId, description);
         item.setCurrentBid(currentPrice);
         item.setStatus(status != null ? status : "OPEN");
+        item.setBidIncrement(bidIncrement);
+        if (sellerName != null) item.setSellerName(sellerName);
+
         return item;
     }
 
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // INNER TYPES
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     public enum BidResult {
         SUCCESS, PRICE_TOO_LOW, AUCTION_ENDED, AUCTION_NOT_FOUND, ERROR
     }

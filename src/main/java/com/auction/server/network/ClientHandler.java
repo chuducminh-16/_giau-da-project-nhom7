@@ -15,6 +15,9 @@ import com.auction.server.service.UserService;
 import com.auction.shared.model.Entity.Item.Item;
 import com.auction.shared.model.Entity.User.User;
 import com.google.gson.Gson;
+import com.auction.server.dao.item.ItemListDAO;
+import com.auction.server.dao.user.UserListDAO;
+import com.auction.server.dao.auction.AuctionDAO;
 
 public class ClientHandler implements Runnable {
 
@@ -28,6 +31,10 @@ public class ClientHandler implements Runnable {
     private BufferedReader in;
     private User           currentUser;
     private String         watchingAuctionId;
+
+    private final AuctionDAO auctionDAO = new AuctionDAO();
+    private final ItemListDAO itemListDAO = new ItemListDAO();
+    private final UserListDAO userListDAO = new UserListDAO();
 
     public ClientHandler(Socket socket, NetworkServer server) {
         this.socket = socket;
@@ -65,6 +72,13 @@ public class ClientHandler implements Runnable {
             case "GET_AUCTIONS"    -> handleGetAuctions();
             case "WATCH_AUCTION"   -> handleWatchAuction(msg.getPayload());
             case "PLACE_BID"       -> handlePlaceBid(msg.getPayload());
+            case "ADMIN_GET_PRODUCTS"        -> handleAdminGetProducts();
+            case "ADMIN_GET_USERS"           -> handleAdminGetUsers();
+            case "ADMIN_GET_AUCTIONS"        -> handleAdminGetAuctions();
+            case "ADMIN_DELETE_PRODUCT"      -> handleAdminDeleteProduct(msg.getPayload());
+            case "ADMIN_DELETE_USER"         -> handleAdminDeleteUser(msg.getPayload());
+            case "ADMIN_FORCE_CLOSE_AUCTION" -> handleAdminForceCloseAuction(msg.getPayload());
+
             default -> send(new Message("ERROR",
                     gson.toJson(Map.of("message", "Unknown type: " + msg.getType()))));
         }
@@ -255,6 +269,210 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    // ── ADMIN: GET ALL PRODUCTS ────────────────────────────────────────────
+    private void handleAdminGetProducts() {
+        if (!isAuthenticated()) return;
+        if (!"ADMIN".equals(currentUser.getRole())) {
+            send(errorMsg("Không có quyền truy cập."));
+            return;
+        }
+        // Dùng ItemListDAO để lấy toàn bộ sản phẩm
+        List<Item> items = auctionService.getActiveAuctions();
+        // Lấy tất cả (kể cả FINISHED) bằng query riêng
+        String sql = "SELECT * FROM items ORDER BY end_time DESC";
+        try (java.sql.Connection conn =
+                     com.auction.server.database.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+             java.sql.ResultSet rs = ps.executeQuery()) {
+
+            java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+            while (rs.next()) {
+                java.util.Map<String, Object> row = new java.util.HashMap<>();
+                row.put("id",            rs.getString("id"));
+                row.put("name",          rs.getString("name"));
+                row.put("type",          rs.getString("type"));
+                row.put("current_price", rs.getDouble("current_price"));
+                row.put("seller_id",     rs.getString("seller_id"));
+                row.put("status",        rs.getString("status"));
+                row.put("end_time",      rs.getString("end_time"));
+                rows.add(row);
+            }
+            send(new Message("ADMIN_PRODUCTS_RESPONSE", gson.toJson(java.util.Map.of(
+                    "success", true,
+                    "data", rows
+            ))));
+        } catch (Exception e) {
+            e.printStackTrace();
+            send(new Message("ADMIN_PRODUCTS_RESPONSE", gson.toJson(java.util.Map.of(
+                    "success", false, "message", "Lỗi tải sản phẩm: " + e.getMessage()
+            ))));
+        }
+    }
+
+    // ── ADMIN: GET ALL USERS ───────────────────────────────────────────────
+    private void handleAdminGetUsers() {
+        if (!isAuthenticated()) return;
+        if (!"ADMIN".equals(currentUser.getRole())) {
+            send(errorMsg("Không có quyền truy cập."));
+            return;
+        }
+        String sql = "SELECT id, username, email, role, balance FROM users ORDER BY role, username";
+        try (java.sql.Connection conn =
+                     com.auction.server.database.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+             java.sql.ResultSet rs = ps.executeQuery()) {
+
+            java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+            while (rs.next()) {
+                java.util.Map<String, Object> row = new java.util.HashMap<>();
+                row.put("id",       rs.getString("id"));
+                row.put("username", rs.getString("username"));
+                row.put("email",    rs.getString("email"));
+                row.put("role",     rs.getString("role"));
+                row.put("balance",  rs.getDouble("balance"));
+                rows.add(row);
+            }
+            send(new Message("ADMIN_USERS_RESPONSE", gson.toJson(java.util.Map.of(
+                    "success", true,
+                    "data", rows
+            ))));
+        } catch (Exception e) {
+            e.printStackTrace();
+            send(new Message("ADMIN_USERS_RESPONSE", gson.toJson(java.util.Map.of(
+                    "success", false, "message", "Lỗi tải users: " + e.getMessage()
+            ))));
+        }
+    }
+
+    // ── ADMIN: GET ALL AUCTIONS ────────────────────────────────────────────
+    private void handleAdminGetAuctions() {
+        if (!isAuthenticated()) return;
+        if (!"ADMIN".equals(currentUser.getRole())) {
+            send(errorMsg("Không có quyền truy cập."));
+            return;
+        }
+        String sql = "SELECT a.id, a.item_id, i.name as item_name, a.seller_id, " +
+                "a.current_price, a.status, a.end_time " +
+                "FROM auctions a LEFT JOIN items i ON a.item_id = i.id " +
+                "ORDER BY a.end_time DESC";
+        try (java.sql.Connection conn =
+                     com.auction.server.database.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+             java.sql.ResultSet rs = ps.executeQuery()) {
+
+            java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+            while (rs.next()) {
+                java.util.Map<String, Object> row = new java.util.HashMap<>();
+                row.put("id",           rs.getLong("id"));
+                row.put("itemId",       rs.getString("item_id"));
+                row.put("itemName",     rs.getString("item_name"));
+                row.put("sellerId",     rs.getString("seller_id"));
+                row.put("currentPrice", rs.getDouble("current_price"));
+                row.put("status",       rs.getString("status"));
+                row.put("endTime",      rs.getString("end_time"));
+                rows.add(row);
+            }
+            send(new Message("ADMIN_AUCTIONS_RESPONSE", gson.toJson(java.util.Map.of(
+                    "success", true,
+                    "data", rows
+            ))));
+        } catch (Exception e) {
+            e.printStackTrace();
+            send(new Message("ADMIN_AUCTIONS_RESPONSE", gson.toJson(java.util.Map.of(
+                    "success", false, "message", "Lỗi tải phiên: " + e.getMessage()
+            ))));
+        }
+    }
+
+    // ── ADMIN: DELETE PRODUCT ──────────────────────────────────────────────
+    private void handleAdminDeleteProduct(String payload) {
+        if (!isAuthenticated()) return;
+        if (!"ADMIN".equals(currentUser.getRole())) {
+            send(errorMsg("Không có quyền xóa sản phẩm."));
+            return;
+        }
+        AdminProductDto dto = gson.fromJson(payload, AdminProductDto.class);
+        boolean ok = auctionService.deleteProduct(dto.productId());
+        send(new Message("ADMIN_DELETE_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                "success", ok,
+                "message", ok ? "Đã xóa sản phẩm!" : "Xóa thất bại."
+        ))));
+    }
+
+    // ── ADMIN: DELETE USER ─────────────────────────────────────────────────
+    private void handleAdminDeleteUser(String payload) {
+        if (!isAuthenticated()) return;
+        if (!"ADMIN".equals(currentUser.getRole())) {
+            send(errorMsg("Không có quyền xóa tài khoản."));
+            return;
+        }
+        AdminUserDto dto = gson.fromJson(payload, AdminUserDto.class);
+
+        // Không cho xóa chính mình
+        if (currentUser.getId().equals(dto.userId())) {
+            send(new Message("ADMIN_DELETE_USER_RESPONSE", gson.toJson(Map.of(
+                    "success", false, "message", "Không thể xóa tài khoản đang đăng nhập."
+            ))));
+            return;
+        }
+
+        String sql = "DELETE FROM users WHERE id = ?";
+        try (java.sql.Connection conn =
+                     com.auction.server.database.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, dto.userId());
+            boolean ok = ps.executeUpdate() > 0;
+            send(new Message("ADMIN_DELETE_USER_RESPONSE", gson.toJson(Map.of(
+                    "success", ok,
+                    "message", ok ? "Đã xóa tài khoản!" : "Không tìm thấy tài khoản."
+            ))));
+        } catch (Exception e) {
+            e.printStackTrace();
+            send(new Message("ADMIN_DELETE_USER_RESPONSE", gson.toJson(Map.of(
+                    "success", false, "message", "Lỗi: " + e.getMessage()
+            ))));
+        }
+    }
+
+    // ── ADMIN: FORCE CLOSE AUCTION ────────────────────────────────────────
+    private void handleAdminForceCloseAuction(String payload) {
+        if (!isAuthenticated()) return;
+        if (!"ADMIN".equals(currentUser.getRole())) {
+            send(errorMsg("Không có quyền đóng phiên."));
+            return;
+        }
+        AdminAuctionDto dto = gson.fromJson(payload, AdminAuctionDto.class);
+        long auctionId;
+        try { auctionId = Long.parseLong(dto.auctionId()); }
+        catch (Exception e) {
+            send(new Message("ADMIN_CLOSE_AUCTION_RESPONSE", gson.toJson(Map.of(
+                    "success", false, "message", "ID phiên không hợp lệ."))));
+            return;
+        }
+
+        Map<String, Object> winner = auctionService.endAuction(auctionId);
+        boolean ok = true; // endAuction tự xử lý cả CANCELED
+        String resultMsg = winner != null
+                ? "Đã đóng phiên! Winner: " + winner.get("username")
+                + " — " + String.format("%.0f VNĐ", winner.get("finalPrice"))
+                : "Đã đóng phiên (không có bid nào, đã hủy).";
+
+        send(new Message("ADMIN_CLOSE_AUCTION_RESPONSE", gson.toJson(Map.of(
+                "success", true,
+                "message", resultMsg
+        ))));
+
+        // Broadcast AUCTION_ENDED cho client đang xem phiên
+        if (winner != null) {
+            String itemId = (winner.get("bidderId") != null) ? dto.auctionId() : "";
+            server.broadcastToAuction(dto.auctionId(),
+                    new Message("AUCTION_ENDED", gson.toJson(Map.of(
+                            "auctionId",  auctionId,
+                            "message",    resultMsg
+                    ))));
+        }
+    }
+
     // ── Helpers ────────────────────────────────────────
     public synchronized void send(Message msg) {
         if (out != null) out.println(gson.toJson(msg));
@@ -289,4 +507,7 @@ public class ClientHandler implements Runnable {
     private record DeleteDto(String productId) {}
     private record WatchDto(String auctionId) {}
     private record PlaceBidDto(String productId, double amount) {}
+    private record AdminProductDto(String productId) {}
+    private record AdminUserDto(String userId) {}
+    private record AdminAuctionDto(String auctionId) {}
 }

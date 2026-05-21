@@ -5,6 +5,7 @@ import java.util.Map;
 import com.auction.client.SceneEngine;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
+import com.auction.client.session.UserSession;
 import com.google.gson.Gson;
 
 import javafx.application.Platform;
@@ -40,6 +41,9 @@ public class ProfileController {
     private final NetworkClient client = NetworkClient.getInstance();
 
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
+
+    // Lưu role đã chọn để dùng sau khi server phản hồi thành công
+    private String pendingRole = "BIDDER";
 
     // ── Khởi tạo ─────────────────────────────────────────
     @FXML
@@ -79,6 +83,9 @@ public class ProfileController {
             showError("Mật khẩu xác nhận không khớp.");
             return;
         }
+
+        // Lưu role để dùng khi chuyển màn hình sau đăng ký thành công
+        this.pendingRole = role;
 
         String payload = gson.toJson(Map.of(
                 "fullName", fullName,
@@ -121,24 +128,51 @@ public class ProfileController {
 
             if (response.success) {
                 client.removeListener(listener);
-                showInfo("Đăng ký thành công! Đang chuyển về đăng nhập...");
 
-                // Delay nhỏ rồi chuyển về Login
-                new Thread(() -> {
-                    try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
-                    Platform.runLater(() ->
-                        SceneEngine.changeScene(
-                            btnRegister,
-                            "login-view.fxml",
-                            "The Curator — Đăng nhập"
-                        )
-                    );
-                }).start();
+                // ── PHÂN HƯỚNG THEO ROLE ──────────────────────────────────
+                if ("ADMIN".equalsIgnoreCase(pendingRole)) {
+                    showInfo("Đăng ký Admin thành công! Đang vào trang quản trị...");
+
+                    // Ghi session tạm với role ADMIN (không có userId/email đầy đủ
+                    // vì server chưa trả về — user phải đăng nhập lại để có đầy đủ)
+                    // → Chuyển về login và thông báo
+                    new Thread(() -> {
+                        try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
+                        Platform.runLater(() -> {
+                            showInfo("Tài khoản Admin đã tạo! Vui lòng đăng nhập để vào Admin Panel.");
+                            new Thread(() -> {
+                                try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+                                Platform.runLater(() ->
+                                        SceneEngine.changeScene(
+                                                btnRegister,
+                                                "login-view.fxml",
+                                                "The Curator — Đăng nhập"
+                                        )
+                                );
+                            }).start();
+                        });
+                    }).start();
+
+                } else {
+                    // BIDDER / SELLER → về trang login
+                    showInfo("Đăng ký thành công! Đang chuyển về đăng nhập...");
+
+                    new Thread(() -> {
+                        try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
+                        Platform.runLater(() ->
+                                SceneEngine.changeScene(
+                                        btnRegister,
+                                        "login-view.fxml",
+                                        "The Curator — Đăng nhập"
+                                )
+                        );
+                    }).start();
+                }
 
             } else {
-                String msg2 = response.message != null ? response.message
+                String errorMsg = response.message != null ? response.message
                         : "Đăng ký thất bại. Tên đăng nhập hoặc email đã tồn tại.";
-                showError(msg2);
+                showError(errorMsg);
             }
         });
     }

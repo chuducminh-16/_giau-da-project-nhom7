@@ -1,10 +1,15 @@
 package com.auction.client.controller;
 
 import com.auction.client.SceneEngine;
-import com.auction.client.model.Product;
+import com.auction.shared.model.Entity.Item.Product;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.UserSession;
+<<<<<<< HEAD
+=======
+import com.auction.shared.model.Entity.Item.Art;
+import com.auction.shared.model.Entity.Item.Item;
+>>>>>>> 135cb24a2b692850f065601a97f82da91a559f43
 import com.google.gson.Gson;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -164,6 +169,7 @@ public class ManageProductController implements Initializable {
                     txtName.setText(newVal.getName());
                     txtStartingPrice.setText(String.valueOf(newVal.getStartingPrice()));
                     txtBidIncrement.setText(String.valueOf(newVal.getBidIncrement()));
+<<<<<<< HEAD
                     txtDescription.setText(newVal.getDescription());
 
                     // Đổ ngày + giờ bắt đầu
@@ -179,6 +185,14 @@ public class ManageProductController implements Initializable {
 
                     // Đổ ngày + giờ kết thúc
                     if (newVal.getEndTime() != null) {
+=======
+
+                    // ✅ FIX: dùng getDescription() thay showDetails() để điền đúng mô tả
+                    String desc = newVal.getDescription();
+                    txtDescription.setText(desc != null ? desc : "");
+
+                    if (newVal.getEndTime() != null)
+>>>>>>> 135cb24a2b692850f065601a97f82da91a559f43
                         dateEnd.setValue(newVal.getEndTime().toLocalDate());
                         txtEndHour.setText(
                                 String.format("%02d", newVal.getEndTime().getHour()));
@@ -473,9 +487,15 @@ public class ManageProductController implements Initializable {
         statusLabel.setManaged(true);
     }
 
+<<<<<<< HEAD
     // ── DTOs ───────────────────────────────────────────
     private record ProductResponse(
             boolean success, String message, Product product) {}
     private record ProductListResponse(
             boolean success, java.util.List<Product> products) {}
 }
+=======
+    private record ProductResponse(boolean success, String message, Art product) {}
+    private record ProductListResponse(boolean success, List<Art> products) {}
+}
+>>>>>>> 135cb24a2b692850f065601a97f82da91a559f43
