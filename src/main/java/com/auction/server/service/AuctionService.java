@@ -111,7 +111,7 @@ public class AuctionService {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // GET PRODUCTS BY SELLER
+    // GET PRODUCTS BY SELLER — trả tất cả sp của seller (mọi status)
     // ═══════════════════════════════════════════════════════════
     public List<Item> getProductsBySeller(String sellerId) {
         List<Map<String, Object>> rows = auctionDAO.findBySeller(sellerId);
@@ -131,22 +131,29 @@ public class AuctionService {
                            LocalDateTime endTime) {
         String itemId = "I-" + UUID.randomUUID().toString().substring(0, 8);
 
-        // Art: artist = description (theo đề bài)
         Art item = new Art(itemId, name, startPrice, endTime, sellerId, description);
         item.setBidIncrement(bidIncrement);
         item.setImagePath(imagePath);
         item.setStartTime(startTime);
-        item.setStatus("PENDING");
-        // description đã được set qua constructor Art (artist = description)
+        item.setStatus("OPEN");   // FIX: PENDING → OPEN để hiện ngay trong bảng
+        item.setDescription(description);
 
         boolean itemSaved = itemSaveDAO.saveItem(item);
-        if (!itemSaved) return null;
+        if (!itemSaved) {
+            System.err.println("[AuctionService] saveItem thất bại cho: " + name);
+            return null;
+        }
 
         long auctionId = System.currentTimeMillis();
         boolean auctionSaved = auctionDAO.saveAuction(
                 auctionId, itemId, sellerId, startPrice, endTime.toString());
-        if (!auctionSaved) return null;
+        if (!auctionSaved) {
+            System.err.println("[AuctionService] saveAuction thất bại cho itemId: " + itemId);
+            return null;
+        }
 
+        System.out.printf("[AuctionService] Thêm sản phẩm OK: id=%s name=%s price=%.0f%n",
+                itemId, name, startPrice);
         return item;
     }
 
@@ -259,35 +266,41 @@ public class AuctionService {
         if (price instanceof Double d)      currentPrice = d;
         else if (price instanceof Number n) currentPrice = n.doubleValue();
 
+        double startingPrice = currentPrice;
+        Object sp = row.get("startingPrice");
+        if (sp instanceof Double d)      startingPrice = d;
+        else if (sp instanceof Number n) startingPrice = n.doubleValue();
+
         LocalDateTime endTime = null;
         if (endTimeStr != null) {
             try { endTime = LocalDateTime.parse(endTimeStr.replace(" ", "T")); }
             catch (Exception ignored) {}
         }
 
-        // Lấy description nếu có trong row
         String description = "";
         if (row.containsKey("description") && row.get("description") != null)
             description = (String) row.get("description");
 
-        // Lấy sellerName nếu có
         String sellerName = null;
         if (row.containsKey("sellerName") && row.get("sellerName") != null)
             sellerName = (String) row.get("sellerName");
 
-        // Lấy bidIncrement nếu có
         double bidIncrement = 0;
         if (row.containsKey("bidIncrement") && row.get("bidIncrement") != null) {
             Object bi = row.get("bidIncrement");
             if (bi instanceof Number n) bidIncrement = n.doubleValue();
         }
 
-        // Dùng Art làm concrete type, truyền description đúng
-        Art item = new Art(itemId, itemName, currentPrice, endTime, sellerId, description);
+        String imagePath = null;
+        if (row.containsKey("imagePath") && row.get("imagePath") != null)
+            imagePath = (String) row.get("imagePath");
+
+        Art item = new Art(itemId, itemName, startingPrice, endTime, sellerId, description);
         item.setCurrentBid(currentPrice);
         item.setStatus(status != null ? status : "OPEN");
         item.setBidIncrement(bidIncrement);
         if (sellerName != null) item.setSellerName(sellerName);
+        if (imagePath != null && !imagePath.isBlank()) item.setImagePath(imagePath);
 
         return item;
     }

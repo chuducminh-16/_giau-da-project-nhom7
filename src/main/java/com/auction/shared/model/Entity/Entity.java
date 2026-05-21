@@ -1,15 +1,22 @@
 package com.auction.shared.model.Entity;
 
+import com.google.gson.annotations.SerializedName;
+
 public abstract class Entity {
-    protected String id;    // bỏ final → Gson có thể set
+
+    // Dùng @SerializedName để Gson không cần dùng reflection trực tiếp vào field
+    @SerializedName("id")
+    protected String id;
+
+    @SerializedName("name")
     protected String name;
 
     public Entity(String id, String name) {
-        this.id = id;
+        this.id   = id;
         this.name = name;
     }
 
-    // Constructor rỗng cho Gson
+    // Constructor rỗng cho Gson — BẮT BUỘC
     public Entity() {}
 
     public String getId()   { return id; }

@@ -4,6 +4,7 @@ import java.io.File;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
@@ -13,8 +14,15 @@ import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.UserSession;
 import com.auction.shared.model.Entity.Item.Art;
+import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
+import com.auction.shared.model.Entity.Item.Vehicle;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -22,7 +30,15 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -38,21 +54,49 @@ public class ManageProductController implements Initializable {
     @FXML private DatePicker dateEnd;
     @FXML private ImageView  imgPreview;
 
-    @FXML private TableView<Item>              tableProducts;
-    @FXML private TableColumn<Item, String>    colName;
-    @FXML private TableColumn<Item, Double>    colPrice;
+    @FXML private TableView<Item>                  tableProducts;
+    @FXML private TableColumn<Item, String>        colName;
+    @FXML private TableColumn<Item, Double>        colPrice;
     @FXML private TableColumn<Item, LocalDateTime> colTime;
-    @FXML private TableColumn<Item, String>    colStatus;
-    @FXML private TableColumn<Item, Double>    colCurrentBid;
+    @FXML private TableColumn<Item, String>        colStatus;
+    @FXML private TableColumn<Item, Double>        colCurrentBid;
     @FXML private Label statusLabel;
 
     private final ObservableList<Item> productData = FXCollections.observableArrayList();
     private String currentImagePath = "";
 
-    private final Gson          gson   = new Gson();
+    private final Gson          gson   = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
-
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
+
+    // ── Custom Gson: handle abstract Item + inaccessible fields ──────────
+    private static Gson buildGson() {
+        return new GsonBuilder()
+                .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
+                    JsonObject obj = json.getAsJsonObject();
+                    return deserializeItem(obj);
+                })
+                .create();
+    }
+
+    private static Item deserializeItem(JsonObject obj) {
+        try {
+            String type = "ART";
+            if (obj.has("type") && !obj.get("type").isJsonNull())
+                type = obj.get("type").getAsString().toUpperCase();
+
+            // Dùng Gson đơn giản (không register lại) để tránh đệ quy
+            Gson plain = new Gson();
+            return switch (type) {
+                case "ELECTRONICS" -> plain.fromJson(obj, Electronics.class);
+                case "VEHICLE"     -> plain.fromJson(obj, Vehicle.class);
+                default            -> plain.fromJson(obj, Art.class);
+            };
+        } catch (Exception e) {
+            System.err.println("[ManageProduct] deserializeItem lỗi: " + e.getMessage());
+            return null;
+        }
+    }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -104,7 +148,6 @@ public class ManageProductController implements Initializable {
                     txtStartingPrice.setText(String.valueOf(newVal.getStartingPrice()));
                     txtBidIncrement.setText(String.valueOf(newVal.getBidIncrement()));
 
-                    // ✅ FIX: dùng getDescription() thay showDetails() để điền đúng mô tả
                     String desc = newVal.getDescription();
                     txtDescription.setText(desc != null ? desc : "");
 
@@ -195,40 +238,76 @@ public class ManageProductController implements Initializable {
             switch (msg.getType()) {
 
                 case "MY_PRODUCTS_RESPONSE" -> {
-                    ProductListResponse resp = gson.fromJson(msg.getPayload(), ProductListResponse.class);
-                    if (resp.products != null) productData.setAll(resp.products);
+                    try {
+                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                        if (!root.has("products") || !root.get("products").isJsonArray()) return;
+
+                        JsonArray arr = root.getAsJsonArray("products");
+                        List<Item> items = new ArrayList<>();
+                        for (JsonElement el : arr) {
+                            Item item = deserializeItem(el.getAsJsonObject());
+                            if (item != null) items.add(item);
+                        }
+                        productData.setAll(items);
+                    } catch (Exception e) {
+                        System.err.println("[ManageProduct] parse MY_PRODUCTS_RESPONSE lỗi: " + e.getMessage());
+                        e.printStackTrace();
+                    }
                 }
 
                 case "ADD_PRODUCT_RESPONSE" -> {
-                    ProductResponse resp = gson.fromJson(msg.getPayload(), ProductResponse.class);
-                    if (resp.success) {
-                        if (resp.product != null) productData.add(0, resp.product);
-                        clearForm();
-                        showStatus("✓ Thêm sản phẩm thành công!", false);
-                    } else {
-                        showStatus("⚠ " + resp.message, true);
+                    try {
+                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                        boolean success = root.has("success") && root.get("success").getAsBoolean();
+                        if (success) {
+                            if (root.has("product") && !root.get("product").isJsonNull()) {
+                                Item item = deserializeItem(root.getAsJsonObject("product"));
+                                if (item != null) productData.add(0, item);
+                            }
+                            clearForm();
+                            showStatus("✓ Thêm sản phẩm thành công!", false);
+                            // Reload để chắc chắn hiển thị đúng
+                            loadMyProducts();
+                        } else {
+                            String msg2 = root.has("message") ? root.get("message").getAsString() : "Lỗi không xác định";
+                            showStatus("⚠ " + msg2, true);
+                        }
+                    } catch (Exception e) {
+                        showStatus("⚠ Lỗi parse response: " + e.getMessage(), true);
                     }
                 }
 
                 case "UPDATE_PRODUCT_RESPONSE" -> {
-                    ProductResponse resp = gson.fromJson(msg.getPayload(), ProductResponse.class);
-                    if (resp.success) {
-                        loadMyProducts();
-                        showStatus("✓ Cập nhật thành công!", false);
-                    } else {
-                        showStatus("⚠ " + resp.message, true);
+                    try {
+                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                        boolean success = root.has("success") && root.get("success").getAsBoolean();
+                        if (success) {
+                            loadMyProducts();
+                            showStatus("✓ Cập nhật thành công!", false);
+                        } else {
+                            String msg2 = root.has("message") ? root.get("message").getAsString() : "Cập nhật thất bại";
+                            showStatus("⚠ " + msg2, true);
+                        }
+                    } catch (Exception e) {
+                        showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
 
                 case "DELETE_PRODUCT_RESPONSE" -> {
-                    ProductResponse resp = gson.fromJson(msg.getPayload(), ProductResponse.class);
-                    if (resp.success) {
-                        Item selected = tableProducts.getSelectionModel().getSelectedItem();
-                        if (selected != null) productData.remove(selected);
-                        clearForm();
-                        showStatus("✓ Đã xoá sản phẩm!", false);
-                    } else {
-                        showStatus("⚠ " + resp.message, true);
+                    try {
+                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                        boolean success = root.has("success") && root.get("success").getAsBoolean();
+                        if (success) {
+                            Item selected = tableProducts.getSelectionModel().getSelectedItem();
+                            if (selected != null) productData.remove(selected);
+                            clearForm();
+                            showStatus("✓ Đã xoá sản phẩm!", false);
+                        } else {
+                            String msg2 = root.has("message") ? root.get("message").getAsString() : "Xoá thất bại";
+                            showStatus("⚠ " + msg2, true);
+                        }
+                    } catch (Exception e) {
+                        showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
             }
@@ -277,7 +356,4 @@ public class ManageProductController implements Initializable {
         statusLabel.setVisible(true);
         statusLabel.setManaged(true);
     }
-
-    private record ProductResponse(boolean success, String message, Art product) {}
-    private record ProductListResponse(boolean success, List<Art> products) {}
 }
