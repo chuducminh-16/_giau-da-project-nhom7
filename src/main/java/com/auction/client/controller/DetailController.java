@@ -71,8 +71,10 @@ public class DetailController implements Initializable {
         setText(lblOrigin,        item.getSellerId() != null ? item.getSellerId() : "—");
         setText(lblSeller,        item.getSellerName() != null ? item.getSellerName() : "—");
         setText(lblEndTime,       item.getEndTime() != null ? item.getEndTime().format(fmt) : "—");
-        // lblDescription dùng showDetails() làm mô tả
-        setText(lblDescription,   item.showDetails());
+
+        // ✅ FIX: dùng getDescription() thay vì showDetails() cho mô tả
+        String desc = item.getDescription();
+        setText(lblDescription, desc != null && !desc.isBlank() ? desc : item.showDetails());
 
         loadImage(item.getImagePath());
     }

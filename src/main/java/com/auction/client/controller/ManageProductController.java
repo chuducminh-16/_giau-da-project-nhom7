@@ -12,6 +12,7 @@ import com.auction.client.SceneEngine;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.UserSession;
+import com.auction.shared.model.Entity.Item.Art;
 import com.auction.shared.model.Entity.Item.Item;
 import com.google.gson.Gson;
 
@@ -102,8 +103,11 @@ public class ManageProductController implements Initializable {
                     txtName.setText(newVal.getName());
                     txtStartingPrice.setText(String.valueOf(newVal.getStartingPrice()));
                     txtBidIncrement.setText(String.valueOf(newVal.getBidIncrement()));
-                    // showDetails() dùng làm mô tả
-                    txtDescription.setText(newVal.showDetails());
+
+                    // ✅ FIX: dùng getDescription() thay showDetails() để điền đúng mô tả
+                    String desc = newVal.getDescription();
+                    txtDescription.setText(desc != null ? desc : "");
+
                     if (newVal.getEndTime() != null)
                         dateEnd.setValue(newVal.getEndTime().toLocalDate());
                 });
@@ -274,9 +278,6 @@ public class ManageProductController implements Initializable {
         statusLabel.setManaged(true);
     }
 
-    // Gson cần class cụ thể để deserialize — dùng Art làm impl
-    private record ProductResponse(boolean success, String message,
-                                   com.auction.shared.model.Entity.Item.Art product) {}
-    private record ProductListResponse(boolean success,
-                                       List<com.auction.shared.model.Entity.Item.Art> products) {}
+    private record ProductResponse(boolean success, String message, Art product) {}
+    private record ProductListResponse(boolean success, List<Art> products) {}
 }

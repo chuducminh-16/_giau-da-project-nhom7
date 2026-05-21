@@ -1,7 +1,7 @@
 package com.auction.shared.model.Entity;
 
 public abstract class Entity {
-    protected final String id;
+    protected String id;    // bỏ final → Gson có thể set
     protected String name;
 
     public Entity(String id, String name) {
@@ -9,15 +9,12 @@ public abstract class Entity {
         this.name = name;
     }
 
-    public String getId() {
-        return id;
-    }
+    // Constructor rỗng cho Gson
+    public Entity() {}
 
-    public String getName() {
-        return name;
-    }
+    public String getId()   { return id; }
+    public String getName() { return name; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public void setId(String id)     { this.id = id; }
+    public void setName(String name) { this.name = name; }
 }
