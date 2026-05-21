@@ -29,7 +29,7 @@ import java.util.ResourceBundle;
  *   - panelUsers     : quản lí tài khoản
  *   - panelAuctions  : quản lí phiên đấu giá
  */
-public class AdminDashboardController implements Initializable {
+public class AdminController implements Initializable {
 
     // ── FXML: Sidebar ────────────────────────────────────────────────────
     @FXML private Button btnSideProducts;
