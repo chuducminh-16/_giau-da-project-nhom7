@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *  2. Logic validate bid (giá thấp hơn / phiên đã đóng) qua mock inline
  *  3. Concurrency: nhiều thread đặt giá cùng lúc → chỉ 1 winner (race condition test)
  *
- * Phần concurrency sử dụng một BidValidator giả lập đúng logic của AuctionService.placeBid().
+ * BidOutcome có 4 trường: result, newBid, message, newEndTime (anti-sniping).
  */
 @DisplayName("AuctionService Logic Tests")
 public class AuctionServiceTest {
@@ -51,18 +51,27 @@ public class AuctionServiceTest {
     // ─────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("BidOutcome: getter trả đúng result, newBid, message")
+    @DisplayName("BidOutcome: getter trả đúng result, newBid, message, newEndTime=null")
     void bidOutcome_getters_correct() {
-        BidOutcome outcome = new BidOutcome(BidResult.SUCCESS, 5000.0, "Đặt giá thành công!");
+        BidOutcome outcome = new BidOutcome(BidResult.SUCCESS, 5000.0, "Đặt giá thành công!", null);
         assertEquals(BidResult.SUCCESS, outcome.result());
         assertEquals(5000.0,            outcome.newBid(), 0.001);
         assertEquals("Đặt giá thành công!", outcome.message());
+        assertNull(outcome.newEndTime()); // không gia hạn → null
+    }
+
+    @Test
+    @DisplayName("BidOutcome với newEndTime != null (anti-sniping đã gia hạn)")
+    void bidOutcome_withNewEndTime_notNull() {
+        String extendedTime = LocalDateTime.now().plusSeconds(60).toString();
+        BidOutcome outcome = new BidOutcome(BidResult.SUCCESS, 5000.0, "Đặt giá thành công!", extendedTime);
+        assertNotNull(outcome.newEndTime());
     }
 
     @Test
     @DisplayName("BidOutcome PRICE_TOO_LOW: result đúng")
     void bidOutcome_priceTooLow_resultCorrect() {
-        BidOutcome outcome = new BidOutcome(BidResult.PRICE_TOO_LOW, 3000.0, "Giá quá thấp");
+        BidOutcome outcome = new BidOutcome(BidResult.PRICE_TOO_LOW, 3000.0, "Giá quá thấp", null);
         assertEquals(BidResult.PRICE_TOO_LOW, outcome.result());
         assertEquals(3000.0, outcome.newBid(), 0.001);
     }
@@ -70,7 +79,7 @@ public class AuctionServiceTest {
     @Test
     @DisplayName("BidOutcome AUCTION_ENDED: result đúng")
     void bidOutcome_auctionEnded_resultCorrect() {
-        BidOutcome outcome = new BidOutcome(BidResult.AUCTION_ENDED, 0, "Phiên đã kết thúc");
+        BidOutcome outcome = new BidOutcome(BidResult.AUCTION_ENDED, 0, "Phiên đã kết thúc", null);
         assertEquals(BidResult.AUCTION_ENDED, outcome.result());
     }
 
@@ -80,29 +89,29 @@ public class AuctionServiceTest {
 
     /**
      * Giả lập logic validate bid của AuctionService.placeBid() không có DB.
-     * Dùng để test các điều kiện biên mà không cần inject DB thật.
+     * newEndTime luôn null ở đây vì mock không tính anti-sniping.
      */
     static BidOutcome validateBid(Map<String, Object> auction, double amount) {
         if (auction == null)
-            return new BidOutcome(BidResult.AUCTION_NOT_FOUND, 0, "Không tìm thấy phiên.");
+            return new BidOutcome(BidResult.AUCTION_NOT_FOUND, 0, "Không tìm thấy phiên.", null);
 
         String status = (String) auction.get("status");
         if (!"OPEN".equals(status) && !"RUNNING".equals(status))
-            return new BidOutcome(BidResult.AUCTION_ENDED, 0, "Phiên đã kết thúc.");
+            return new BidOutcome(BidResult.AUCTION_ENDED, 0, "Phiên đã kết thúc.", null);
 
         String endTimeStr = (String) auction.get("endTime");
         if (endTimeStr != null) {
             LocalDateTime endTime = LocalDateTime.parse(endTimeStr);
             if (LocalDateTime.now().isAfter(endTime))
-                return new BidOutcome(BidResult.AUCTION_ENDED, 0, "Phiên đã hết giờ.");
+                return new BidOutcome(BidResult.AUCTION_ENDED, 0, "Phiên đã hết giờ.", null);
         }
 
         double currentPrice = (double) auction.get("currentPrice");
         if (amount <= currentPrice)
             return new BidOutcome(BidResult.PRICE_TOO_LOW, currentPrice,
-                    String.format("Giá phải cao hơn %.0f VND.", currentPrice));
+                    String.format("Giá phải cao hơn %.0f VND.", currentPrice), null);
 
-        return new BidOutcome(BidResult.SUCCESS, amount, "Đặt giá thành công!");
+        return new BidOutcome(BidResult.SUCCESS, amount, "Đặt giá thành công!", null);
     }
 
     @Test
@@ -112,6 +121,7 @@ public class AuctionServiceTest {
         BidOutcome result = validateBid(auction, 2000.0);
         assertEquals(BidResult.SUCCESS, result.result());
         assertEquals(2000.0, result.newBid(), 0.001);
+        assertNull(result.newEndTime()); // mock không có anti-sniping
     }
 
     @Test
@@ -155,12 +165,63 @@ public class AuctionServiceTest {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // ANTI-SNIPING LOGIC (mock, không cần DB)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Giả lập logic anti-sniping: nếu bid trong 60 giây cuối → gia hạn thêm 60 giây.
+     */
+    static BidOutcome validateBidWithAntiSniping(Map<String, Object> auction, double amount) {
+        BidOutcome base = validateBid(auction, amount);
+        if (base.result() != BidResult.SUCCESS) return base;
+
+        String endTimeStr = (String) auction.get("endTime");
+        if (endTimeStr == null) return base;
+
+        LocalDateTime endTime = LocalDateTime.parse(endTimeStr);
+        long secondsLeft = java.time.Duration.between(LocalDateTime.now(), endTime).getSeconds();
+
+        String newEndTime = null;
+        if (secondsLeft <= 60) {
+            newEndTime = endTime.plusSeconds(60).toString();
+        }
+        return new BidOutcome(BidResult.SUCCESS, amount, "Đặt giá thành công!", newEndTime);
+    }
+
+    @Test
+    @DisplayName("Anti-sniping: bid trong 60 giây cuối → newEndTime != null (gia hạn)")
+    void antiSniping_bidInLastMinute_extendsEndTime() {
+        // endTime = 30 giây nữa (trong cửa sổ 60 giây)
+        Map<String, Object> auction = new HashMap<>();
+        auction.put("status", "RUNNING");
+        auction.put("currentPrice", 1000.0);
+        auction.put("endTime", LocalDateTime.now().plusSeconds(30).toString());
+
+        BidOutcome result = validateBidWithAntiSniping(auction, 2000.0);
+        assertEquals(BidResult.SUCCESS, result.result());
+        assertNotNull(result.newEndTime(), "Phải gia hạn khi bid trong 60s cuối");
+    }
+
+    @Test
+    @DisplayName("Anti-sniping: bid trước cửa sổ snipe → newEndTime == null (không gia hạn)")
+    void antiSniping_bidBeforeSnipeWindow_noExtension() {
+        // endTime = 120 giây nữa (ngoài cửa sổ 60 giây)
+        Map<String, Object> auction = new HashMap<>();
+        auction.put("status", "RUNNING");
+        auction.put("currentPrice", 1000.0);
+        auction.put("endTime", LocalDateTime.now().plusSeconds(120).toString());
+
+        BidOutcome result = validateBidWithAntiSniping(auction, 2000.0);
+        assertEquals(BidResult.SUCCESS, result.result());
+        assertNull(result.newEndTime(), "Không gia hạn khi còn nhiều thời gian");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // CONCURRENCY: nhiều thread đặt giá → không có race condition
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Mô phỏng AuctionService.placeBid() thread-safe với ReentrantLock.
-     * Dùng để kiểm tra không có lost update khi nhiều thread đặt giá.
      */
     static class SafeBidProcessor {
         private double currentPrice;
@@ -196,7 +257,6 @@ public class AuctionServiceTest {
         ExecutorService pool = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(threadCount);
 
-        // Mỗi thread đặt giá bằng index × 100 (1100, 1200, ..., 6000)
         for (int i = 1; i <= threadCount; i++) {
             final double bid = 1000.0 + i * 100.0;
             pool.submit(() -> {
@@ -208,11 +268,9 @@ public class AuctionServiceTest {
         latch.await(5, TimeUnit.SECONDS);
         pool.shutdown();
 
-        // Giá cuối phải là giá cao nhất đã được đặt
         double finalPrice = processor.getCurrentPrice();
         assertTrue(finalPrice >= 1100.0, "Giá cuối phải >= giá bid đầu tiên");
 
-        // Không có bid nào được chấp nhận với giá thấp hơn giá trước đó
         List<Double> accepted = processor.getAcceptedBids();
         for (int i = 1; i < accepted.size(); i++) {
             assertTrue(accepted.get(i) > accepted.get(i - 1),
@@ -221,14 +279,13 @@ public class AuctionServiceTest {
     }
 
     @Test
-    @DisplayName("Concurrent Bidding: chỉ 1 trong 2 bid cùng giá được chấp nhận")
+    @DisplayName("Concurrent Bidding: chỉ 1 trong nhiều thread cùng giá được chấp nhận")
     void concurrentBidding_samePriceOnlyOneAccepted() throws InterruptedException {
         SafeBidProcessor processor = new SafeBidProcessor(1000.0);
         int threadCount = 20;
         ExecutorService pool = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(threadCount);
 
-        // Tất cả đặt cùng 1 giá 1500
         for (int i = 0; i < threadCount; i++) {
             pool.submit(() -> {
                 processor.bid(1500.0);
@@ -239,7 +296,6 @@ public class AuctionServiceTest {
         latch.await(5, TimeUnit.SECONDS);
         pool.shutdown();
 
-        // Chỉ đúng 1 lần được chấp nhận
         assertEquals(1, processor.getAcceptedBids().size(),
                 "Khi nhiều thread cùng đặt giá 1500, chỉ 1 được chấp nhận");
     }
@@ -248,7 +304,6 @@ public class AuctionServiceTest {
     // Helper
     // ─────────────────────────────────────────────────────────────────────────
 
-    /** Tạo mock auction map để dùng trong test. offset: "+1d", "-1h", v.v. */
     private Map<String, Object> mockAuction(String status, double currentPrice, String timeOffset) {
         Map<String, Object> a = new HashMap<>();
         a.put("status", status);
@@ -256,11 +311,10 @@ public class AuctionServiceTest {
 
         LocalDateTime endTime;
         if (timeOffset.startsWith("+")) {
-            int days = timeOffset.contains("d") ? Integer.parseInt(timeOffset.replaceAll("[^0-9]", "")) : 0;
-            int hours = timeOffset.contains("h") ? Integer.parseInt(timeOffset.replaceAll("[^0-9]", "")) : 0;
+            int val = Integer.parseInt(timeOffset.replaceAll("[^0-9]", ""));
             endTime = timeOffset.contains("d")
-                    ? LocalDateTime.now().plusDays(days)
-                    : LocalDateTime.now().plusHours(hours);
+                    ? LocalDateTime.now().plusDays(val)
+                    : LocalDateTime.now().plusHours(val);
         } else {
             int val = Integer.parseInt(timeOffset.replaceAll("[^0-9]", ""));
             endTime = timeOffset.contains("d")
