@@ -1,8 +1,8 @@
 package com.auction.server.controller;
 
-import com.auction.model.Entity.User.User;
+import com.auction.shared.model.Entity.User.User;
 import com.auction.server.service.UserService;
-import com.auction.shared.network.Message;
+import com.auction.client.network.Message;
 import com.google.gson.Gson;
 
 import java.util.Map;

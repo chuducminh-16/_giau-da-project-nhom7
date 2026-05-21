@@ -1,5 +1,4 @@
 module com.auction.client {
-
     requires javafx.controls;
     requires javafx.fxml;
     requires javafx.graphics;
@@ -18,7 +17,4 @@ module com.auction.client {
     opens com.auction.shared.model.Entity.Auction_Bid to com.google.gson;
 
     exports com.auction.client;
-    exports com.auction.shared.network;
-    exports com.auction.client.session;
-    exports com.auction.server.controller;
 }
