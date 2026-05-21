@@ -11,9 +11,10 @@ public class Electronics extends Item {
                        int warrantyPeriod) {
         super(id, name, startingPrice, endTime, sellerId);
         this.warrantyPeriod = warrantyPeriod;
+        setDescription("Bảo hành: " + warrantyPeriod + " tháng");
     }
 
-    /** Overload nhận String endTime — tự parse để tương thích code cũ. */
+    /** Overload nhận String endTime. */
     public Electronics(String id, String name, double startingPrice,
                        String endTime, String sellerId,
                        int warrantyPeriod) {
@@ -21,9 +22,17 @@ public class Electronics extends Item {
                 endTime != null ? LocalDateTime.parse(endTime) : null,
                 sellerId);
         this.warrantyPeriod = warrantyPeriod;
+        setDescription("Bảo hành: " + warrantyPeriod + " tháng");
     }
 
+    // Constructor rỗng cho Gson
+    public Electronics() { super(); }
+
     public int getWarrantyPeriod() { return warrantyPeriod; }
+    public void setWarrantyPeriod(int warrantyPeriod) {
+        this.warrantyPeriod = warrantyPeriod;
+        setDescription("Bảo hành: " + warrantyPeriod + " tháng");
+    }
 
     @Override
     public String getType() { return "ELECTRONICS"; }

@@ -146,7 +146,13 @@ public class HomeController implements Initializable {
         if (heroName   != null) heroName.setText(item.getName());
         if (heroBid    != null) heroBid.setText(String.format("%,.0f VNĐ", item.getCurrentBid()));
         if (heroStatus != null) heroStatus.setText("Lot • " + item.getStatus());
-        if (heroDesc   != null) heroDesc.setText(item.getSellerName() != null ? item.getSellerName() : "");
+
+        // ✅ FIX: dùng getDescription() thay getSellerName() làm mô tả hero card
+        if (heroDesc != null) {
+            String desc = item.getDescription();
+            heroDesc.setText(desc != null && !desc.isBlank() ? desc :
+                    (item.getSellerName() != null ? item.getSellerName() : ""));
+        }
     }
 
     private void openDetail(Item item, ActionEvent event) {

@@ -15,12 +15,13 @@ public abstract class Item extends Entity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    // ── Fields gốc ───────────────────────────────────────────────────────
-    private final double        startingPrice;
-    private final LocalDateTime endTime;
-    private final String        sellerId;
+    // ── Fields gốc ── bỏ final để Gson deserialize được ──────────────────
+    private double        startingPrice;
+    private LocalDateTime endTime;
+    private String        sellerId;
 
-    // ── Fields bổ sung (trước ở Product, nay chuyển vào Item) ────────────
+    // ── Fields bổ sung ────────────────────────────────────────────────────
+    private String        description;     // mô tả chung (artist với Art, spec với Electronics...)
     private String        sellerName;      // tên người bán (hiển thị UI)
     private double        currentBid;      // giá đặt cao nhất hiện tại
     private double        bidIncrement;    // bước giá tối thiểu
@@ -28,7 +29,7 @@ public abstract class Item extends Entity implements Serializable {
     private String        status;          // PENDING | OPEN | RUNNING | FINISHED | CANCELED | PAID
     private LocalDateTime startTime;       // thời gian bắt đầu phiên
 
-    // ── Constructor đầy đủ ───────────────────────────────────────────────
+    // ── Constructor đầy đủ ────────────────────────────────────────────────
     public Item(String id, String name, double startingPrice,
                 LocalDateTime endTime, String sellerId) {
         super(id, name);
@@ -39,16 +40,28 @@ public abstract class Item extends Entity implements Serializable {
         this.status        = "OPEN";
     }
 
-    // ── Abstract methods — subclass phải override ────────────────────────
+    // Constructor rỗng cho Gson
+    public Item() { super(); }
+
+    // ── Abstract methods ──────────────────────────────────────────────────
     public abstract String getType();
     public abstract String showDetails();
 
-    // ── Getters gốc ─────────────────────────────────────────────────────
+    // ── Getters gốc ───────────────────────────────────────────────────────
     public double        getStartingPrice() { return startingPrice; }
     public LocalDateTime getEndTime()       { return endTime; }
     public String        getSellerId()      { return sellerId; }
 
-    // ── Getters/Setters bổ sung ──────────────────────────────────────────
+    // ── Setters gốc (cần cho Gson) ────────────────────────────────────────
+    public void setStartingPrice(double startingPrice) { this.startingPrice = startingPrice; }
+    public void setEndTime(LocalDateTime endTime)      { this.endTime = endTime; }
+    public void setSellerId(String sellerId)           { this.sellerId = sellerId; }
+
+    // ── description (mô tả chung) ─────────────────────────────────────────
+    public String getDescription()                  { return description; }
+    public void   setDescription(String description){ this.description = description; }
+
+    // ── Getters/Setters bổ sung ───────────────────────────────────────────
     public String getSellerName()                  { return sellerName; }
     public void   setSellerName(String sellerName) { this.sellerName = sellerName; }
 
@@ -71,7 +84,7 @@ public abstract class Item extends Entity implements Serializable {
     public LocalDateTime getStartTime()                   { return startTime; }
     public void          setStartTime(LocalDateTime time) { this.startTime = time; }
 
-    // ── Helper methods (trước ở Product) ────────────────────────────────
+    // ── Helper methods ────────────────────────────────────────────────────
 
     /**
      * Format thời gian kết thúc → "dd/MM/yyyy HH:mm" dùng cho TableView.
@@ -82,7 +95,7 @@ public abstract class Item extends Entity implements Serializable {
     }
 
     /**
-     * Format giá hiện tại dạng VNĐ dùng cho TableView.
+     * Format giá hiện tại dạng VND dùng cho TableView.
      */
     public String getFormattedPrice() {
         return String.format("%,.0f VNĐ", getCurrentBid());
@@ -90,7 +103,6 @@ public abstract class Item extends Entity implements Serializable {
 
     /**
      * Số giây còn lại đến khi phiên kết thúc.
-     * Dùng cho đồng hồ đếm ngược ở LiveBiddingController.
      */
     public long getSecondsRemaining() {
         if (endTime == null) return 0;
