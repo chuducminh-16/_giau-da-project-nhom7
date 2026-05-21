@@ -5,18 +5,15 @@ import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.UserSession;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyEvent;
-import javafx.scene.layout.ScrollPane;
+import javafx.scene.control.ScrollPane;
 
 import java.net.URL;
 import java.util.List;
@@ -33,8 +30,12 @@ import java.util.ResourceBundle;
  *   - panelAuctions  : quản lí phiên đấu giá
  *
  * Giao tiếp server qua message types:
- *   ADMIN_GET_PRODUCTS, ADMIN_GET_USERS, ADMIN_GET_AUCTIONS,
- *   ADMIN_DELETE_PRODUCT, ADMIN_DELETE_USER, ADMIN_FORCE_CLOSE_AUCTION
+ *   ADMIN_GET_PRODUCTS  → ADMIN_PRODUCTS_RESPONSE  (data: List<Map>)
+ *   ADMIN_GET_USERS     → ADMIN_USERS_RESPONSE     (data: List<Map>)
+ *   ADMIN_GET_AUCTIONS  → ADMIN_AUCTIONS_RESPONSE  (data: List<Map>)
+ *   ADMIN_DELETE_PRODUCT        → ADMIN_DELETE_PRODUCT_RESPONSE
+ *   ADMIN_DELETE_USER           → ADMIN_DELETE_USER_RESPONSE
+ *   ADMIN_FORCE_CLOSE_AUCTION   → ADMIN_CLOSE_AUCTION_RESPONSE
  */
 public class AdminController implements Initializable {
 
@@ -56,7 +57,7 @@ public class AdminController implements Initializable {
     @FXML private ScrollPane panelAuctions;
 
     // ── FXML: Panel Sản phẩm ────────────────────────────────────────────
-    @FXML private TableView<Map<String, Object>>          tableProducts;
+    @FXML private TableView<Map<String, Object>>           tableProducts;
     @FXML private TableColumn<Map<String, Object>, String> colProdId;
     @FXML private TableColumn<Map<String, Object>, String> colProdName;
     @FXML private TableColumn<Map<String, Object>, String> colProdType;
@@ -72,7 +73,7 @@ public class AdminController implements Initializable {
     @FXML private Label     lblProductStatus;
 
     // ── FXML: Panel Người dùng ───────────────────────────────────────────
-    @FXML private TableView<Map<String, Object>>          tableUsers;
+    @FXML private TableView<Map<String, Object>>           tableUsers;
     @FXML private TableColumn<Map<String, Object>, String> colUserId;
     @FXML private TableColumn<Map<String, Object>, String> colUsername;
     @FXML private TableColumn<Map<String, Object>, String> colUserEmail;
@@ -86,7 +87,7 @@ public class AdminController implements Initializable {
     @FXML private Label     lblUserStatus;
 
     // ── FXML: Panel Phiên đấu giá ────────────────────────────────────────
-    @FXML private TableView<Map<String, Object>>          tableAuctions;
+    @FXML private TableView<Map<String, Object>>           tableAuctions;
     @FXML private TableColumn<Map<String, Object>, String> colAuctionId;
     @FXML private TableColumn<Map<String, Object>, String> colAuctionItem;
     @FXML private TableColumn<Map<String, Object>, String> colAuctionSeller;
@@ -107,9 +108,9 @@ public class AdminController implements Initializable {
     @FXML private Button btnFilterFinished;
 
     // ── Data ─────────────────────────────────────────────────────────────
-    private final ObservableList<Map<String, Object>> allProducts  = FXCollections.observableArrayList();
-    private final ObservableList<Map<String, Object>> allUsers     = FXCollections.observableArrayList();
-    private final ObservableList<Map<String, Object>> allAuctions  = FXCollections.observableArrayList();
+    private final ObservableList<Map<String, Object>> allProducts      = FXCollections.observableArrayList();
+    private final ObservableList<Map<String, Object>> allUsers         = FXCollections.observableArrayList();
+    private final ObservableList<Map<String, Object>> allAuctions      = FXCollections.observableArrayList();
     private final ObservableList<Map<String, Object>> filteredAuctions = FXCollections.observableArrayList();
 
     private final Gson          gson   = new Gson();
@@ -121,7 +122,6 @@ public class AdminController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Hiển thị tên admin đang đăng nhập
         String username = UserSession.getInstance().getUsername();
         if (lblAdminName != null && username != null) {
             lblAdminName.setText("👤 " + username);
@@ -133,15 +133,14 @@ public class AdminController implements Initializable {
         setupUserTable();
         setupAuctionTable();
 
-        // Load tất cả dữ liệu ngay khi vào
         loadAllData();
-
         setStatus("Đang tải dữ liệu...");
     }
 
     // ── SETUP TABLES ─────────────────────────────────────────────────────
 
     private void setupProductTable() {
+        // Server trả key: "id", "name", "type", "current_price", "seller_id", "status", "end_time"
         colProdId.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
                 safeStr(d.getValue().get("id"))));
         colProdName.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
@@ -160,7 +159,6 @@ public class AdminController implements Initializable {
         colProdEndTime.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
                 formatDateTime(safeStr(d.getValue().get("end_time")))));
 
-        // Status column với màu sắc
         colProdStatus.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -171,7 +169,6 @@ public class AdminController implements Initializable {
             }
         });
 
-        // Action column: nút Xóa
         colProdAction.setCellFactory(col -> new TableCell<>() {
             private final Button btnDelete = new Button("🗑 Xóa");
             {
@@ -194,6 +191,7 @@ public class AdminController implements Initializable {
     }
 
     private void setupUserTable() {
+        // Server trả key: "id", "username", "email", "role", "balance"
         colUserId.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
                 safeStr(d.getValue().get("id"))));
         colUsername.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
@@ -208,7 +206,6 @@ public class AdminController implements Initializable {
                     String.format("%,.0f VNĐ", bal));
         });
 
-        // Role column với màu
         colUserRole.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -223,7 +220,6 @@ public class AdminController implements Initializable {
             }
         });
 
-        // Action column: nút Xóa (không xóa chính mình)
         colUserAction.setCellFactory(col -> new TableCell<>() {
             private final Button btnDelete = new Button("🗑 Xóa");
             {
@@ -239,7 +235,6 @@ public class AdminController implements Initializable {
             protected void updateItem(Void v, boolean empty) {
                 super.updateItem(v, empty);
                 if (empty) { setGraphic(null); return; }
-                // Không cho xóa chính mình
                 Map<String, Object> row = getTableView().getItems().get(getIndex());
                 String rowId = safeStr(row.get("id"));
                 String myId  = UserSession.getInstance().getUserId();
@@ -252,6 +247,8 @@ public class AdminController implements Initializable {
     }
 
     private void setupAuctionTable() {
+        // Server trả key: "id"(Long), "itemId", "itemName", "sellerId",
+        //                 "currentPrice", "status", "endTime"
         colAuctionId.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
                 safeStr(d.getValue().get("id"))));
         colAuctionItem.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
@@ -268,7 +265,6 @@ public class AdminController implements Initializable {
         colAuctionEnd.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
                 formatDateTime(safeStr(d.getValue().get("endTime")))));
 
-        // Status column với màu
         colAuctionStatus.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -279,7 +275,8 @@ public class AdminController implements Initializable {
             }
         });
 
-        // Action column: nút Đóng phiên (chỉ RUNNING/OPEN)
+        // Nút Đóng — chỉ enable khi status RUNNING hoặc OPEN
+        // Payload gửi lên: {"auctionId": "<id>"} — server AdminController nhận AdminAuctionDto
         colAuctionAction.setCellFactory(col -> new TableCell<>() {
             private final Button btnClose = new Button("⏹ Đóng");
             {
@@ -297,8 +294,7 @@ public class AdminController implements Initializable {
                 if (empty) { setGraphic(null); return; }
                 Map<String, Object> row = getTableView().getItems().get(getIndex());
                 String status = safeStr(row.get("status"));
-                boolean canClose = "RUNNING".equals(status) || "OPEN".equals(status);
-                btnClose.setDisable(!canClose);
+                btnClose.setDisable(!"RUNNING".equals(status) && !"OPEN".equals(status));
                 setGraphic(btnClose);
             }
         });
@@ -338,6 +334,8 @@ public class AdminController implements Initializable {
                         allProducts.setAll(resp.data);
                         updateProductStats();
                         setStatus("Tải " + resp.data.size() + " sản phẩm thành công.");
+                    } else {
+                        setStatus("Lỗi tải sản phẩm: " + resp.message);
                     }
                 }
 
@@ -347,6 +345,8 @@ public class AdminController implements Initializable {
                         allUsers.setAll(resp.data);
                         updateUserStats();
                         setStatus("Tải " + resp.data.size() + " tài khoản thành công.");
+                    } else {
+                        setStatus("Lỗi tải người dùng: " + resp.message);
                     }
                 }
 
@@ -357,6 +357,8 @@ public class AdminController implements Initializable {
                         filteredAuctions.setAll(allAuctions);
                         updateAuctionStats();
                         setStatus("Tải " + resp.data.size() + " phiên đấu giá thành công.");
+                    } else {
+                        setStatus("Lỗi tải phiên: " + resp.message);
                     }
                 }
 
@@ -412,26 +414,22 @@ public class AdminController implements Initializable {
 
     private void updateUserStats() {
         long total   = allUsers.size();
-        long bidders = allUsers.stream()
-                .filter(u -> "BIDDER".equals(u.get("role"))).count();
-        long sellers = allUsers.stream()
-                .filter(u -> "SELLER".equals(u.get("role"))).count();
+        long bidders = allUsers.stream().filter(u -> "BIDDER".equals(u.get("role"))).count();
+        long sellers = allUsers.stream().filter(u -> "SELLER".equals(u.get("role"))).count();
 
-        setText(lblTotalUsers,    String.valueOf(total));
-        setText(lblTotalBidders,  String.valueOf(bidders));
-        setText(lblTotalSellers,  String.valueOf(sellers));
-        setText(lblStatUsers,     "👥 Người dùng: " + total);
+        setText(lblTotalUsers,   String.valueOf(total));
+        setText(lblTotalBidders, String.valueOf(bidders));
+        setText(lblTotalSellers, String.valueOf(sellers));
+        setText(lblStatUsers,    "👥 Người dùng: " + total);
     }
 
     private void updateAuctionStats() {
-        long running  = allAuctions.stream()
-                .filter(a -> "RUNNING".equals(a.get("status"))).count();
-        long open     = allAuctions.stream()
-                .filter(a -> "OPEN".equals(a.get("status"))).count();
+        long running  = allAuctions.stream().filter(a -> "RUNNING".equals(a.get("status"))).count();
+        long open     = allAuctions.stream().filter(a -> "OPEN".equals(a.get("status"))).count();
         long finished = allAuctions.stream()
-                .filter(a -> "FINISHED".equals(a.get("status")) || "PAID".equals(a.get("status"))).count();
-        long canceled = allAuctions.stream()
-                .filter(a -> "CANCELED".equals(a.get("status"))).count();
+                .filter(a -> "FINISHED".equals(a.get("status")) || "PAID".equals(a.get("status")))
+                .count();
+        long canceled = allAuctions.stream().filter(a -> "CANCELED".equals(a.get("status"))).count();
 
         setText(lblRunningAuctions,  String.valueOf(running));
         setText(lblOpenAuctions,     String.valueOf(open));
@@ -467,7 +465,6 @@ public class AdminController implements Initializable {
         panelProducts.setVisible(false);  panelProducts.setManaged(false);
         panelUsers.setVisible(false);     panelUsers.setManaged(false);
         panelAuctions.setVisible(false);  panelAuctions.setManaged(false);
-
         switch (panel) {
             case "products" -> { panelProducts.setVisible(true);  panelProducts.setManaged(true); }
             case "users"    -> { panelUsers.setVisible(true);     panelUsers.setManaged(true); }
@@ -476,69 +473,50 @@ public class AdminController implements Initializable {
     }
 
     private void setSidebarActive(Button active) {
-        String inactiveStyle = "-fx-background-color: transparent; -fx-text-fill: #a0aec0;" +
+        String off = "-fx-background-color: transparent; -fx-text-fill: #a0aec0;" +
                 "-fx-alignment: CENTER_LEFT; -fx-background-radius: 6;" +
                 "-fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;";
-        String activeStyle = "-fx-background-color: #4299e1; -fx-text-fill: white;" +
+        String on  = "-fx-background-color: #4299e1; -fx-text-fill: white;" +
                 "-fx-alignment: CENTER_LEFT; -fx-background-radius: 6;" +
                 "-fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;";
-        btnSideProducts.setStyle(inactiveStyle);
-        btnSideUsers.setStyle(inactiveStyle);
-        btnSideAuctions.setStyle(inactiveStyle);
-        active.setStyle(activeStyle);
+        btnSideProducts.setStyle(off);
+        btnSideUsers.setStyle(off);
+        btnSideAuctions.setStyle(off);
+        active.setStyle(on);
     }
 
     // ── REFRESH ──────────────────────────────────────────────────────────
 
-    @FXML public void onRefreshAll(ActionEvent event) {
-        loadAllData();
-        setStatus("Đang tải lại dữ liệu...");
-    }
-
-    @FXML public void onRefreshProducts(ActionEvent event) {
-        loadProducts();
-        setStatus("Đang tải lại sản phẩm...");
-    }
-
-    @FXML public void onRefreshUsers(ActionEvent event) {
-        loadUsers();
-        setStatus("Đang tải lại người dùng...");
-    }
-
-    @FXML public void onRefreshAuctions(ActionEvent event) {
-        loadAuctions();
-        setStatus("Đang tải lại phiên đấu giá...");
-    }
+    @FXML public void onRefreshAll(ActionEvent event)      { loadAllData();   setStatus("Đang tải lại dữ liệu..."); }
+    @FXML public void onRefreshProducts(ActionEvent event) { loadProducts();  setStatus("Đang tải lại sản phẩm..."); }
+    @FXML public void onRefreshUsers(ActionEvent event)    { loadUsers();     setStatus("Đang tải lại người dùng..."); }
+    @FXML public void onRefreshAuctions(ActionEvent event) { loadAuctions();  setStatus("Đang tải lại phiên đấu giá..."); }
 
     // ── SEARCH ───────────────────────────────────────────────────────────
 
     @FXML
     public void onSearchProduct(KeyEvent event) {
-        String keyword = txtSearchProduct.getText().trim().toLowerCase();
-        if (keyword.isEmpty()) {
+        String kw = txtSearchProduct.getText().trim().toLowerCase();
+        if (kw.isEmpty()) {
             tableProducts.setItems(allProducts);
         } else {
-            ObservableList<Map<String, Object>> filtered = allProducts.filtered(
-                    p -> safeStr(p.get("name")).toLowerCase().contains(keyword) ||
-                            safeStr(p.get("id")).toLowerCase().contains(keyword) ||
-                            safeStr(p.get("seller_id")).toLowerCase().contains(keyword)
-            );
-            tableProducts.setItems(filtered);
+            tableProducts.setItems(allProducts.filtered(p ->
+                    safeStr(p.get("name")).toLowerCase().contains(kw) ||
+                            safeStr(p.get("id")).toLowerCase().contains(kw) ||
+                            safeStr(p.get("seller_id")).toLowerCase().contains(kw)));
         }
     }
 
     @FXML
     public void onSearchUser(KeyEvent event) {
-        String keyword = txtSearchUser.getText().trim().toLowerCase();
-        if (keyword.isEmpty()) {
+        String kw = txtSearchUser.getText().trim().toLowerCase();
+        if (kw.isEmpty()) {
             tableUsers.setItems(allUsers);
         } else {
-            ObservableList<Map<String, Object>> filtered = allUsers.filtered(
-                    u -> safeStr(u.get("username")).toLowerCase().contains(keyword) ||
-                            safeStr(u.get("email")).toLowerCase().contains(keyword) ||
-                            safeStr(u.get("role")).toLowerCase().contains(keyword)
-            );
-            tableUsers.setItems(filtered);
+            tableUsers.setItems(allUsers.filtered(u ->
+                    safeStr(u.get("username")).toLowerCase().contains(kw) ||
+                            safeStr(u.get("email")).toLowerCase().contains(kw) ||
+                            safeStr(u.get("role")).toLowerCase().contains(kw)));
         }
     }
 
@@ -552,35 +530,33 @@ public class AdminController implements Initializable {
 
     @FXML
     public void onFilterRunning(ActionEvent event) {
-        filteredAuctions.setAll(allAuctions.filtered(
-                a -> "RUNNING".equals(a.get("status"))));
+        filteredAuctions.setAll(allAuctions.filtered(a -> "RUNNING".equals(a.get("status"))));
         setFilterButtonActive(btnFilterRunning);
     }
 
     @FXML
     public void onFilterOpen(ActionEvent event) {
-        filteredAuctions.setAll(allAuctions.filtered(
-                a -> "OPEN".equals(a.get("status"))));
+        filteredAuctions.setAll(allAuctions.filtered(a -> "OPEN".equals(a.get("status"))));
         setFilterButtonActive(btnFilterOpen);
     }
 
     @FXML
     public void onFilterFinished(ActionEvent event) {
-        filteredAuctions.setAll(allAuctions.filtered(
-                a -> "FINISHED".equals(a.get("status")) || "PAID".equals(a.get("status"))));
+        filteredAuctions.setAll(allAuctions.filtered(a ->
+                "FINISHED".equals(a.get("status")) || "PAID".equals(a.get("status"))));
         setFilterButtonActive(btnFilterFinished);
     }
 
     private void setFilterButtonActive(Button active) {
-        String inactive = "-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;" +
+        String off = "-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;" +
                 "-fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12;";
-        String activeStyle = "-fx-background-color: #1a1f2e; -fx-text-fill: white;" +
+        String on  = "-fx-background-color: #1a1f2e; -fx-text-fill: white;" +
                 "-fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12;";
-        btnFilterAll.setStyle(inactive);
-        btnFilterRunning.setStyle(inactive);
-        btnFilterOpen.setStyle(inactive);
-        btnFilterFinished.setStyle(inactive);
-        active.setStyle(activeStyle);
+        btnFilterAll.setStyle(off);
+        btnFilterRunning.setStyle(off);
+        btnFilterOpen.setStyle(off);
+        btnFilterFinished.setStyle(off);
+        active.setStyle(on);
     }
 
     // ── DELETE / CLOSE ACTIONS ───────────────────────────────────────────
@@ -594,6 +570,7 @@ public class AdminController implements Initializable {
         alert.setTitle("Xác nhận xóa sản phẩm");
         alert.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.YES) {
+                // Server AdminController.handleDeleteProduct nhận: {"productId": "..."}
                 client.send(new Message("ADMIN_DELETE_PRODUCT",
                         gson.toJson(Map.of("productId", id))));
                 showProductStatus("Đang xóa...", false);
@@ -610,6 +587,7 @@ public class AdminController implements Initializable {
         alert.setTitle("Xác nhận xóa tài khoản");
         alert.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.YES) {
+                // Server AdminController.handleDeleteUser nhận: {"userId": "..."}
                 client.send(new Message("ADMIN_DELETE_USER",
                         gson.toJson(Map.of("userId", id))));
                 showUserStatus("Đang xóa...", false);
@@ -619,14 +597,18 @@ public class AdminController implements Initializable {
 
     private void confirmCloseAuction(Map<String, Object> row) {
         String itemName = safeStr(row.get("itemName"));
-        Object idObj    = row.get("id");
-        String id       = idObj != null ? idObj.toString() : "";
+        // id từ server là Long (Gson deserialize thành Double khi dùng Map<String,Object>)
+        // Cần toString() để gửi lên, server parse bằng Long.parseLong()
+        Object idObj = row.get("id");
+        String id    = idObj != null ? idObj.toString().replaceAll("\\.0$", "") : "";
+
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
                 "Đóng phiên: " + itemName + "?\n\nPhiên sẽ kết thúc ngay, winner được xác định.",
                 ButtonType.YES, ButtonType.NO);
         alert.setTitle("Xác nhận đóng phiên đấu giá");
         alert.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.YES) {
+                // Server AdminController.handleForceCloseAuction nhận: {"auctionId": "..."}
                 client.send(new Message("ADMIN_FORCE_CLOSE_AUCTION",
                         gson.toJson(Map.of("auctionId", id))));
                 showAuctionStatus("Đang đóng phiên...", false);
@@ -655,15 +637,10 @@ public class AdminController implements Initializable {
         catch (Exception e) { return 0; }
     }
 
-    /**
-     * Cắt ngắn datetime DB (có thể có ký tự 'T' hoặc space) thành "dd/MM/yyyy HH:mm".
-     */
     private String formatDateTime(String raw) {
         if (raw == null || raw.isBlank()) return "--";
         try {
-            // Chuẩn hóa: "2026-12-31T23:59:59" hoặc "2026-12-31 23:59:59"
             String normalized = raw.replace("T", " ").substring(0, Math.min(16, raw.length()));
-            // normalized = "2026-12-31 23:59"
             String[] parts = normalized.split("[\\-\\s:]");
             if (parts.length >= 5) {
                 return parts[2] + "/" + parts[1] + "/" + parts[0]
@@ -675,12 +652,11 @@ public class AdminController implements Initializable {
 
     private String getStatusStyle(String status) {
         return switch (status) {
-            case "RUNNING"  -> "-fx-text-fill:#fc8181; -fx-font-weight:bold;";
-            case "OPEN"     -> "-fx-text-fill:#4299e1; -fx-font-weight:bold;";
-            case "FINISHED",
-                 "PAID"     -> "-fx-text-fill:#38a169; -fx-font-weight:bold;";
-            case "PENDING"  -> "-fx-text-fill:#d69e2e; -fx-font-weight:bold;";
-            default         -> "-fx-text-fill:#718096; -fx-font-weight:bold;";
+            case "RUNNING"          -> "-fx-text-fill:#fc8181; -fx-font-weight:bold;";
+            case "OPEN"             -> "-fx-text-fill:#4299e1; -fx-font-weight:bold;";
+            case "FINISHED", "PAID" -> "-fx-text-fill:#38a169; -fx-font-weight:bold;";
+            case "PENDING"          -> "-fx-text-fill:#d69e2e; -fx-font-weight:bold;";
+            default                 -> "-fx-text-fill:#718096; -fx-font-weight:bold;";
         };
     }
 
@@ -692,17 +668,9 @@ public class AdminController implements Initializable {
         if (lbl != null) lbl.setText(text);
     }
 
-    private void showProductStatus(String msg, boolean isError) {
-        showStatus(lblProductStatus, msg, isError);
-    }
-
-    private void showUserStatus(String msg, boolean isError) {
-        showStatus(lblUserStatus, msg, isError);
-    }
-
-    private void showAuctionStatus(String msg, boolean isError) {
-        showStatus(lblAuctionStatus, msg, isError);
-    }
+    private void showProductStatus(String msg, boolean isError) { showStatus(lblProductStatus, msg, isError); }
+    private void showUserStatus(String msg, boolean isError)    { showStatus(lblUserStatus,    msg, isError); }
+    private void showAuctionStatus(String msg, boolean isError) { showStatus(lblAuctionStatus, msg, isError); }
 
     private void showStatus(Label lbl, String msg, boolean isError) {
         if (lbl == null) return;
