@@ -74,7 +74,7 @@
 
                         <HBox alignment="CENTER_LEFT" prefHeight="44" spacing="8">
                            <children>
-                              <Label prefHeight="19.0" prefWidth="94.0" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Ngày:" />
+                              <Label prefHeight="19.0" prefWidth="86.0" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Ngày:" />
                               <!-- DatePicker chọn ngày -->
                               <DatePicker fx:id="dpStartDate" prefHeight="36" prefWidth="160.0" style="-fx-background-radius: 6;" />
 
@@ -95,7 +95,7 @@
 
                         <HBox alignment="CENTER_LEFT" prefHeight="44" spacing="8">
                            <children>
-                              <Label prefHeight="19.0" prefWidth="94.0" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Ngày:" />
+                              <Label prefHeight="19.0" prefWidth="87.0" style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Ngày:" />
                               <!-- DatePicker chọn ngày kết thúc -->
                               <DatePicker fx:id="dateEnd" prefHeight="36" prefWidth="160" style="-fx-background-radius: 6;" />
 
