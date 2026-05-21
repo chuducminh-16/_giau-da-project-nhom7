@@ -40,13 +40,56 @@ public class ItemFindDAO {
 
         String endTimeStr = rs.getString("end_time");
         LocalDateTime endTime = (endTimeStr != null)
-                ? LocalDateTime.parse(endTimeStr) : null;
+                ? LocalDateTime.parse(endTimeStr.replace(" ", "T")) : null;
 
-        return switch (type) {
-            case "ART"         -> new Art(id, name, price, endTime, sellerId, "");
-            case "ELECTRONICS" -> new Electronics(id, name, price, endTime, sellerId, 0);
-            case "VEHICLE"     -> new Vehicle(id, name, price, endTime, sellerId, 0);
-            default            -> new Art(id, name, price, endTime, sellerId, "");
+        // Lấy description từ DB nếu cột tồn tại
+        String description = "";
+        try { description = rs.getString("description"); } catch (Exception ignored) {}
+        if (description == null) description = "";
+
+        // Lấy bid_increment nếu có
+        double bidIncrement = 0;
+        try { bidIncrement = rs.getDouble("bid_increment"); } catch (Exception ignored) {}
+
+        // Lấy image_path nếu có
+        String imagePath = "";
+        try { imagePath = rs.getString("image_path"); } catch (Exception ignored) {}
+
+        // Lấy status nếu có
+        String status = "OPEN";
+        try { status = rs.getString("status"); } catch (Exception ignored) {}
+
+        // Lấy starting_price nếu có (dùng để set startingPrice đúng)
+        double startingPrice = price;
+        try { startingPrice = rs.getDouble("starting_price"); } catch (Exception ignored) {}
+
+        // Lấy seller_name nếu có (join)
+        String sellerName = null;
+        try { sellerName = rs.getString("seller_name"); } catch (Exception ignored) {}
+
+        Item item = switch (type != null ? type.toUpperCase() : "ART") {
+            case "ART"         -> new Art(id, name, startingPrice, endTime, sellerId, description);
+            case "ELECTRONICS" -> {
+                int warranty = 0;
+                try { warranty = Integer.parseInt(description); } catch (Exception ignored) {}
+                yield new Electronics(id, name, startingPrice, endTime, sellerId, warranty);
+            }
+            case "VEHICLE"     -> {
+                int mileage = 0;
+                try { mileage = Integer.parseInt(description); } catch (Exception ignored) {}
+                yield new Vehicle(id, name, startingPrice, endTime, sellerId, mileage);
+            }
+            default            -> new Art(id, name, startingPrice, endTime, sellerId, description);
         };
+
+        item.setCurrentBid(price);
+        item.setBidIncrement(bidIncrement);
+        if (imagePath != null && !imagePath.isBlank()) item.setImagePath(imagePath);
+        if (status != null) item.setStatus(status);
+        if (sellerName != null) item.setSellerName(sellerName);
+        // Đảm bảo description được set đúng (cho Art)
+        if (!description.isBlank()) item.setDescription(description);
+
+        return item;
     }
 }

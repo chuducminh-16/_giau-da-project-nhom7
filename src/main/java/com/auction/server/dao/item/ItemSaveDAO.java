@@ -9,21 +9,38 @@ import com.auction.shared.model.Entity.Item.Item;
 public class ItemSaveDAO {
 
     public boolean saveItem(Item item) {
-        String sql = "INSERT INTO items (id, name, current_price, end_time, type, seller_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        // Thử save với cột description, nếu không có thì fallback không có description
+        String sqlWithDesc = "INSERT INTO items (id, name, current_price, starting_price, end_time, type, seller_id, status, description, bid_increment, image_path) " +
+                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sqlNoDesc   = "INSERT INTO items (id, name, current_price, end_time, type, seller_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-            pstmt.setString(1, item.getId());
-            pstmt.setString(2, item.getName());
-            pstmt.setDouble(3, item.getStartingPrice());
-            pstmt.setString(4, item.getEndTime() != null
-                    ? item.getEndTime().toString() : null);
-            pstmt.setString(5, item.getType());
-            pstmt.setString(6, item.getSellerId());
-            pstmt.setString(7, "OPEN");
-
-            return pstmt.executeUpdate() > 0;
-
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            try (PreparedStatement pstmt = conn.prepareStatement(sqlWithDesc)) {
+                pstmt.setString(1, item.getId());
+                pstmt.setString(2, item.getName());
+                pstmt.setDouble(3, item.getStartingPrice());
+                pstmt.setDouble(4, item.getStartingPrice());
+                pstmt.setString(5, item.getEndTime() != null ? item.getEndTime().toString() : null);
+                pstmt.setString(6, item.getType());
+                pstmt.setString(7, item.getSellerId());
+                pstmt.setString(8, item.getStatus() != null ? item.getStatus() : "OPEN");
+                pstmt.setString(9, item.getDescription() != null ? item.getDescription() : "");
+                pstmt.setDouble(10, item.getBidIncrement());
+                pstmt.setString(11, item.getImagePath() != null ? item.getImagePath() : "");
+                return pstmt.executeUpdate() > 0;
+            } catch (Exception e) {
+                // Fallback: DB không có các cột mở rộng
+                try (PreparedStatement pstmt = conn.prepareStatement(sqlNoDesc)) {
+                    pstmt.setString(1, item.getId());
+                    pstmt.setString(2, item.getName());
+                    pstmt.setDouble(3, item.getStartingPrice());
+                    pstmt.setString(4, item.getEndTime() != null ? item.getEndTime().toString() : null);
+                    pstmt.setString(5, item.getType());
+                    pstmt.setString(6, item.getSellerId());
+                    pstmt.setString(7, item.getStatus() != null ? item.getStatus() : "OPEN");
+                    return pstmt.executeUpdate() > 0;
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return false;
