@@ -17,11 +17,11 @@ import java.sql.SQLException;
  */
 public class DatabaseConnection {
 
-    private static final String URL      = "jdbc:mysql://localhost:3306/auction_db"
-                                         + "?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh"
-                                         + "&allowPublicKeyRetrieval=true";
+    private static final String URL      = "jdbc:mysql://kodama.proxy.rlwy.net:38716/railway"
+                                     + "?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh"
+                                     + "&allowPublicKeyRetrieval=true";
     private static final String USER     = "root";
-    private static final String PASSWORD = "123456";   // ← đổi thành password MySQL của bạn
+    private static final String PASSWORD = "UpNyMmOQheSnjWyEeJDqRcMuYriyDmMC";
 
     static {
         try {
