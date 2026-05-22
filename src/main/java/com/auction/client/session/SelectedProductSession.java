@@ -1,9 +1,9 @@
 package com.auction.client.session;
 
-import com.auction.client.model.Product;
+import com.auction.shared.model.Entity.Item.Item;
 
 /**
- * Singleton lưu sản phẩm đang được chọn.
+ * Singleton lưu item đang được chọn.
  * Home set → Detail/LiveBidding get.
  */
 public class SelectedProductSession {
@@ -17,17 +17,9 @@ public class SelectedProductSession {
 
     private SelectedProductSession() {}
 
-    private Product selectedProduct;
+    private Item selectedItem;
 
-    public void setProduct(Product product) {
-        this.selectedProduct = product;
-    }
-
-    public Product getProduct() {
-        return selectedProduct;
-    }
-
-    public void clear() {
-        selectedProduct = null;
-    }
+    public void setProduct(Item item) { this.selectedItem = item; }
+    public Item getProduct()          { return selectedItem; }
+    public void clear()               { selectedItem = null; }
 }

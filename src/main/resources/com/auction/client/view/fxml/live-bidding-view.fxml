@@ -50,10 +50,8 @@
                          HBox.hgrow="ALWAYS"
                          prefHeight="57"
                          prefWidth="461"
-                         style="-fx-text-fill: white;
-                         -fx-font-size: 16;
-                         -fx-font-weight: bold;
-                         -fx-alignment: CENTER;"/>
+                         style="-fx-text-fill: white; -fx-font-size: 16;
+              -fx-font-weight: bold; -fx-alignment: CENTER;"/>
 
                   <!-- Countdown — giữ nguyên fx:id -->
                   <Label fx:id="lblCountdown" text="05:00"
