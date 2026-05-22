@@ -1,12 +1,5 @@
 package com.auction.server.service;
 
-<<<<<<< HEAD
-import com.auction.server.dao.bid.BidDAO;
-import com.auction.server.dao.ProductDAO;
-import com.auction.shared.model.Entity.Auction_Bid.Auction;
-
-=======
->>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
