@@ -15,6 +15,7 @@ module com.auction.client {
     // ── Mở cho Gson (server + shared) ────────────────────────────────────
     opens com.auction.server.network    to com.google.gson;
     opens com.auction.server.service    to com.google.gson;
+    opens com.auction.server.controller to com.google.gson;
  
     // ── QUAN TRỌNG: mở cả package cha (Entity) cho Gson ─────────────────
     opens com.auction.shared.model.Entity                   to com.google.gson;
