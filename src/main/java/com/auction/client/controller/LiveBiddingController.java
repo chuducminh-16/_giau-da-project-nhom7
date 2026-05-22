@@ -8,6 +8,7 @@ import com.auction.client.session.SelectedProductSession;
 import com.auction.client.session.UserSession;
 import com.auction.shared.model.Entity.Item.Item;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -22,12 +23,24 @@ import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.util.Duration;
 
+import java.lang.reflect.Type;
 import java.net.URL;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
+/**
+ * LiveBiddingController
+ *
+ * FIX so voi ban goc:
+ *   1. Them xu ly "TIME_EXTENDED" — reset dong ho dem nguoc khi anti-sniping gia han
+ *   2. Them xu ly "BID_HISTORY_RESPONSE" — hien thi lich su bid khi vao phong
+ *   3. Gui GET_BID_HISTORY ngay khi initialize() de load lich su co san
+ *   4. Them nut dang ky / huy Auto-Bid
+ */
 public class LiveBiddingController implements Initializable {
 
     @FXML private Label     lblCountdown;
@@ -42,6 +55,10 @@ public class LiveBiddingController implements Initializable {
     @FXML private TableColumn<BidItem,String> colAmount;
 
     @FXML private ListView<String> listNotifications;
+
+    // Auto-bid controls (co the null neu FXML chua them)
+    @FXML private TextField txtMaxBid;
+    @FXML private TextField txtIncrement;
 
     private Item     currentItem;
     private XYChart.Series<String, Number> priceSeries;
@@ -68,12 +85,19 @@ public class LiveBiddingController implements Initializable {
         if (currentItem != null) {
             populateProductInfo();
             startCountdownFromItem();
+
+            // Dang ky xem phien nay (de nhan broadcast BID_UPDATE, TIME_EXTENDED)
             client.send(new Message("WATCH_AUCTION",
                     gson.toJson(Map.of("auctionId", currentItem.getId()))));
+
+            // FIX: Load lich su bid co san khi vao phong
+            client.send(new Message("GET_BID_HISTORY",
+                    gson.toJson(Map.of("productId", currentItem.getId()))));
+
             addChartPoint(currentItem.getCurrentBid());
-            addLog("Chào mừng vào phòng đấu giá: " + currentItem.getName());
+            addLog("Chao mung vao phong dau gia: " + currentItem.getName());
         } else {
-            addLog("Không tìm thấy thông tin sản phẩm!");
+            addLog("Khong tim thay thong tin san pham!");
         }
     }
 
@@ -84,17 +108,24 @@ public class LiveBiddingController implements Initializable {
 
     private void updateCurrentBidLabel(double bid) {
         if (lblCurrentBid != null)
-            lblCurrentBid.setText(String.format("Current Bid: %,.0f VNĐ", bid));
+            lblCurrentBid.setText(String.format("Current Bid: %,.0f VND", bid));
     }
 
     private void startCountdownFromItem() {
         secondsRemaining = currentItem.getSecondsRemaining();
         if (secondsRemaining <= 0) {
-            lblCountdown.setText("ĐÃ KẾT THÚC");
-            lblCountdown.setStyle("-fx-text-fill: #a0aec0;");
-            txtBidAmount.setDisable(true);
+            if (lblCountdown != null) {
+                lblCountdown.setText("DA KET THUC");
+                lblCountdown.setStyle("-fx-text-fill: #a0aec0;");
+            }
+            if (txtBidAmount != null) txtBidAmount.setDisable(true);
             return;
         }
+        startCountdownTimer();
+    }
+
+    private void startCountdownTimer() {
+        if (countdownTimeline != null) countdownTimeline.stop();
         countdownTimeline = new Timeline(
                 new KeyFrame(Duration.seconds(1), e -> {
                     secondsRemaining--;
@@ -111,6 +142,7 @@ public class LiveBiddingController implements Initializable {
     }
 
     private void updateCountdownLabel() {
+        if (lblCountdown == null) return;
         long h = secondsRemaining / 3600;
         long m = (secondsRemaining % 3600) / 60;
         long s = secondsRemaining % 60;
@@ -122,15 +154,19 @@ public class LiveBiddingController implements Initializable {
     }
 
     private void onAuctionEnded() {
-        lblCountdown.setText("KẾT THÚC!");
-        lblCountdown.setStyle("-fx-text-fill:#a0aec0;");
-        txtBidAmount.setDisable(true);
-        addLog("Phiên đấu giá đã kết thúc!");
+        if (lblCountdown != null) {
+            lblCountdown.setText("KET THUC!");
+            lblCountdown.setStyle("-fx-text-fill:#a0aec0;");
+        }
+        if (txtBidAmount != null) txtBidAmount.setDisable(true);
+        addLog("Phien dau gia da ket thuc!");
     }
 
-    @FXML public void onPlaceBidClick(ActionEvent event) {
+    // ── Dat gia ──────────────────────────────────────────────────────────
+    @FXML
+    public void onPlaceBidClick(ActionEvent event) {
         if (currentItem == null) return;
-        if (secondsRemaining <= 0) { addLog("Phiên đấu giá đã kết thúc."); return; }
+        if (secondsRemaining <= 0) { addLog("Phien dau gia da ket thuc."); return; }
 
         String input = txtBidAmount.getText().trim();
         if (input.isEmpty()) return;
@@ -139,12 +175,12 @@ public class LiveBiddingController implements Initializable {
         try {
             newAmount = Double.parseDouble(input.replaceAll(",", ""));
         } catch (NumberFormatException e) {
-            addLog("Lỗi: Vui lòng nhập số tiền hợp lệ!"); return;
+            addLog("Loi: Vui long nhap so tien hop le!"); return;
         }
 
         double minBid = currentItem.getCurrentBid() + currentItem.getBidIncrement();
         if (newAmount < minBid) {
-            addLog(String.format("Giá phải ít nhất %,.0f VNĐ (tăng thêm %,.0f VNĐ)",
+            addLog(String.format("Gia phai it nhat %,.0f VND (tang them %,.0f VND)",
                     minBid, currentItem.getBidIncrement()));
             return;
         }
@@ -156,35 +192,121 @@ public class LiveBiddingController implements Initializable {
         ));
         client.send(new Message("PLACE_BID", payload));
         txtBidAmount.clear();
-        addLog(String.format("Đã gửi mức giá: %,.0f VNĐ — Đang chờ xác nhận...", newAmount));
+        addLog(String.format("Da gui muc gia: %,.0f VND - Dang cho xac nhan...", newAmount));
     }
 
+    // ── Dang ky Auto-Bid ─────────────────────────────────────────────────
+    @FXML
+    public void onRegisterAutoBidClick(ActionEvent event) {
+        if (currentItem == null) return;
+        if (txtMaxBid == null || txtIncrement == null) return;
+
+        try {
+            double maxBid     = Double.parseDouble(txtMaxBid.getText().trim().replaceAll(",", ""));
+            double increment  = Double.parseDouble(txtIncrement.getText().trim().replaceAll(",", ""));
+
+            String payload = gson.toJson(Map.of(
+                    "itemId",    currentItem.getId(),
+                    "maxBid",    maxBid,
+                    "increment", increment
+            ));
+            client.send(new Message("REGISTER_AUTO_BID", payload));
+            addLog(String.format("Dang ky auto-bid: max=%.0f, buoc=%.0f", maxBid, increment));
+        } catch (NumberFormatException e) {
+            addLog("Loi: maxBid va increment phai la so hop le.");
+        }
+    }
+
+    // ── Huy Auto-Bid ─────────────────────────────────────────────────────
+    @FXML
+    public void onCancelAutoBidClick(ActionEvent event) {
+        if (currentItem == null) return;
+        String payload = gson.toJson(Map.of("itemId", currentItem.getId()));
+        client.send(new Message("CANCEL_AUTO_BID", payload));
+        addLog("Da gui yeu cau huy auto-bid.");
+    }
+
+    // ── Xu ly message tu server ───────────────────────────────────────────
     private void handleServerMessage(Message msg) {
         switch (msg.getType()) {
 
             case "BID_UPDATE" -> {
                 BidUpdateDto dto = gson.fromJson(msg.getPayload(), BidUpdateDto.class);
-                if (!dto.productId.equals(currentItem.getId())) return;
+                if (currentItem == null || !dto.productId.equals(currentItem.getId())) return;
                 Platform.runLater(() -> {
                     currentItem.setCurrentBid(dto.newBid);
                     updateCurrentBidLabel(dto.newBid);
                     String time = LocalTime.now().format(timeFmt);
                     bidHistory.add(0, new BidItem(time, dto.bidderName,
-                            String.format("%,.0f VNĐ", dto.newBid)));
+                            String.format("%,.0f VND", dto.newBid)));
                     addChartPoint(dto.newBid);
-                    addLog(String.format("%s vừa đặt %,.0f VNĐ", dto.bidderName, dto.newBid));
+                    addLog(String.format("%s vua dat %,.0f VND", dto.bidderName, dto.newBid));
                 });
             }
 
             case "BID_RESULT" -> {
                 BidResultDto dto = gson.fromJson(msg.getPayload(), BidResultDto.class);
                 Platform.runLater(() ->
-                        addLog(dto.success ? "✅ Đặt giá thành công!" : "❌ Thất bại: " + dto.message));
+                        addLog(dto.success ? "Dat gia thanh cong!" : "That bai: " + dto.message));
+            }
+
+            // FIX: Xu ly TIME_EXTENDED — reset dong ho dem nguoc khi anti-sniping gia han
+            case "TIME_EXTENDED" -> {
+                TimeExtendedDto dto = gson.fromJson(msg.getPayload(), TimeExtendedDto.class);
+                if (currentItem == null || !dto.productId.equals(currentItem.getId())) return;
+                Platform.runLater(() -> {
+                    try {
+                        LocalDateTime newEnd = LocalDateTime.parse(
+                                dto.newEndTime.replace(" ", "T"));
+                        secondsRemaining = java.time.Duration.between(
+                                LocalDateTime.now(), newEnd).getSeconds();
+                        if (secondsRemaining > 0) {
+                            // Khoi dong lai countdown voi thoi gian moi
+                            startCountdownTimer();
+                            addLog("Phien duoc gia han! Het gio luc: " + dto.newEndTime);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[LiveBidding] Loi parse TIME_EXTENDED: " + e.getMessage());
+                    }
+                });
+            }
+
+            // FIX: Xu ly BID_HISTORY_RESPONSE — hien thi lich su khi vao phong
+            case "BID_HISTORY_RESPONSE" -> {
+                Platform.runLater(() -> {
+                    try {
+                        Type listType = new TypeToken<List<BidRecordDto>>(){}.getType();
+                        List<BidRecordDto> records = gson.fromJson(msg.getPayload(), listType);
+                        if (records == null) return;
+                        bidHistory.clear();
+                        for (BidRecordDto r : records) {
+                            bidHistory.add(new BidItem(
+                                    r.createdAt != null ? r.createdAt : "-",
+                                    r.username  != null ? r.username  : r.bidderId,
+                                    String.format("%,.0f VND", r.amount)
+                            ));
+                        }
+                        if (!records.isEmpty())
+                            addLog("Da tai " + records.size() + " luot dat gia truoc do.");
+                    } catch (Exception e) {
+                        System.err.println("[LiveBidding] Loi parse BID_HISTORY: " + e.getMessage());
+                    }
+                });
+            }
+
+            case "AUTO_BID_RESULT" -> {
+                AutoBidResultDto dto = gson.fromJson(msg.getPayload(), AutoBidResultDto.class);
+                Platform.runLater(() ->
+                        addLog(dto.success ? "Auto-bid: " + dto.message : "Auto-bid loi: " + dto.message));
             }
 
             case "AUCTION_ENDED" -> Platform.runLater(() -> {
                 if (countdownTimeline != null) countdownTimeline.stop();
                 onAuctionEnded();
+                try {
+                    AuctionEndedDto dto = gson.fromJson(msg.getPayload(), AuctionEndedDto.class);
+                    if (dto.message != null) addLog(dto.message);
+                } catch (Exception ignored) {}
             });
         }
     }
@@ -194,48 +316,48 @@ public class LiveBiddingController implements Initializable {
         colUser.setCellValueFactory(c -> c.getValue().userProperty());
         colAmount.setCellValueFactory(c -> c.getValue().amountProperty());
         tableBidHistory.setItems(bidHistory);
-        listNotifications.setItems(notifications);
+        if (listNotifications != null) listNotifications.setItems(notifications);
     }
 
     private void setupChart() {
         priceSeries = new XYChart.Series<>();
-        priceSeries.setName("Giá đấu cao nhất");
-        priceChart.getData().add(priceSeries);
-        priceChart.setAnimated(false);
-        priceChart.setTitle("Diễn biến giá theo thời gian thực");
-        priceChart.getXAxis().setLabel("Thời gian");
-        priceChart.getYAxis().setLabel("Giá (VNĐ)");
-        NumberAxis yAxis = (NumberAxis) priceChart.getYAxis();
-        yAxis.setForceZeroInRange(false);
-        yAxis.setAutoRanging(true);
-        priceChart.setCreateSymbols(true);
+        priceSeries.setName("Gia dau cao nhat");
+        if (priceChart != null) {
+            priceChart.getData().add(priceSeries);
+            priceChart.setAnimated(false);
+            NumberAxis yAxis = (NumberAxis) priceChart.getYAxis();
+            yAxis.setForceZeroInRange(false);
+            yAxis.setAutoRanging(true);
+        }
     }
 
     private void addChartPoint(double price) {
         String time = LocalTime.now().format(timeFmt);
-        XYChart.Data<String, Number> dataPoint = new XYChart.Data<>(time, price);
-        priceSeries.getData().add(dataPoint);
-        if (dataPoint.getNode() != null) {
-            Tooltip tooltip = new Tooltip(String.format("⏱ %s\n💰 %,.0f VNĐ", time, price));
-            tooltip.setStyle("-fx-background-color:#1a1f2e; -fx-text-fill:white;" +
-                    "-fx-font-size:12px; -fx-padding:6 10;");
-            Tooltip.install(dataPoint.getNode(), tooltip);
-        }
+        priceSeries.getData().add(new XYChart.Data<>(time, price));
         if (priceSeries.getData().size() > 20)
             priceSeries.getData().remove(0);
     }
 
-    @FXML public void onLeaveRoomClick(ActionEvent event) {
+    @FXML
+    public void onLeaveRoomClick(ActionEvent event) {
         if (countdownTimeline != null) countdownTimeline.stop();
         client.removeListener(listener);
-        SceneEngine.changeScene(event, "detail-view.fxml", "Chi tiết sản phẩm");
+        SceneEngine.changeScene(event, "detail-view.fxml", "Chi tiet san pham");
     }
 
     private void addLog(String message) {
         String time = LocalTime.now().format(timeFmt);
-        notifications.add(0, "[" + time + "] " + message);
+        Platform.runLater(() -> notifications.add(0, "[" + time + "] " + message));
     }
 
+    // ── DTOs ─────────────────────────────────────────────────────────────
     private record BidUpdateDto(String productId, double newBid, String bidderName) {}
     private record BidResultDto(boolean success, String message) {}
+    private record TimeExtendedDto(String productId, String newEndTime) {}
+    private record AutoBidResultDto(boolean success, String message) {}
+    private record AuctionEndedDto(long auctionId, String itemId,
+                                   String winnerId, String winnerName,
+                                   double finalPrice, String message) {}
+    private record BidRecordDto(String bidderId, String username,
+                                double amount, String createdAt) {}
 }
