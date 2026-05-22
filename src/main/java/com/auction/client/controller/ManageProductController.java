@@ -1,5 +1,14 @@
 package com.auction.client.controller;
 
+import java.io.File;
+import java.net.URL;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
+
 import com.auction.client.SceneEngine;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
@@ -14,14 +23,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.*;
+
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.*;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DatePicker;
@@ -35,15 +43,6 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.FileChooser;
-
-import java.io.File;
-import java.net.URL;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
 
 public class ManageProductController implements Initializable {
 
@@ -78,12 +77,11 @@ public class ManageProductController implements Initializable {
     private final ObservableList<Item> productData = FXCollections.observableArrayList();
     private String currentImagePath = "";
 
-    // Sử dụng GsonBuilder từ Code 2 để xử lý Đa hình (Polymorphism)
     private final Gson gson = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
 
-    // ── Logic Gson từ Code 2 (Xử lý Item trừu tượng) ──
+    // ── Gson xử lý Item abstract ──
     private static Gson buildGson() {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
@@ -114,17 +112,15 @@ public class ManageProductController implements Initializable {
     // ── Khởi tạo ──
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Fix từ Code 2: Tránh trùng lặp listener
         client.removeListener(listener);
         client.addListener(listener);
 
         setupTable();
         setupRowClickListener();
-        setupTimeFieldListeners(); // Từ Code 1
+        setupTimeFieldListeners();
         loadMyProducts();
     }
 
-    // ── UI Logic: Giới hạn số nhập vào ô thời gian (Code 1) ──
     private void setupTimeFieldListeners() {
         limitTimeField(txtStartHour, 23);
         limitTimeField(txtStartMinute, 59);
@@ -173,7 +169,6 @@ public class ManageProductController implements Initializable {
                 super.updateItem(item, empty);
                 if (empty || item == null) { setText(null); setStyle(""); return; }
                 setText(item);
-                // Kết hợp các loại status từ cả 2 code
                 setStyle(switch (item) {
                     case "ACTIVE", "RUNNING" -> "-fx-text-fill:#2ecc71; -fx-font-weight:bold;";
                     case "SOLD", "FINISHED"  -> "-fx-text-fill:#e74c3c; -fx-font-weight:bold;";
@@ -260,17 +255,24 @@ public class ManageProductController implements Initializable {
         showStatus("Đang cập nhật...", false);
     }
 
-    // ── [GIỮ TỪ CODE 2] Parse JSON thô — không crash khi field thiếu ──────
+    // ── Server Response Handler ──
     private void handleServerResponse(Message msg) {
         Platform.runLater(() -> {
             switch (msg.getType()) {
 
                 case "MY_PRODUCTS_RESPONSE" -> {
                     try {
-                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                        if (!root.has("products") || !root.get("products").isJsonArray()) return;
-                        JsonArray arr = root.getAsJsonArray("products");
+                        // Server trả về array trực tiếp hoặc object có "products"
                         List<Item> items = new ArrayList<>();
+                        JsonElement root = gson.fromJson(msg.getPayload(), JsonElement.class);
+                        JsonArray arr;
+                        if (root.isJsonArray()) {
+                            arr = root.getAsJsonArray();
+                        } else {
+                            JsonObject obj = root.getAsJsonObject();
+                            if (!obj.has("products") || obj.get("products").isJsonNull()) return;
+                            arr = obj.getAsJsonArray("products");
+                        }
                         for (JsonElement el : arr) {
                             Item item = deserializeItem(el.getAsJsonObject());
                             if (item != null) items.add(item);
@@ -286,8 +288,9 @@ public class ManageProductController implements Initializable {
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
-                            if (root.has("product") && !root.get("product").isJsonNull()) {
-                                Item item = deserializeItem(root.getAsJsonObject("product"));
+                            // Server trả về key "item"
+                            if (root.has("item") && !root.get("item").isJsonNull()) {
+                                Item item = deserializeItem(root.getAsJsonObject("item"));
                                 if (item != null) productData.add(0, item);
                             }
                             clearForm();
@@ -336,8 +339,7 @@ public class ManageProductController implements Initializable {
         });
     }
 
-
-    // ── Validate ───────────────────────────────────────────────────────────
+    // ── Validate ──
     private boolean validateForm() {
         if (txtName.getText().trim().isEmpty()) {
             showStatus("⚠ Tên sản phẩm không được để trống.", true); return false;
@@ -355,7 +357,6 @@ public class ManageProductController implements Initializable {
                 dpStartDate.getValue().isAfter(dateEnd.getValue())) {
             showStatus("⚠ Ngày bắt đầu phải trước ngày kết thúc.", true); return false;
         }
-        // Validate giờ/phút/giây
         if (!isValidTime(txtStartHour, txtStartMinute, txtStartSecond)) {
             showStatus("⚠ Giờ bắt đầu không hợp lệ.", true); return false;
         }
@@ -364,7 +365,7 @@ public class ManageProductController implements Initializable {
         }
         return true;
     }
-    // ── [GIỮ TỪ CODE 1] Build LocalDateTime từ DatePicker + 3 TextField ───
+
     private boolean isValidTime(TextField h, TextField m, TextField s) {
         try {
             int hour   = h.getText().isEmpty() ? 0 : Integer.parseInt(h.getText());
@@ -401,12 +402,10 @@ public class ManageProductController implements Initializable {
         }
     }
 
-    // ── Clear form ─────────────────────────────────────────────────────────
     private void clearForm() {
         txtName.clear(); txtStartingPrice.clear();
         txtBidIncrement.clear(); txtDescription.clear();
         dpStartDate.setValue(null);
-        // [GIỮ TỪ CODE 1] clear cả 6 ô giờ/phút/giây
         txtStartHour.clear(); txtStartMinute.clear(); txtStartSecond.clear();
         dateEnd.setValue(null);
         txtEndHour.clear(); txtEndMinute.clear(); txtEndSecond.clear();
@@ -424,7 +423,6 @@ public class ManageProductController implements Initializable {
         SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 
-    // ── DELETE ─────────────────────────────────────────────────────────────
     @FXML
     private void onDeleteClick(ActionEvent event) {
         Item selected = tableProducts.getSelectionModel().getSelectedItem();
@@ -457,7 +455,6 @@ public class ManageProductController implements Initializable {
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
     private String safeMsg(JsonObject root) {
         return root.has("message") ? root.get("message").getAsString() : "Lỗi không xác định";
     }
