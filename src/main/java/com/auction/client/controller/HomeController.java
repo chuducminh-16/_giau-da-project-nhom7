@@ -63,6 +63,7 @@ public class HomeController implements Initializable {
     private final NetworkClient client = NetworkClient.getInstance();
     private final NetworkClient.MessageListener listener = this::handleServerMessage;
 
+    // ── Custom Gson deserializer cho abstract Item ────────────────────────
     private static Gson buildGson() {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
@@ -80,6 +81,10 @@ public class HomeController implements Initializable {
                 .create();
     }
 
+    /**
+     * Deserialize 1 JsonObject → đúng subclass Item theo field "type".
+     * Dùng trong vòng lặp parse AUCTIONS_LIST thay vì cast trực tiếp.
+     */
     private static Item deserializeItem(JsonObject obj, Gson gson) {
         try {
             String type = "ART";
@@ -161,22 +166,13 @@ public class HomeController implements Initializable {
     private void handleServerMessage(Message msg) {
         switch (msg.getType()) {
 
-            // FIX: đổi AUCTIONS_LIST → AUCTIONS_RESPONSE cho khớp server
             case "AUCTIONS_RESPONSE" -> {
                 try {
-                    // Server trả về array trực tiếp
-                    JsonElement root = gson.fromJson(msg.getPayload(), JsonElement.class);
+                    JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                    if (!root.has("auctions") || !root.get("auctions").isJsonArray()) return;
+
+                    JsonArray arr = root.getAsJsonArray("auctions");
                     List<Item> items = new ArrayList<>();
-
-                    JsonArray arr;
-                    if (root.isJsonArray()) {
-                        arr = root.getAsJsonArray();
-                    } else {
-                        JsonObject obj = root.getAsJsonObject();
-                        if (!obj.has("auctions") || obj.get("auctions").isJsonNull()) return;
-                        arr = obj.getAsJsonArray("auctions");
-                    }
-
                     for (JsonElement el : arr) {
                         Item item = deserializeItem(el.getAsJsonObject(), gson);
                         if (item != null) items.add(item);
@@ -188,7 +184,7 @@ public class HomeController implements Initializable {
                         System.out.println("[Home] Loaded " + items.size() + " auctions");
                     });
                 } catch (Exception e) {
-                    System.err.println("[Home] Lỗi parse AUCTIONS_RESPONSE: " + e.getMessage());
+                    System.err.println("[Home] Lỗi parse AUCTIONS_LIST: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
@@ -247,6 +243,7 @@ public class HomeController implements Initializable {
         if (event.getCode() != KeyCode.ENTER) return;
         String keyword = searchField.getText().trim().toLowerCase();
         if (keyword.isEmpty()) {
+            // Reset về toàn bộ danh sách khi xoá keyword
             auctionTable.setItems(auctionList);
             return;
         }
@@ -255,12 +252,15 @@ public class HomeController implements Initializable {
     }
 
     @FXML public void onSideAuctionsClick(ActionEvent event) {
+        // Reset filter khi bấm tab "Danh sách đấu giá"
         auctionTable.setItems(auctionList);
     }
 
     @FXML public void onBidHistoryClick(ActionEvent event) {
-        System.out.println("Mở lịch sử đấu giá");
+        client.removeListener(listener);
+        SceneEngine.changeScene(event, "bid-history-view.fxml", "The Curator - Lịch sử đấu giá");
     }
+
 
     @FXML public void onSellerDashboardClick(ActionEvent event) {
         client.removeListener(listener);
