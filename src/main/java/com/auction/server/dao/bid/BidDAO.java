@@ -199,11 +199,76 @@ public class BidDAO {
         return list;
     }
 
-    // ── Record kết quả truy vấn — dùng để serialize sang JSON ──
+    // ── Records ───────────────────────────────────────────────────────────
+
     public record BidRecord(
             String bidderId,
             String username,
             double amount,
             String createdAt
     ) {}
+
+    public record BidHistoryRecord(
+            String  bidderId,
+            String  username,
+            double  amount,
+            String  createdAt,
+            String  itemName,
+            String  auctionStatus,
+            boolean isWinner
+    ) {}
+
+    /**
+     * FIX MỚI: Lịch sử bid của 1 bidder — dùng cho BidHistoryController.
+     *
+     * Join thêm items (tên sản phẩm) và auctions (status, winner).
+     * isWinner = true nếu bid_price = current_price của auction đó VÀ
+     *            auction đã FINISHED/PAID.
+     */
+    public List<BidHistoryRecord> getBidHistoryByBidder(String bidderId) {
+        List<BidHistoryRecord> list = new ArrayList<>();
+        // Lấy lần đặt giá cao nhất của bidder cho mỗi sản phẩm (dedup)
+        String sql =
+                "SELECT b.bidder_id, u.username, " +
+                        "       MAX(b.bid_price) AS bid_price, " +
+                        "       MAX(b.bid_time)  AS bid_time, " +
+                        "       i.name           AS item_name, " +
+                        "       a.status         AS auction_status, " +
+                        "       a.current_price  AS current_price " +
+                        "FROM bids b " +
+                        "JOIN users u ON b.bidder_id = u.id " +
+                        "JOIN items i ON b.item_id = i.id " +
+                        "LEFT JOIN auctions a ON a.item_id = b.item_id " +
+                        "WHERE b.bidder_id = ? " +
+                        "GROUP BY b.item_id, i.name, a.status, a.current_price, b.bidder_id, u.username " +
+                        "ORDER BY bid_time DESC";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, bidderId);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                double myBid       = rs.getDouble("bid_price");
+                double currentPrice = rs.getDouble("current_price");
+                String auctionStatus = rs.getString("auction_status");
+
+                // Thắng nếu giá của mình = giá cao nhất VÀ phiên đã kết thúc
+                boolean isWinner = Math.abs(myBid - currentPrice) < 0.01
+                        && ("FINISHED".equals(auctionStatus) || "PAID".equals(auctionStatus));
+
+                list.add(new BidHistoryRecord(
+                        rs.getString("bidder_id"),
+                        rs.getString("username"),
+                        myBid,
+                        rs.getString("bid_time"),
+                        rs.getString("item_name"),
+                        auctionStatus != null ? auctionStatus : "UNKNOWN",
+                        isWinner
+                ));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
 }
