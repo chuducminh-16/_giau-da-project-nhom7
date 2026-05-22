@@ -166,7 +166,7 @@ public class HomeController implements Initializable {
     private void handleServerMessage(Message msg) {
         switch (msg.getType()) {
 
-            case "AUCTIONS_LIST" -> {
+            case "AUCTIONS_RESPONSE" -> {
                 try {
                     JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                     if (!root.has("auctions") || !root.get("auctions").isJsonArray()) return;
