@@ -4,6 +4,7 @@ import com.auction.server.service.AuctionService.BidOutcome;
 import com.auction.server.service.AuctionService.BidResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,6 +28,9 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @DisplayName("AuctionService Logic Tests")
 public class AuctionServiceTest {
+
+    @BeforeEach
+    void setUp() {}
 
     // ─────────────────────────────────────────────────────────────────────────
     // BidResult enum
