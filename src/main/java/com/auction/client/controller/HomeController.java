@@ -166,7 +166,7 @@ public class HomeController implements Initializable {
     private void handleServerMessage(Message msg) {
         switch (msg.getType()) {
 
-            case "AUCTIONS_LIST" -> {
+            case "AUCTIONS_RESPONSE" -> {
                 try {
                     JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                     if (!root.has("auctions") || !root.get("auctions").isJsonArray()) return;
@@ -257,8 +257,10 @@ public class HomeController implements Initializable {
     }
 
     @FXML public void onBidHistoryClick(ActionEvent event) {
-        System.out.println("Mở lịch sử đấu giá");
+        client.removeListener(listener);
+        SceneEngine.changeScene(event, "bid-history-view.fxml", "The Curator - Lịch sử đấu giá");
     }
+
 
     @FXML public void onSellerDashboardClick(ActionEvent event) {
         client.removeListener(listener);
