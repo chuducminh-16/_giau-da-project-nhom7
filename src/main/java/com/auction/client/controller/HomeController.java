@@ -257,8 +257,10 @@ public class HomeController implements Initializable {
     }
 
     @FXML public void onBidHistoryClick(ActionEvent event) {
-        System.out.println("Mở lịch sử đấu giá");
+        client.removeListener(listener);
+        SceneEngine.changeScene(event, "bid-history-view.fxml", "The Curator - Lịch sử đấu giá");
     }
+
 
     @FXML public void onSellerDashboardClick(ActionEvent event) {
         client.removeListener(listener);
