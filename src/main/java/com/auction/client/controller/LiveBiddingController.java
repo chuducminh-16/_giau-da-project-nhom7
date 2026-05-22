@@ -94,8 +94,10 @@ public class LiveBiddingController implements Initializable {
             client.send(new Message("GET_BID_HISTORY",
                     gson.toJson(Map.of("productId", currentItem.getId()))));
 
-            addChartPoint(currentItem.getCurrentBid());
+            // Thêm điểm khởi điểm SAU KHI chart đã có trong scene
+            Platform.runLater(() -> addChartPoint(currentItem.getCurrentBid()));
             addLog("Chao mung vao phong dau gia: " + currentItem.getName());
+
         } else {
             addLog("Khong tim thay thong tin san pham!");
         }
@@ -323,6 +325,7 @@ public class LiveBiddingController implements Initializable {
         priceSeries = new XYChart.Series<>();
         priceSeries.setName("Gia dau cao nhat");
         if (priceChart != null) {
+            priceChart.getData().clear();
             priceChart.getData().add(priceSeries);
             priceChart.setAnimated(false);
             NumberAxis yAxis = (NumberAxis) priceChart.getYAxis();
@@ -332,10 +335,12 @@ public class LiveBiddingController implements Initializable {
     }
 
     private void addChartPoint(double price) {
+        if (priceChart == null || priceSeries == null) return;
         String time = LocalTime.now().format(timeFmt);
         priceSeries.getData().add(new XYChart.Data<>(time, price));
         if (priceSeries.getData().size() > 20)
             priceSeries.getData().remove(0);
+        priceChart.layout();
     }
 
     @FXML

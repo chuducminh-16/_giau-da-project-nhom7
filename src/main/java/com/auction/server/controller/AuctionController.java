@@ -252,6 +252,38 @@ public class AuctionController {
         }
     }
 
+    /**
+     * Lấy lịch sử đấu giá của 1 bidder.
+     * Gộp từ bảng bids + auctions + items + transactions để ra đủ thông tin.
+     */
+    public Message handleGetProductHistory(String payload) {
+        try {
+            BidderDto dto = gson.fromJson(payload, BidderDto.class);
+            String bidderId = dto.bidderId();
+
+            // Lấy danh sách itemId mà bidder này đã từng bid
+            List<BidDAO.BidRecord> myBids = auctionService.getBidHistory(bidderId);
+
+            // Nhóm theo itemId, lấy giá cao nhất của bidder trong từng phiên
+            Map<String, Double> maxBidPerItem = new java.util.HashMap<>();
+            for (BidDAO.BidRecord b : myBids) {
+                maxBidPerItem.merge(b.bidderId(), b.amount(), Math::max);
+                // NOTE: BidRecord.bidderId() đây thực ra là itemId — xem lại BidDAO.getBidRecords
+            }
+
+            // Query DB lấy thông tin phiên của từng item bidder đã tham gia
+            List<Map<String, Object>> records =
+                    auctionService.getBidHistoryForBidder(bidderId);
+
+            return new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
+                    "success", true,
+                    "records", records
+            )));
+        } catch (Exception e) {
+            return error("Lỗi tải lịch sử: " + e.getMessage());
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // REGISTER AUTO-BID (FIX: ban goc THIEU method nay)
     // ─────────────────────────────────────────────────────────────────────
@@ -319,4 +351,5 @@ public class AuctionController {
             double startPrice, double bidIncrement, String endTime) {}
 
     private record DeleteProductDto(String productId) {}
+    private record BidderDto(String bidderId) {}
 }

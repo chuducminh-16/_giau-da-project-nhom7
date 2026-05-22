@@ -99,14 +99,23 @@ public class ManageProductController implements Initializable {
             if (obj.has("type") && !obj.get("type").isJsonNull())
                 type = obj.get("type").getAsString().toUpperCase();
 
+            System.out.println("[ManageProduct] Deserializing as type: " + type);
+            System.out.println("[ManageProduct] Object keys: " + obj.keySet());
+
             Gson plain = new Gson();
-            return switch (type) {
+            Item item = switch (type) {
                 case "ELECTRONICS" -> plain.fromJson(obj, Electronics.class);
                 case "VEHICLE"     -> plain.fromJson(obj, Vehicle.class);
                 default            -> plain.fromJson(obj, Art.class);
             };
+
+            if (item != null) {
+                System.out.println("[ManageProduct] ✓ Deserialized: " + item.getName() + " (id: " + item.getId() + ")");
+            }
+            return item;
         } catch (Exception e) {
             System.err.println("[ManageProduct] deserializeItem lỗi: " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }
@@ -115,13 +124,16 @@ public class ManageProductController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         // Fix từ Code 2: Tránh trùng lặp listener
+        System.out.println("[ManageProduct] Initializing controller...");
         client.removeListener(listener);
         client.addListener(listener);
+        System.out.println("[ManageProduct] Listener added");
 
         setupTable();
         setupRowClickListener();
         setupTimeFieldListeners(); // Từ Code 1
         loadMyProducts();
+        System.out.println("[ManageProduct] ✓ Initialization complete");
     }
 
     // ── UI Logic: Giới hạn số nhập vào ô thời gian (Code 1) ──
@@ -260,78 +272,136 @@ public class ManageProductController implements Initializable {
         showStatus("Đang cập nhật...", false);
     }
 
-    // ── [GIỮ TỪ CODE 2] Parse JSON thô — không crash khi field thiếu ──────
     private void handleServerResponse(Message msg) {
+        System.out.println("[ManageProduct] Received message type: " + msg.getType());
+        System.out.println("[ManageProduct] Payload: " + msg.getPayload());
+
         Platform.runLater(() -> {
             switch (msg.getType()) {
 
-                case "MY_PRODUCTS_RESPONSE" -> {
+                case "MY_PRODUCTS_RESPONSE", "GET_MY_PRODUCTS_RESPONSE" -> {
                     try {
-                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                        if (!root.has("products") || !root.get("products").isJsonArray()) return;
-                        JsonArray arr = root.getAsJsonArray("products");
+                        JsonElement parsed = gson.fromJson(msg.getPayload(), JsonElement.class);
+                        JsonArray arr = null;
+
+                        if (parsed == null || parsed.isJsonNull()) {
+                            System.err.println("[ManageProduct] Payload is null");
+                            return;
+                        }
+
+                        if (parsed.isJsonObject()) {
+                            JsonObject root = parsed.getAsJsonObject();
+                            if (root.has("products") && root.get("products").isJsonArray()) {
+                                arr = root.getAsJsonArray("products");
+                            } else if (root.has("items") && root.get("items").isJsonArray()) {
+                                arr = root.getAsJsonArray("items");
+                            }
+                        } else if (parsed.isJsonArray()) {
+                            arr = parsed.getAsJsonArray();
+                        }
+
+                        if (arr == null) {
+                            System.err.println("[ManageProduct] Could not extract array from payload");
+                            showStatus("⚠ Lỗi parse dữ liệu sản phẩm", true);
+                            return;
+                        }
+
+                        System.out.println("[ManageProduct] Array size: " + arr.size());
                         List<Item> items = new ArrayList<>();
-                        for (JsonElement el : arr) {
+                        for (int i = 0; i < arr.size(); i++) {
+                            JsonElement el = arr.get(i);
+                            if (!el.isJsonObject()) {
+                                System.err.println("[ManageProduct] Element " + i + " is not JSON object");
+                                continue;
+                            }
                             Item item = deserializeItem(el.getAsJsonObject());
-                            if (item != null) items.add(item);
+                            if (item != null) {
+                                items.add(item);
+                                System.out.println("[ManageProduct] Added item: " + item.getName());
+                            } else {
+                                System.err.println("[ManageProduct] Failed to deserialize element " + i);
+                            }
                         }
                         productData.setAll(items);
+                        System.out.println("[ManageProduct] ✓ Loaded " + items.size() + " products to table");
                     } catch (Exception e) {
                         System.err.println("[ManageProduct] parse MY_PRODUCTS_RESPONSE lỗi: " + e.getMessage());
+                        e.printStackTrace();
+                        showStatus("⚠ Lỗi tải danh sách sản phẩm: " + e.getMessage(), true);
                     }
                 }
 
                 case "ADD_PRODUCT_RESPONSE" -> {
                     try {
+                        System.out.println("[ManageProduct] Processing ADD_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
+                            System.out.println("[ManageProduct] ✓ Add product success");
                             if (root.has("product") && !root.get("product").isJsonNull()) {
                                 Item item = deserializeItem(root.getAsJsonObject("product"));
-                                if (item != null) productData.add(0, item);
+                                if (item != null) {
+                                    productData.add(0, item);
+                                    System.out.println("[ManageProduct] Added item to table: " + item.getName());
+                                }
                             }
                             clearForm();
                             showStatus("✓ Thêm sản phẩm thành công!", false);
                             loadMyProducts();
                         } else {
+                            System.err.println("[ManageProduct] Add failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
+                        System.err.println("[ManageProduct] ADD_PRODUCT_RESPONSE lỗi: " + e.getMessage());
+                        e.printStackTrace();
                         showStatus("⚠ Lỗi parse response: " + e.getMessage(), true);
                     }
                 }
 
                 case "UPDATE_PRODUCT_RESPONSE" -> {
                     try {
+                        System.out.println("[ManageProduct] Processing UPDATE_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
+                            System.out.println("[ManageProduct] ✓ Update product success");
                             loadMyProducts();
                             showStatus("✓ Cập nhật thành công!", false);
                         } else {
+                            System.err.println("[ManageProduct] Update failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
+                        System.err.println("[ManageProduct] UPDATE_PRODUCT_RESPONSE lỗi: " + e.getMessage());
+                        e.printStackTrace();
                         showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
 
                 case "DELETE_PRODUCT_RESPONSE" -> {
                     try {
+                        System.out.println("[ManageProduct] Processing DELETE_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
+                            System.out.println("[ManageProduct] ✓ Delete product success");
                             Item selected = tableProducts.getSelectionModel().getSelectedItem();
                             if (selected != null) productData.remove(selected);
                             clearForm();
                             showStatus("✓ Đã xoá sản phẩm!", false);
                         } else {
+                            System.err.println("[ManageProduct] Delete failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
+                        System.err.println("[ManageProduct] DELETE_PRODUCT_RESPONSE lỗi: " + e.getMessage());
+                        e.printStackTrace();
                         showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
+
+                default -> System.out.println("[ManageProduct] Unhandled message type: " + msg.getType());
             }
         });
     }
@@ -397,7 +467,10 @@ public class ManageProductController implements Initializable {
         UserSession session = UserSession.getInstance();
         if (session != null && session.getUserId() != null) {
             String sellerId = session.getUserId();
+            System.out.println("[ManageProduct] Sending GET_MY_PRODUCTS for seller: " + sellerId);
             client.send(new Message("GET_MY_PRODUCTS", gson.toJson(Map.of("sellerId", sellerId))));
+        } else {
+            System.err.println("[ManageProduct] UserSession is null or userId is null");
         }
     }
 

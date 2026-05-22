@@ -5,7 +5,9 @@ import com.auction.server.dao.bid.BidDAO;
 import com.auction.server.dao.item.ItemSaveDAO;
 import com.auction.server.dao.transaction.TransactionDAO;
 import com.auction.shared.model.Entity.Item.Art;
+import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
+import com.auction.shared.model.Entity.Item.Vehicle;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -265,7 +267,13 @@ public class AuctionService {
             String imagePath   = (String) row.getOrDefault("imagePath",
                                  row.getOrDefault("image_path", ""));
 
-            Art item = new Art(itemId, itemName, startingPrice, endTime, sellerId, description);
+            String type = (String) row.getOrDefault("type", "ART");
+            Item item = switch (type.toUpperCase()) {
+                case "ELECTRONICS" -> new Electronics(itemId, itemName, startingPrice, endTime, sellerId, 0);
+                case "VEHICLE"     -> new Vehicle(itemId, itemName, startingPrice, endTime, sellerId, 0);
+                default            -> new Art(itemId, itemName, startingPrice, endTime, sellerId, description);
+            };
+
             item.setCurrentBid(currentPrice);
             item.setStatus(status != null ? status : "OPEN");
             item.setBidIncrement(bidIncrement);
@@ -298,4 +306,58 @@ public class AuctionService {
             String    message,
             String    newEndTime
     ) {}
+
+    /**
+     * Lấy lịch sử đấu giá của 1 bidder.
+     * Trả về list các phiên bidder đã tham gia kèm:
+     *   - itemName, myBid (giá cao nhất bidder đã đặt)
+     *   - finalPrice, winnerId (từ bảng auctions/transactions)
+     *   - status, endTime, sellerName
+     */
+    public List<Map<String, Object>> getBidHistoryForBidder(String bidderId) {
+        String sql =
+                "SELECT " +
+                        "  i.id           AS itemId, " +
+                        "  i.name         AS itemName, " +
+                        "  MAX(b.bid_price) AS myBid, " +        // giá cao nhất bidder đặt
+                        "  a.current_price AS finalPrice, " +
+                        "  a.status, " +
+                        "  a.end_time     AS endTime, " +
+                        "  u.username     AS sellerName, " +
+                        "  t.winner_id    AS winnerId " +
+                        "FROM bids b " +
+                        "JOIN items i      ON b.item_id   = i.id " +
+                        "JOIN auctions a   ON a.item_id   = i.id " +
+                        "LEFT JOIN users u ON i.seller_id = u.id " +
+                        "LEFT JOIN transactions t ON t.item_id = i.id " +
+                        "WHERE b.bidder_id = ? " +
+                        "GROUP BY i.id, i.name, a.current_price, a.status, " +
+                        "         a.end_time, u.username, t.winner_id " +
+                        "ORDER BY a.end_time DESC";
+
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        try (java.sql.Connection conn =
+                     com.auction.server.database.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, bidderId);
+            java.sql.ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                Map<String, Object> row = new java.util.HashMap<>();
+                row.put("itemId",     rs.getString("itemId"));
+                row.put("itemName",   rs.getString("itemName"));
+                row.put("myBid",      rs.getDouble("myBid"));
+                row.put("finalPrice", rs.getDouble("finalPrice"));
+                row.put("status",     rs.getString("status"));
+                row.put("endTime",    rs.getString("endTime"));
+                row.put("sellerName", rs.getString("sellerName"));
+                row.put("winnerId",   rs.getString("winnerId")); // null nếu chưa kết thúc
+                result.add(row);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
 }
