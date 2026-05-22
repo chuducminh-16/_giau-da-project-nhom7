@@ -5,7 +5,9 @@ import com.auction.server.dao.bid.BidDAO;
 import com.auction.server.dao.item.ItemSaveDAO;
 import com.auction.server.dao.transaction.TransactionDAO;
 import com.auction.shared.model.Entity.Item.Art;
+import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
+import com.auction.shared.model.Entity.Item.Vehicle;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -265,7 +267,13 @@ public class AuctionService {
             String imagePath   = (String) row.getOrDefault("imagePath",
                                  row.getOrDefault("image_path", ""));
 
-            Art item = new Art(itemId, itemName, startingPrice, endTime, sellerId, description);
+            String type = (String) row.getOrDefault("type", "ART");
+            Item item = switch (type.toUpperCase()) {
+                case "ELECTRONICS" -> new Electronics(itemId, itemName, startingPrice, endTime, sellerId, 0);
+                case "VEHICLE"     -> new Vehicle(itemId, itemName, startingPrice, endTime, sellerId, 0);
+                default            -> new Art(itemId, itemName, startingPrice, endTime, sellerId, description);
+            };
+
             item.setCurrentBid(currentPrice);
             item.setStatus(status != null ? status : "OPEN");
             item.setBidIncrement(bidIncrement);
