@@ -23,10 +23,10 @@ module com.auction.client {
     opens com.auction.server.dao.user    to com.google.gson;
  
     // ── Mở Entity cho Gson ────────────────────────────────────────────────
-    opens com.auction.shared.model.Entity               to com.google.gson;
-    opens com.auction.shared.model.Entity.User          to com.google.gson;
-    opens com.auction.shared.model.Entity.Item          to com.google.gson;
-    opens com.auction.shared.model.Entity.Auction_Bid   to com.google.gson;
+    opens com.auction.shared.model.Entity               to com.google.gson, javafx.base;
+    opens com.auction.shared.model.Entity.User          to com.google.gson, javafx.base;
+    opens com.auction.shared.model.Entity.Item          to com.google.gson, javafx.base;
+    opens com.auction.shared.model.Entity.Auction_Bid   to com.google.gson, javafx.base;
  
     exports com.auction.client;
 }
