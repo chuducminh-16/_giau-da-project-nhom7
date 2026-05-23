@@ -112,6 +112,12 @@ public class ClientHandler implements Runnable {
                 send(auctionController.handleGetBidHistory(p));
             }
 
+            // ── THÊM MỚI: Định tuyến lấy lịch sử tổng hợp của cá nhân người dùng ─────────────
+            case "GET_USER_BID_HISTORY" -> {
+                if (!isAuthenticated()) return;
+                send(auctionController.handleGetUserBidHistory(p));
+            }
+
             // ── FIX: Auto-Bid routes (ban goc THIEU 2 case nay) ──────────
             case "REGISTER_AUTO_BID" -> {
                 if (!isAuthenticated()) return;

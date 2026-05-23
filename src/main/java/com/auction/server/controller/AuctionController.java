@@ -252,6 +252,31 @@ public class AuctionController {
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // THÊM MỚI: Xử lý request lấy lịch sử đấu giá cá nhân của Bidder
+    // ─────────────────────────────────────────────────────────────────────
+    public Message handleGetUserBidHistory(String payload) {
+        try {
+            // Đọc dữ liệu JSON gửi lên từ client
+            Map<String, String> requestData = gson.fromJson(payload, Map.class);
+            String bidderId = requestData.get("bidderId");
+
+            if (bidderId == null || bidderId.isBlank()) {
+                return new Message("USER_BID_HISTORY_RESPONSE", gson.toJson(List.of()));
+            }
+
+            // Gọi xuống AuctionService để truy vấn dữ liệu từ DB hoặc bộ nhớ máy chủ
+            List<Map<String, Object>> historyRecords = auctionService.getUserBidHistory(bidderId);
+
+            // Trả về thẳng một JsonArray trực tiếp cho Client
+            return new Message("USER_BID_HISTORY_RESPONSE", gson.toJson(historyRecords));
+        } catch (Exception e) {
+            System.err.println("[AuctionController] Lỗi lấy lịch sử user: " + e.getMessage());
+            // Trả về mảng rỗng phòng khi hệ thống gặp lỗi logic
+            return new Message("USER_BID_HISTORY_RESPONSE", gson.toJson(List.of()));
+        }
+    }
+
     /**
      * Lấy lịch sử đấu giá của 1 bidder.
      * Gộp từ bảng bids + auctions + items + transactions để ra đủ thông tin.

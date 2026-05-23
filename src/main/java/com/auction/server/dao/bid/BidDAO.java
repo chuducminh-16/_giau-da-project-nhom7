@@ -15,7 +15,7 @@ public class BidDAO {
 
     // Đặt giá mới
     public boolean placeBid(String itemId, String bidderId, double bidPrice) {
-        String sql = "INSERT INTO bids (item_id, bidder_id, bid_price) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO bids (item_id, bidder_id, bid_price, bid_time) VALUES (?, ?, ?, NOW())";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
