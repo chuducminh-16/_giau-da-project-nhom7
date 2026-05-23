@@ -1,11 +1,6 @@
 package com.auction.server.service;
 
-<<<<<<< HEAD
-import com.auction.server.dao.UserDAO;
-import com.auction.shared.model.Entity.User.User;
-=======
 import java.util.UUID;
->>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
 
 import com.auction.server.dao.user.UserFindDAO;
 import com.auction.server.dao.user.UserSaveDAO;

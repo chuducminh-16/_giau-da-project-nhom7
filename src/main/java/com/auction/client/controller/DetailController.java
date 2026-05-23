@@ -1,5 +1,6 @@
 package com.auction.client.controller;
 
+import java.io.File;
 import java.net.URL;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -43,7 +44,6 @@ public class DetailController implements Initializable {
     @FXML private Label lblEndTime;
     @FXML private Label lblDescription;
 
-    // currentItem giờ là local display state; được set từ server response
     private Item currentItem;
     private String itemId;
 
@@ -72,11 +72,9 @@ public class DetailController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         client.addListener(listener);
 
-        // Lấy itemId từ Session (chỉ lưu ID, không lưu object)
         itemId = SelectedProductSession.getInstance().getProductId();
 
         if (itemId != null) {
-            // Luôn fetch fresh data từ server — không dùng cached object
             client.send(new Message("GET_PRODUCT_DETAIL",
                     gson.toJson(Map.of("itemId", itemId))));
             setText(productNameLabel, "Đang tải...");
@@ -88,7 +86,6 @@ public class DetailController implements Initializable {
     private void handleServerMessage(Message msg) {
         switch (msg.getType()) {
 
-            // Server trả fresh product detail
             case "PRODUCT_DETAIL_RESPONSE" -> {
                 try {
                     JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
@@ -102,7 +99,6 @@ public class DetailController implements Initializable {
                     Platform.runLater(() -> {
                         currentItem = item;
                         populateUI(item);
-                        // Đăng ký theo dõi realtime BID_UPDATE sau khi có item
                         client.send(new Message("WATCH_AUCTION",
                                 gson.toJson(Map.of("auctionId", item.getId()))));
                     });
@@ -111,7 +107,6 @@ public class DetailController implements Initializable {
                 }
             }
 
-            // Realtime bid update — cập nhật giá hiện tại
             case "BID_UPDATE" -> {
                 try {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
@@ -154,7 +149,6 @@ public class DetailController implements Initializable {
     }
 
     @FXML public void onJoinRoomClick(ActionEvent event) {
-        // itemId đã có trong session, LiveBidding sẽ dùng
         client.removeListener(listener);
         SceneEngine.changeScene(event, "live-bidding-view.fxml", "Phòng Đấu Giá Trực Tiếp");
     }
@@ -182,14 +176,26 @@ public class DetailController implements Initializable {
         if (label != null) label.setText(value != null ? value : "—");
     }
 
+    /**
+     * ✅ FIX: Dùng File.toURI().toString() để load ảnh đúng trên mọi OS.
+     * "file:" + path bị lỗi trên Windows do drive letter (C:\...) và khoảng trắng trong path.
+     */
     private void loadImage(String imagePath) {
         if (imagePath == null || imagePath.isBlank()) return;
         try {
-            Image img = new Image("file:" + imagePath, true);
+            File imgFile = new File(imagePath);
+            if (!imgFile.exists()) {
+                System.err.println("[Detail] Không tìm thấy file ảnh: " + imagePath);
+                return;
+            }
+            // toURI().toString() → "file:///C:/Users/..." trên Windows, đúng chuẩn JavaFX
+            Image img = new Image(imgFile.toURI().toString(), true);
             mainImageView.setImage(img);
+            // Đặt cùng ảnh cho thumbnails
             if (thumb1 != null) thumb1.setImage(img);
+            if (thumb2 != null) thumb2.setImage(img);
         } catch (Exception e) {
-            System.err.println("[Detail] Không load được ảnh: " + e.getMessage());
+            System.err.println("[Detail] Lỗi load ảnh: " + e.getMessage());
         }
     }
 }

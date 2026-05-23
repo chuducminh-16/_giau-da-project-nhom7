@@ -1,9 +1,5 @@
 package com.auction.shared.pattern.observer;
-<<<<<<< HEAD
-=======
-
 import com.auction.shared.model.Entity.Auction_Bid.Bid;
->>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
 
 /**
  * Observer interface — implement để nhận thông báo khi có bid mới.
