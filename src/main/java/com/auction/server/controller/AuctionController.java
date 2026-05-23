@@ -40,9 +40,9 @@ public class AuctionController {
     public Message handleGetAuctions() {
         try {
             List<Item> items = auctionService.getActiveAuctions();
-            return new Message("AUCTIONS_RESPONSE", gson.toJson(items));
+            return new Message("AUCTIONS_LIST", gson.toJson(Map.of("auctions", items)));
         } catch (Exception e) {
-            return error("Khong the tai danh sach dau gia: " + e.getMessage());
+            return error("Không thể tải danh sách đấu giá: " + e.getMessage());
         }
     }
 
@@ -53,9 +53,9 @@ public class AuctionController {
         try {
             GetMyProductsDto dto = gson.fromJson(payload, GetMyProductsDto.class);
             List<Item> items = auctionService.getProductsBySeller(dto.sellerId());
-            return new Message("MY_PRODUCTS_RESPONSE", gson.toJson(items));
+            return new Message("MY_PRODUCTS_RESPONSE", gson.toJson(Map.of("items", items)));
         } catch (Exception e) {
-            return error("Khong the tai san pham: " + e.getMessage());
+            return error("Không thể tải sản phẩm: " + e.getMessage());
         }
     }
 
@@ -357,6 +357,24 @@ public class AuctionController {
                 gson.toJson(Map.of("success", success, "message", message)));
     }
 
+    public Message handleGetProductDetail(String payload) {
+        try {
+            GetProductDetailDto dto = gson.fromJson(payload, GetProductDetailDto.class);
+            // dùng ItemFindDAO trực tiếp hoặc thêm method vào AuctionService
+            com.auction.server.dao.item.ItemFindDAO itemFindDAO =
+                    new com.auction.server.dao.item.ItemFindDAO();
+            Item item = itemFindDAO.findById(dto.itemId());
+            if (item == null) {
+                return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
+                        "success", false, "message", "Không tìm thấy sản phẩm")));
+            }
+            return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
+                    "success", true, "item", item)));
+        } catch (Exception e) {
+            return error("Lỗi tải sản phẩm: " + e.getMessage());
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // DTOs noi bo
     // ─────────────────────────────────────────────────────────────────────
@@ -377,4 +395,5 @@ public class AuctionController {
 
     private record DeleteProductDto(String productId) {}
     private record BidderDto(String bidderId) {}
+    private record GetProductDetailDto(String itemId) {}
 }
