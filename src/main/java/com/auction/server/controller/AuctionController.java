@@ -1,355 +1,269 @@
 package com.auction.server.controller;
 
-import com.auction.client.network.Message;
-import com.auction.server.network.ClientHandler;
-import com.auction.server.network.NetworkServer;
-import com.auction.server.service.AuctionService;
-import com.auction.server.service.AutoBidService;
-import com.auction.server.dao.bid.BidDAO;
-import com.auction.shared.model.Entity.Item.Item;
-import com.google.gson.Gson;
-
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.auction.client.network.Message;
+import com.auction.server.dao.bid.BidDAO;
+import com.auction.server.dao.item.ItemFindDAO;
+import com.auction.server.network.ClientHandler;
+import com.auction.server.network.NetworkServer;
+import com.auction.server.service.AuctionService;
+import com.auction.shared.model.Entity.Item.Item;
+import com.google.gson.Gson;
+
 /**
- * Server-side AuctionController.
+ * AuctionController — xử lý request liên quan đến sản phẩm & đấu giá.
  *
- * FIX so voi ban goc:
- *   1. Them AutoBidService — triggerAutoBid() duoc goi sau moi bid thanh cong
- *   2. Broadcast TIME_EXTENDED khi anti-sniping kich hoat
- *   3. handleGetBidHistory()    — xu ly GET_BID_HISTORY
- *   4. handleRegisterAutoBid()  — xu ly REGISTER_AUTO_BID
- *   5. handleCancelAutoBid()    — xu ly CANCEL_AUTO_BID
+ * Merge từ 2 nhánh:
+ *  - Nhánh gốc : broadcastToAuction cho BID_UPDATE (chỉ gửi người đang xem phiên)
+ *  - Nhánh bạn : broadcastToAll cho BID_UPDATE (live update toàn bộ client — HomeController, DetailController)
+ *                handleGetBidHistory() map đúng field (amount→bidPrice, createdAt→bidTime)
+ *                handleGetUserBidHistory() cho BidHistoryController
+ *                BidHistoryDto hỗ trợ cả 3 field: itemId, auctionId, productId
+ *                newSeconds trong AUCTION_EXTENDED để client cập nhật countdown đúng
  */
 public class AuctionController {
 
+    private final AuctionService auctionService = new AuctionService();
+    private final ItemFindDAO    itemFindDAO    = new ItemFindDAO();
+    private final BidDAO         bidDAO         = new BidDAO();
     private final NetworkServer  server;
-    private final AuctionService auctionService  = new AuctionService();
-    private final AutoBidService autoBidService  = new AutoBidService(auctionService);
-    private final Gson           gson            = new Gson();
+    private final Gson           gson = new Gson();
 
     public AuctionController(NetworkServer server) {
         this.server = server;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // GET AUCTIONS
-    // ─────────────────────────────────────────────────────────────────────
+    // ── GET_PRODUCT_DETAIL ────────────────────────────────────────────────
+    public Message handleGetProductDetail(String payload) {
+        try {
+            ProductDetailDto dto = gson.fromJson(payload, ProductDetailDto.class);
+            Item item = itemFindDAO.findById(dto.itemId());
+            if (item == null) {
+                return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
+                        "success", false,
+                        "message", "Không tìm thấy sản phẩm: " + dto.itemId())));
+            }
+            return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
+                    "success", true, "item", item)));
+        } catch (Exception e) {
+            return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
+                    "success", false, "message", "Lỗi server: " + e.getMessage())));
+        }
+    }
+
+    // ── GET_AUCTIONS ──────────────────────────────────────────────────────
     public Message handleGetAuctions() {
-        try {
-            List<Item> items = auctionService.getActiveAuctions();
-            return new Message("AUCTIONS_RESPONSE", gson.toJson(items));
-        } catch (Exception e) {
-            return error("Khong the tai danh sach dau gia: " + e.getMessage());
-        }
+        List<Item> list = auctionService.getActiveAuctions();
+        return new Message("AUCTIONS_LIST", gson.toJson(Map.of(
+                "success", true, "auctions", list)));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // GET MY PRODUCTS
-    // ─────────────────────────────────────────────────────────────────────
+    // ── GET_MY_PRODUCTS ───────────────────────────────────────────────────
     public Message handleGetMyProducts(String payload) {
-        try {
-            GetMyProductsDto dto = gson.fromJson(payload, GetMyProductsDto.class);
-            List<Item> items = auctionService.getProductsBySeller(dto.sellerId());
-            return new Message("MY_PRODUCTS_RESPONSE", gson.toJson(items));
-        } catch (Exception e) {
-            return error("Khong the tai san pham: " + e.getMessage());
-        }
+        SellerDto dto = gson.fromJson(payload, SellerDto.class);
+        List<Item> items = auctionService.getProductsBySeller(dto.sellerId());
+        return new Message("MY_PRODUCTS_RESPONSE", gson.toJson(Map.of(
+                "success", true, "products", items)));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // ADD PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
-    public Message handleAddProduct(String payload, String role) {
-        if (!"SELLER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
-            return error("Chi Seller moi co the them san pham.");
-        }
-        try {
-            AddProductDto dto = gson.fromJson(payload, AddProductDto.class);
-
-            if (dto.name() == null || dto.name().isBlank())
-                return error("Ten san pham khong duoc rong.");
-            if (dto.startPrice() <= 0)
-                return error("Gia khoi diem phai > 0.");
-            if (dto.endTime() == null || dto.endTime().isBlank())
-                return error("Thoi gian ket thuc khong duoc rong.");
-
-            LocalDateTime endTime;
-            try {
-                endTime = LocalDateTime.parse(dto.endTime().replace(" ", "T"));
-            } catch (Exception e) {
-                return error("Dinh dang thoi gian ket thuc khong hop le.");
-            }
-            if (endTime.isBefore(LocalDateTime.now()))
-                return error("Thoi gian ket thuc da qua.");
-
-            LocalDateTime startTime = (dto.startTime() != null && !dto.startTime().isBlank())
-                    ? LocalDateTime.parse(dto.startTime().replace(" ", "T"))
-                    : LocalDateTime.now();
-
-            Item item = auctionService.addProduct(
-                    dto.sellerId(),
-                    dto.name(),
-                    dto.description() != null ? dto.description() : "",
-                    dto.startPrice(),
-                    dto.bidIncrement() > 0 ? dto.bidIncrement() : 1000.0,
-                    dto.imagePath() != null ? dto.imagePath() : "",
-                    startTime,
-                    endTime
-            );
-
-            if (item == null) return error("Khong the them san pham. Vui long thu lai.");
-
-            return new Message("ADD_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of("success", true, "item", item)));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return error("Loi he thong: " + e.getMessage());
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // UPDATE PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
-    public Message handleUpdateProduct(String payload, String role) {
-        if (!"SELLER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
-            return error("Khong co quyen cap nhat san pham.");
-        }
-        try {
-            UpdateProductDto dto = gson.fromJson(payload, UpdateProductDto.class);
-            if (dto.productId() == null || dto.productId().isBlank())
-                return error("productId khong duoc rong.");
-
-            LocalDateTime endTime = LocalDateTime.parse(dto.endTime().replace(" ", "T"));
-
-            boolean ok = auctionService.updateProduct(
-                    dto.productId(), dto.name(), dto.description(),
-                    dto.startPrice(), dto.bidIncrement(), endTime);
-
-            return new Message("UPDATE_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of("success", ok,
-                            "message", ok ? "Cap nhat thanh cong." : "Cap nhat that bai.")));
-        } catch (Exception e) {
-            return error("Loi cap nhat san pham: " + e.getMessage());
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // DELETE PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
-    public Message handleDeleteProduct(String payload, String role) {
-        if (!"SELLER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
-            return error("Khong co quyen xoa san pham.");
-        }
-        try {
-            DeleteProductDto dto = gson.fromJson(payload, DeleteProductDto.class);
-            boolean ok = auctionService.deleteProduct(dto.productId());
-            return new Message("DELETE_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of("success", ok,
-                            "message", ok ? "Da xoa san pham." : "Khong the xoa.")));
-        } catch (Exception e) {
-            return error("Loi xoa san pham: " + e.getMessage());
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // PLACE BID
-    // FIX: sau bid thanh cong → broadcast BID_UPDATE + TIME_EXTENDED + triggerAutoBid
-    // ─────────────────────────────────────────────────────────────────────
-    public void handlePlaceBid(String payload, String role,
-                               String bidderId, String bidderName,
-                               ClientHandler caller) {
-        if (!"BIDDER".equalsIgnoreCase(role)) {
-            caller.send(new Message("BID_RESULT",
-                    gson.toJson(Map.of("success", false,
-                            "message", "Chi Bidder moi co the dat gia."))));
-            return;
-        }
-
-        PlaceBidDto dto;
-        try {
-            dto = gson.fromJson(payload, PlaceBidDto.class);
-        } catch (Exception e) {
-            caller.send(new Message("BID_RESULT",
-                    gson.toJson(Map.of("success", false, "message", "Du lieu khong hop le."))));
-            return;
-        }
-
-        if (dto.productId() == null || dto.amount() <= 0) {
-            caller.send(new Message("BID_RESULT",
-                    gson.toJson(Map.of("success", false, "message", "Du lieu bid khong hop le."))));
-            return;
-        }
-
-        AuctionService.BidOutcome outcome =
-                auctionService.placeBid(dto.productId(), bidderId, dto.amount());
-
-        boolean success = outcome.result() == AuctionService.BidResult.SUCCESS;
-
-        caller.send(new Message("BID_RESULT",
-                gson.toJson(Map.of("success", success, "message", outcome.message()))));
-
-        if (!success) return;
-
-        // ── Broadcast BID_UPDATE ──────────────────────────────────────────
-        String bidUpdatePayload = gson.toJson(Map.of(
-                "productId",  dto.productId(),
-                "newBid",     outcome.newBid(),
-                "bidderName", bidderName
-        ));
-        server.broadcastToAuction(dto.productId(), new Message("BID_UPDATE", bidUpdatePayload));
-
-        // ── FIX: Broadcast TIME_EXTENDED neu anti-sniping kich hoat ──────
-        if (outcome.newEndTime() != null) {
-            String extPayload = gson.toJson(Map.of(
-                    "productId",  dto.productId(),
-                    "newEndTime", outcome.newEndTime()
-            ));
-            server.broadcastToAuction(dto.productId(),
-                    new Message("TIME_EXTENDED", extPayload));
-            System.out.printf("[AuctionController] Anti-sniping: phien %s gia han -> %s%n",
-                    dto.productId(), outcome.newEndTime());
-        }
-
-        // ── FIX: Trigger auto-bid cua doi thu (ban goc KHONG goi ham nay) ─
-        AutoBidService.AutoBidResult autoBid =
-                autoBidService.triggerAutoBid(dto.productId(), outcome.newBid(), bidderId);
-
-        if (autoBid != null) {
-            String autoBidPayload = gson.toJson(Map.of(
-                    "productId",  dto.productId(),
-                    "newBid",     autoBid.newBid(),
-                    "bidderName", autoBid.bidderId() + " (auto)"
-            ));
-            server.broadcastToAuction(dto.productId(),
-                    new Message("BID_UPDATE", autoBidPayload));
-
-            if (autoBid.newEndTime() != null) {
-                String extPayload = gson.toJson(Map.of(
-                        "productId",  dto.productId(),
-                        "newEndTime", autoBid.newEndTime()
-                ));
-                server.broadcastToAuction(dto.productId(),
-                        new Message("TIME_EXTENDED", extPayload));
-            }
-            System.out.printf("[AuctionController] AutoBid triggered: %s -> %.0f%n",
-                    autoBid.bidderId(), autoBid.newBid());
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // GET BID HISTORY (FIX: ban goc THIEU method nay)
-    // ─────────────────────────────────────────────────────────────────────
+    // ── GET_BID_HISTORY — lịch sử của 1 sản phẩm (LiveBiddingController) ─
+    // [MERGE] Map đúng field: amount→bidPrice, createdAt→bidTime để client đọc được
+    // [MERGE] Hỗ trợ cả 3 field: itemId (client gửi), auctionId, productId
     public Message handleGetBidHistory(String payload) {
         try {
-            GetBidHistoryDto dto = gson.fromJson(payload, GetBidHistoryDto.class);
-            List<BidDAO.BidRecord> history = auctionService.getBidHistory(dto.productId());
-            return new Message("BID_HISTORY_RESPONSE", gson.toJson(history));
-        } catch (Exception e) {
-            return error("Khong the tai lich su: " + e.getMessage());
-        }
-    }
+            BidHistoryDto dto = gson.fromJson(payload, BidHistoryDto.class);
+            String id = dto.itemId() != null    ? dto.itemId()
+                      : dto.auctionId() != null ? dto.auctionId()
+                      : dto.productId();
 
-    /**
-     * Lấy lịch sử đấu giá của 1 bidder.
-     * Gộp từ bảng bids + auctions + items + transactions để ra đủ thông tin.
-     */
-    public Message handleGetProductHistory(String payload) {
-        try {
-            BidderDto dto = gson.fromJson(payload, BidderDto.class);
-            String bidderId = dto.bidderId();
+            List<BidDAO.BidRecord> records = auctionService.getBidHistory(id);
 
-            // Lấy danh sách itemId mà bidder này đã từng bid
-            List<BidDAO.BidRecord> myBids = auctionService.getBidHistory(bidderId);
-
-            // Nhóm theo itemId, lấy giá cao nhất của bidder trong từng phiên
-            Map<String, Double> maxBidPerItem = new java.util.HashMap<>();
-            for (BidDAO.BidRecord b : myBids) {
-                maxBidPerItem.merge(b.bidderId(), b.amount(), Math::max);
-                // NOTE: BidRecord.bidderId() đây thực ra là itemId — xem lại BidDAO.getBidRecords
+            // Map BidRecord sang format client đọc được
+            List<Map<String, Object>> history = new ArrayList<>();
+            for (BidDAO.BidRecord r : records) {
+                Map<String, Object> row = new HashMap<>();
+                row.put("username", r.username());
+                row.put("bidderId", r.bidderId());
+                row.put("bidPrice", r.amount());    // amount → bidPrice
+                row.put("bidTime",  r.createdAt()); // createdAt → bidTime
+                history.add(row);
             }
-
-            // Query DB lấy thông tin phiên của từng item bidder đã tham gia
-            List<Map<String, Object>> records =
-                    auctionService.getBidHistoryForBidder(bidderId);
 
             return new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
                     "success", true,
-                    "records", records
-            )));
+                    "history", history)));
         } catch (Exception e) {
-            return error("Lỗi tải lịch sử: " + e.getMessage());
+            return new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
+                    "success", false,
+                    "history", List.of())));
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // REGISTER AUTO-BID (FIX: ban goc THIEU method nay)
-    // ─────────────────────────────────────────────────────────────────────
-    public Message handleRegisterAutoBid(String payload, String bidderId) {
+    // ── GET_USER_BID_HISTORY — lịch sử cá nhân Bidder (BidHistoryController) ─
+    public Message handleGetUserBidHistory(String payload) {
         try {
-            AutoBidDto dto = gson.fromJson(payload, AutoBidDto.class);
+            Map<?, ?> req = gson.fromJson(payload, Map.class);
+            String bidderId = (String) req.get("bidderId");
 
-            if (dto.maxBid() <= 0)
-                return autoBidResult(false, "maxBid phai > 0.");
-            if (dto.increment() <= 0)
-                return autoBidResult(false, "Buoc gia (increment) phai > 0.");
+            if (bidderId == null || bidderId.isBlank()) {
+                return new Message("USER_BID_HISTORY_RESPONSE", gson.toJson(List.of()));
+            }
 
-            boolean ok = autoBidService.registerAutoBid(
-                    dto.itemId(), bidderId, dto.maxBid(), dto.increment());
+            List<Map<String, Object>> records = auctionService.getBidHistoryForBidder(bidderId);
+            return new Message("USER_BID_HISTORY_RESPONSE", gson.toJson(records));
 
-            return autoBidResult(ok,
-                    ok ? "Dang ky auto-bid thanh cong." : "Dang ky auto-bid that bai.");
         } catch (Exception e) {
-            return autoBidResult(false, "Loi: " + e.getMessage());
+            System.err.println("[AuctionController] Lỗi lấy lịch sử user: " + e.getMessage());
+            return new Message("USER_BID_HISTORY_RESPONSE", gson.toJson(List.of()));
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // CANCEL AUTO-BID (FIX: ban goc THIEU method nay)
-    // ─────────────────────────────────────────────────────────────────────
-    public Message handleCancelAutoBid(String payload, String bidderId) {
+    // ── ADD_PRODUCT ───────────────────────────────────────────────────────
+    public Message handleAddProduct(String payload, String currentUserRole) {
+        if (!"SELLER".equals(currentUserRole) && !"ADMIN".equals(currentUserRole))
+            return error("ADD_PRODUCT_RESPONSE", "Bạn không có quyền đăng sản phẩm.");
+
+        ProductDto dto = gson.fromJson(payload, ProductDto.class);
         try {
-            CancelAutoBidDto dto = gson.fromJson(payload, CancelAutoBidDto.class);
-            boolean ok = autoBidService.cancelAutoBid(dto.itemId(), bidderId);
-            return autoBidResult(ok,
-                    ok ? "Da huy auto-bid." : "Khong tim thay auto-bid de huy.");
+            LocalDateTime startTime = dto.startTime() != null
+                    ? LocalDateTime.parse(dto.startTime()) : LocalDateTime.now();
+            LocalDateTime endTime = LocalDateTime.parse(dto.endTime());
+
+            Item created = auctionService.addProduct(
+                    dto.sellerId(), dto.name(), dto.description(),
+                    Double.parseDouble(dto.startPrice()),
+                    Double.parseDouble(dto.bidIncrement()),
+                    dto.imagePath(), startTime, endTime);
+
+            if (created != null) {
+                return new Message("ADD_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                        "success", true,
+                        "message", "Thêm sản phẩm thành công!",
+                        "product", created)));
+            }
+            return error("ADD_PRODUCT_RESPONSE", "Không thể lưu sản phẩm.");
         } catch (Exception e) {
-            return autoBidResult(false, "Loi: " + e.getMessage());
+            return error("ADD_PRODUCT_RESPONSE", "Lỗi: " + e.getMessage());
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────
-    private Message error(String msg) {
-        return new Message("ERROR", gson.toJson(Map.of("message", msg)));
+    // ── UPDATE_PRODUCT ────────────────────────────────────────────────────
+    public Message handleUpdateProduct(String payload, String currentUserRole) {
+        if (!"SELLER".equals(currentUserRole) && !"ADMIN".equals(currentUserRole))
+            return error("UPDATE_PRODUCT_RESPONSE", "Bạn không có quyền sửa sản phẩm.");
+
+        UpdateProductDto dto = gson.fromJson(payload, UpdateProductDto.class);
+        try {
+            LocalDateTime endTime = LocalDateTime.parse(dto.endTime());
+            boolean ok = auctionService.updateProduct(
+                    dto.productId(), dto.name(), dto.description(),
+                    Double.parseDouble(dto.startPrice()),
+                    Double.parseDouble(dto.bidIncrement()), endTime);
+            return new Message("UPDATE_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                    "success", ok,
+                    "message", ok ? "Cập nhật thành công!" : "Cập nhật thất bại.")));
+        } catch (Exception e) {
+            return error("UPDATE_PRODUCT_RESPONSE", "Lỗi: " + e.getMessage());
+        }
     }
 
-    private Message autoBidResult(boolean success, String message) {
-        return new Message("AUTO_BID_RESULT",
-                gson.toJson(Map.of("success", success, "message", message)));
+    // ── DELETE_PRODUCT ────────────────────────────────────────────────────
+    public Message handleDeleteProduct(String payload, String currentUserRole) {
+        if (!"SELLER".equals(currentUserRole) && !"ADMIN".equals(currentUserRole))
+            return error("DELETE_PRODUCT_RESPONSE", "Bạn không có quyền xóa sản phẩm.");
+
+        DeleteDto dto = gson.fromJson(payload, DeleteDto.class);
+        boolean ok = auctionService.deleteProduct(dto.productId());
+        return new Message("DELETE_PRODUCT_RESPONSE", gson.toJson(Map.of(
+                "success", ok,
+                "message", ok ? "Đã xoá sản phẩm!" : "Xoá thất bại.")));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // DTOs noi bo
-    // ─────────────────────────────────────────────────────────────────────
-    private record GetMyProductsDto(String sellerId) {}
-    private record PlaceBidDto(String productId, String bidderId, double amount) {}
-    private record GetBidHistoryDto(String productId) {}
-    private record AutoBidDto(String itemId, double maxBid, double increment) {}
-    private record CancelAutoBidDto(String itemId) {}
+    // ── PLACE_BID ─────────────────────────────────────────────────────────
+    public void handlePlaceBid(String payload, String currentUserRole,
+                                String currentUserId, String currentUsername,
+                                ClientHandler handler) {
+        if (!"BIDDER".equals(currentUserRole)) {
+            handler.send(error("BID_RESULT", "Chỉ Bidder mới được đặt giá."));
+            return;
+        }
 
-    private record AddProductDto(
-            String sellerId, String name, String description,
-            double startPrice, double bidIncrement,
-            String imagePath, String startTime, String endTime) {}
+        PlaceBidDto dto = gson.fromJson(payload, PlaceBidDto.class);
+        AuctionService.BidOutcome outcome = auctionService.placeBid(
+                dto.productId(), currentUserId, dto.amount());
 
-    private record UpdateProductDto(
-            String productId, String name, String description,
-            double startPrice, double bidIncrement, String endTime) {}
+        switch (outcome.result()) {
+            case SUCCESS -> {
+                // Gửi kết quả cho người đặt giá
+                handler.send(new Message("BID_RESULT", gson.toJson(Map.of(
+                        "success", true,
+                        "message", "Đặt giá thành công!",
+                        "newBid",  outcome.newBid()))));
 
-    private record DeleteProductDto(String productId) {}
-    private record BidderDto(String bidderId) {}
+                // [MERGE] broadcastToAll: HomeController, DetailController,
+                // LiveBiddingController đều nhận BID_UPDATE real-time
+                server.broadcastToAll(new Message("BID_UPDATE", gson.toJson(Map.of(
+                        "productId",  dto.productId(),
+                        "newBid",     outcome.newBid(),
+                        "bidderId",   currentUserId,
+                        "bidderName", currentUsername,
+                        "timestamp",  LocalDateTime.now().toString()))));
+
+                // Anti-sniping: broadcast AUCTION_EXTENDED đến người đang xem phiên
+                if (outcome.newEndTime() != null) {
+                    try {
+                        LocalDateTime newEnd = LocalDateTime.parse(
+                                outcome.newEndTime().replace(" ", "T"));
+                        // [MERGE] Tính newSeconds để client cập nhật countdown đúng
+                        long newSeconds = java.time.Duration
+                                .between(LocalDateTime.now(), newEnd).getSeconds();
+
+                        server.broadcastToAuction(dto.productId(),
+                                new Message("AUCTION_EXTENDED", gson.toJson(Map.of(
+                                        "auctionId",  dto.productId(),
+                                        "productId",  dto.productId(),
+                                        "newSeconds", newSeconds,
+                                        "newEndTime", outcome.newEndTime(),
+                                        "message",    "Phiên được gia hạn thêm 60 giây!"))));
+                    } catch (Exception e) {
+                        System.err.println("[AuctionController] Lỗi parse newEndTime: " + e.getMessage());
+                    }
+                }
+            }
+            case PRICE_TOO_LOW ->
+                handler.send(new Message("BID_RESULT", gson.toJson(Map.of(
+                        "success",    false,
+                        "message",    outcome.message(),
+                        "currentBid", outcome.newBid()))));
+            case AUCTION_ENDED ->
+                handler.send(error("BID_RESULT", "Phiên đấu giá đã kết thúc."));
+            case AUCTION_NOT_FOUND ->
+                handler.send(error("BID_RESULT", "Sản phẩm không tồn tại."));
+            default ->
+                handler.send(error("BID_RESULT", "Lỗi hệ thống."));
+        }
+    }
+
+    // ── Helper ────────────────────────────────────────────────────────────
+    private Message error(String type, String message) {
+        return new Message(type, gson.toJson(Map.of("success", false, "message", message)));
+    }
+
+    // ── DTOs ──────────────────────────────────────────────────────────────
+    private record ProductDetailDto(String itemId) {}
+    private record SellerDto(String sellerId) {}
+    // [MERGE] hỗ trợ cả 3 field để tương thích mọi client
+    private record BidHistoryDto(String itemId, String auctionId, String productId) {}
+    private record ProductDto(String sellerId, String name, String description,
+                              String startPrice, String bidIncrement,
+                              String imagePath, String startTime, String endTime) {}
+    private record UpdateProductDto(String productId, String name, String description,
+                                    String startPrice, String bidIncrement, String endTime) {}
+    private record DeleteDto(String productId) {}
+    private record PlaceBidDto(String productId, double amount) {}
 }

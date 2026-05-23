@@ -34,6 +34,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 
@@ -47,6 +48,8 @@ public class HomeController implements Initializable {
     @FXML private Label heroBid;
     @FXML private Label heroStatus;
     @FXML private Label heroDesc;
+    @FXML private ImageView heroImage;
+    @FXML private Label heroPlaceholder;
 
     // Bảng
     @FXML private TableView<Item>           auctionTable;
@@ -63,15 +66,12 @@ public class HomeController implements Initializable {
     private final NetworkClient client = NetworkClient.getInstance();
     private final NetworkClient.MessageListener listener = this::handleServerMessage;
 
-    // ── Custom Gson deserializer cho abstract Item ────────────────────────
     private static Gson buildGson() {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
                     JsonObject obj = json.getAsJsonObject();
-                    String type = "ART";
-                    if (obj.has("type") && !obj.get("type").isJsonNull()) {
-                        type = obj.get("type").getAsString().toUpperCase();
-                    }
+                    String type = obj.has("type") && !obj.get("type").isJsonNull()
+                            ? obj.get("type").getAsString().toUpperCase() : "ART";
                     return switch (type) {
                         case "ELECTRONICS" -> ctx.deserialize(obj, Electronics.class);
                         case "VEHICLE"     -> ctx.deserialize(obj, Vehicle.class);
@@ -81,16 +81,10 @@ public class HomeController implements Initializable {
                 .create();
     }
 
-    /**
-     * Deserialize 1 JsonObject → đúng subclass Item theo field "type".
-     * Dùng trong vòng lặp parse AUCTIONS_LIST thay vì cast trực tiếp.
-     */
     private static Item deserializeItem(JsonObject obj, Gson gson) {
         try {
-            String type = "ART";
-            if (obj.has("type") && !obj.get("type").isJsonNull()) {
-                type = obj.get("type").getAsString().toUpperCase();
-            }
+            String type = obj.has("type") && !obj.get("type").isJsonNull()
+                    ? obj.get("type").getAsString().toUpperCase() : "ART";
             return switch (type) {
                 case "ELECTRONICS" -> gson.fromJson(obj, Electronics.class);
                 case "VEHICLE"     -> gson.fromJson(obj, Vehicle.class);
@@ -166,7 +160,7 @@ public class HomeController implements Initializable {
     private void handleServerMessage(Message msg) {
         switch (msg.getType()) {
 
-            case "AUCTIONS_RESPONSE" -> {
+            case "AUCTIONS_LIST" -> {
                 try {
                     JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                     if (!root.has("auctions") || !root.get("auctions").isJsonArray()) return;
@@ -185,7 +179,6 @@ public class HomeController implements Initializable {
                     });
                 } catch (Exception e) {
                     System.err.println("[Home] Lỗi parse AUCTIONS_LIST: " + e.getMessage());
-                    e.printStackTrace();
                 }
             }
 
@@ -195,17 +188,17 @@ public class HomeController implements Initializable {
                     String productId = dto.get("productId").getAsString();
                     double newBid    = dto.get("newBid").getAsDouble();
 
-                    Platform.runLater(() -> {
-                        auctionList.stream()
-                                .filter(p -> p.getId().equals(productId))
-                                .findFirst()
-                                .ifPresent(p -> {
-                                    p.setCurrentBid(newBid);
-                                    auctionTable.refresh();
-                                    if (heroItem != null && heroItem.getId().equals(productId))
-                                        updateHeroCard(p);
-                                });
-                    });
+                    Platform.runLater(() ->
+                            auctionList.stream()
+                                    .filter(p -> p.getId().equals(productId))
+                                    .findFirst()
+                                    .ifPresent(p -> {
+                                        p.setCurrentBid(newBid);
+                                        auctionTable.refresh();
+                                        if (heroItem != null && heroItem.getId().equals(productId))
+                                            updateHeroCard(p);
+                                    })
+                    );
                 } catch (Exception e) {
                     System.err.println("[Home] Lỗi parse BID_UPDATE: " + e.getMessage());
                 }
@@ -223,10 +216,37 @@ public class HomeController implements Initializable {
             heroDesc.setText(desc != null && !desc.isBlank() ? desc :
                     (item.getSellerName() != null ? item.getSellerName() : ""));
         }
+
+        // --- Xử lý hiển thị ảnh ---
+        if (heroImage != null) {
+            String path = item.getImagePath();
+            if (path != null && !path.isBlank()) {
+                 try {
+                    // Tải ảnh (background loading = true để tránh lag UI)
+                    javafx.scene.image.Image img = new javafx.scene.image.Image("file:"
+                    + path, true);
+
+                    heroImage.setImage(img);
+
+                    // Ẩn icon camera khi đã có ảnh
+                    if (heroPlaceholder != null) heroPlaceholder.setVisible(false);
+
+                 } catch (Exception e) {
+                    System.err.println("[Home] Lỗi load ảnh hero: " + e.getMessage());
+                    heroImage.setImage(null);
+
+                    if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+                 }
+            } else {
+                heroImage.setImage(null);
+                if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+            }
+        }
     }
 
+    // ── Chỉ lưu itemId vào Session, không lưu object ─────────────────────
     private void openDetail(Item item, ActionEvent event) {
-        SelectedProductSession.getInstance().setProduct(item);
+        SelectedProductSession.getInstance().setProductId(item.getId());
         client.removeListener(listener);
         SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiết sản phẩm");
     }
@@ -242,25 +262,20 @@ public class HomeController implements Initializable {
     @FXML public void onSearchEnter(KeyEvent event) {
         if (event.getCode() != KeyCode.ENTER) return;
         String keyword = searchField.getText().trim().toLowerCase();
-        if (keyword.isEmpty()) {
-            // Reset về toàn bộ danh sách khi xoá keyword
-            auctionTable.setItems(auctionList);
-            return;
-        }
-        auctionTable.setItems(auctionList.filtered(
-                p -> p.getName().toLowerCase().contains(keyword)));
+        auctionTable.setItems(keyword.isEmpty()
+                ? auctionList
+                : auctionList.filtered(p -> p.getName().toLowerCase().contains(keyword)));
     }
 
     @FXML public void onSideAuctionsClick(ActionEvent event) {
-        // Reset filter khi bấm tab "Danh sách đấu giá"
         auctionTable.setItems(auctionList);
     }
 
     @FXML public void onBidHistoryClick(ActionEvent event) {
         client.removeListener(listener);
-        SceneEngine.changeScene(event, "bid-history-view.fxml", "The Curator - Lịch sử đấu giá");
+        SceneEngine.changeScene(event,
+                "bid-history-view.fxml", "The Curator - Lịch sử đấu giá");
     }
-
 
     @FXML public void onSellerDashboardClick(ActionEvent event) {
         client.removeListener(listener);
