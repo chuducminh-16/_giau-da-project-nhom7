@@ -1,5 +1,4 @@
 package com.auction.shared.pattern.observer;
-
 import com.auction.shared.model.Entity.Auction_Bid.Bid;
 
 /**

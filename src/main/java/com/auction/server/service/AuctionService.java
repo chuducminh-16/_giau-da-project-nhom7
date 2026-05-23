@@ -9,6 +9,9 @@ import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
 import com.auction.shared.model.Entity.Item.Vehicle;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -315,49 +318,95 @@ public class AuctionService {
      *   - status, endTime, sellerName
      */
     public List<Map<String, Object>> getBidHistoryForBidder(String bidderId) {
-        String sql =
-                "SELECT " +
-                        "  i.id           AS itemId, " +
-                        "  i.name         AS itemName, " +
-                        "  MAX(b.bid_price) AS myBid, " +        // giá cao nhất bidder đặt
-                        "  a.current_price AS finalPrice, " +
-                        "  a.status, " +
-                        "  a.end_time     AS endTime, " +
-                        "  u.username     AS sellerName, " +
-                        "  t.winner_id    AS winnerId " +
-                        "FROM bids b " +
-                        "JOIN items i      ON b.item_id   = i.id " +
-                        "JOIN auctions a   ON a.item_id   = i.id " +
-                        "LEFT JOIN users u ON i.seller_id = u.id " +
-                        "LEFT JOIN transactions t ON t.item_id = i.id " +
-                        "WHERE b.bidder_id = ? " +
-                        "GROUP BY i.id, i.name, a.current_price, a.status, " +
-                        "         a.end_time, u.username, t.winner_id " +
-                        "ORDER BY a.end_time DESC";
-
-        List<Map<String, Object>> result = new java.util.ArrayList<>();
-        try (java.sql.Connection conn =
-                     com.auction.server.database.DatabaseConnection.getConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-
+        List<Map<String, Object>> list = new ArrayList<>();
+        String sql = "SELECT i.id AS itemId, i.name AS itemName, MAX(b.bid_price) AS myBid, " +
+                "a.current_price AS finalPrice, a.status, a.end_time AS endTime, " +
+                "u.username AS sellerName, t.winner_id AS winnerId " +
+                "FROM bids b " +
+                "JOIN items i      ON b.item_id   = i.id " +
+                "JOIN auctions a   ON a.item_id   = i.id " +
+                "LEFT JOIN users u ON i.seller_id = u.id " +
+                "LEFT JOIN transactions t ON t.item_id = i.id " +
+                "WHERE b.bidder_id = ? " +
+                "GROUP BY i.id, i.name, a.current_price, a.status, a.end_time, u.username, t.winner_id";
+        try (Connection conn = com.auction.server.database.DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, bidderId);
-            java.sql.ResultSet rs = ps.executeQuery();
-            while (rs.next()) {
-                Map<String, Object> row = new java.util.HashMap<>();
-                row.put("itemId",     rs.getString("itemId"));
-                row.put("itemName",   rs.getString("itemName"));
-                row.put("myBid",      rs.getDouble("myBid"));
-                row.put("finalPrice", rs.getDouble("finalPrice"));
-                row.put("status",     rs.getString("status"));
-                row.put("endTime",    rs.getString("endTime"));
-                row.put("sellerName", rs.getString("sellerName"));
-                row.put("winnerId",   rs.getString("winnerId")); // null nếu chưa kết thúc
-                result.add(row);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(Map.of(
+                            "itemId", rs.getString("itemId"),
+                            "itemName", rs.getString("itemName"),
+                            "status", rs.getString("status")
+                    ));
+                }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return result;
+        } catch (Exception e) { e.printStackTrace(); }
+        return list;
     }
 
+    // Sửa nhận thông tin vào Bid History
+    public List<java.util.Map<String, Object>> getUserBidHistory(String bidderId) {
+        List<java.util.Map<String, Object>> list = new java.util.ArrayList<>();
+
+        // Câu lệnh SQL chuẩn hóa theo đúng cấu trúc bảng hệ thống của bạn
+        String sql = "SELECT " +
+                "  i.id             AS itemId, " +
+                "  i.name           AS itemName, " +
+                "  MAX(b.bid_price) AS myBid, " +
+                "  a.current_price  AS finalPrice, " +
+                "  a.status         AS status, " +
+                "  a.end_time       AS endTime, " +
+                "  u.username       AS sellerName, " +
+                "  t.winner_id      AS winnerId " +
+                "FROM bids b " +
+                "JOIN items i        ON b.item_id   = i.id " +
+                "JOIN auctions a     ON a.item_id   = i.id " +
+                "LEFT JOIN users u   ON i.seller_id = u.id " +
+                "LEFT JOIN transactions t ON t.item_id = i.id " +
+                "WHERE b.bidder_id = ? " +
+                "GROUP BY i.id, i.name, a.current_price, a.status, a.end_time, u.username, t.winner_id";
+
+        try {
+            java.sql.Connection conn = com.auction.server.database.DatabaseConnection.getConnection();
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+
+                // Thử nghiệm parse về Long nếu ID hệ thống của bạn dùng số tự tăng,
+                // nếu ID dạng chuỗi text thì giữ nguyên ps.setString(1, bidderId);
+                try {
+                    ps.setLong(1, Long.parseLong(bidderId));
+                } catch (NumberFormatException e) {
+                    ps.setString(1, bidderId);
+                }
+
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        java.util.Map<String, Object> row = new java.util.HashMap<>();
+                        row.put("itemId",     rs.getString("itemId"));
+                        row.put("itemName",   rs.getString("itemName"));
+                        row.put("myBid",      rs.getDouble("myBid"));
+                        row.put("finalPrice", rs.getDouble("finalPrice"));
+
+                        String wId = rs.getString("winnerId");
+                        row.put("winnerId",   wId != null ? wId : "");
+
+                        String stat = rs.getString("status");
+                        row.put("status",     stat != null ? stat : "FINISHED");
+
+                        String eTime = rs.getString("endTime");
+                        row.put("endTime",    eTime != null ? eTime : "");
+
+                        String sName = rs.getString("sellerName");
+                        row.put("sellerName", sName != null ? sName : "Không rõ");
+
+                        list.add(row);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[AuctionService] Lỗi quét lịch sử đồng bộ hệ thống: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return list;
+    }
 }
