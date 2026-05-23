@@ -127,6 +127,7 @@ public class ClientHandler implements Runnable {
                 if (!isAuthenticated()) return;
                 send(auctionController.handleCancelAutoBid(p, currentUser.getId()));
             }
+            case "GET_PRODUCT_DETAIL" -> send(auctionController.handleGetProductDetail(p));
 
             // ── Admin ─────────────────────────────────────────────────────
             case "ADMIN_GET_PRODUCTS" -> {
