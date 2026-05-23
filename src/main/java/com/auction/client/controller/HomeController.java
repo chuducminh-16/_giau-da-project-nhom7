@@ -34,6 +34,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 
@@ -47,6 +48,8 @@ public class HomeController implements Initializable {
     @FXML private Label heroBid;
     @FXML private Label heroStatus;
     @FXML private Label heroDesc;
+    @FXML private ImageView heroImage;
+    @FXML private Label heroPlaceholder;
 
     // Bảng
     @FXML private TableView<Item>           auctionTable;
@@ -212,6 +215,32 @@ public class HomeController implements Initializable {
             String desc = item.getDescription();
             heroDesc.setText(desc != null && !desc.isBlank() ? desc :
                     (item.getSellerName() != null ? item.getSellerName() : ""));
+        }
+
+        // --- Xử lý hiển thị ảnh ---
+        if (heroImage != null) {
+            String path = item.getImagePath();
+            if (path != null && !path.isBlank()) {
+                 try {
+                    // Tải ảnh (background loading = true để tránh lag UI)
+                    javafx.scene.image.Image img = new javafx.scene.image.Image("file:"
+                    + path, true);
+
+                    heroImage.setImage(img);
+
+                    // Ẩn icon camera khi đã có ảnh
+                    if (heroPlaceholder != null) heroPlaceholder.setVisible(false);
+
+                 } catch (Exception e) {
+                    System.err.println("[Home] Lỗi load ảnh hero: " + e.getMessage());
+                    heroImage.setImage(null);
+
+                    if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+                 }
+            } else {
+                heroImage.setImage(null);
+                if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+            }
         }
     }
 
