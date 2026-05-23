@@ -5,41 +5,31 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.List;
-import java.util.Map;
 
 import com.auction.client.network.Message;
 import com.auction.server.controller.AdminController;
 import com.auction.server.controller.AuctionController;
 import com.auction.server.controller.UserController;
-import com.auction.server.dao.bid.BidDAO;
-import com.auction.server.service.AuctionService;
 import com.auction.shared.model.Entity.User.User;
 import com.google.gson.Gson;
 
 /**
- * ClientHandler — route message đến đúng controller.
+ * ClientHandler
  *
- * Merge từ 2 nhánh:
- *  - Nhánh gốc : GET_BID_HISTORY → auctionController.handleGetBidHistory() → "BID_HISTORY_RESPONSE"
- *                GET_USER_BID_HISTORY → auctionController.handleGetUserBidHistory() → "USER_BID_HISTORY_RESPONSE"
- *  - Nhánh bạn : GET_BID_HISTORY_ITEM → bidDAO trực tiếp → "BID_HISTORY_RESPONSE"
- *                GET_BID_HISTORY_BIDDER → auctionService trực tiếp → "BID_HISTORY_RESPONSE"
- *
- * Tất cả 4 route được giữ lại vì mỗi cái phục vụ 1 use-case riêng.
+ * FIX so voi ban goc:
+ *   1. Them case "GET_BID_HISTORY"      -> handleGetBidHistory()
+ *   2. Them case "REGISTER_AUTO_BID"    -> handleRegisterAutoBid()
+ *   3. Them case "CANCEL_AUTO_BID"      -> handleCancelAutoBid()
  */
 public class ClientHandler implements Runnable {
 
-    private final Socket             socket;
-    private final NetworkServer      server;
-    private final Gson               gson = new Gson();
+    private final Socket            socket;
+    private final NetworkServer     server;
+    private final Gson              gson = new Gson();
 
-    private final UserController     userController;
-    private final AuctionController  auctionController;
-    private final AdminController    adminController;
-    // [MERGE] dùng cho GET_BID_HISTORY_ITEM và GET_BID_HISTORY_BIDDER
-    private final AuctionService     auctionService = new AuctionService();
-    private final BidDAO             bidDAO         = new BidDAO();
+    private final UserController    userController;
+    private final AuctionController auctionController;
+    private final AdminController   adminController;
 
     private PrintWriter    out;
     private BufferedReader in;
@@ -62,11 +52,11 @@ public class ClientHandler implements Runnable {
             String line;
             while ((line = in.readLine()) != null) {
                 Message msg = gson.fromJson(line, Message.class);
-                System.out.println("[Server] Nhận: " + msg.getType());
+                System.out.println("[Server] Nhan: " + msg.getType());
                 route(msg);
             }
         } catch (IOException e) {
-            System.out.println("[ClientHandler] Client ngắt kết nối.");
+            System.out.println("[ClientHandler] Client ngat ket noi.");
         } finally {
             server.removeClient(this);
             try { socket.close(); } catch (IOException ignored) {}
@@ -78,7 +68,7 @@ public class ClientHandler implements Runnable {
 
         switch (msg.getType()) {
 
-            // — Auth —
+            // ── Auth ──────────────────────────────────────────────────────
             case "LOGIN" -> {
                 UserController.LoginResult r = userController.handleLogin(p);
                 if (r.user() != null) currentUser = r.user();
@@ -86,14 +76,9 @@ public class ClientHandler implements Runnable {
             }
             case "REGISTER" -> send(userController.handleRegister(p));
 
-            // — Product detail —
-            case "GET_PRODUCT_DETAIL" ->
-                    send(auctionController.handleGetProductDetail(p));
-
-            // — Auction list —
+            // ── Auction chung ─────────────────────────────────────────────
             case "GET_AUCTIONS" -> send(auctionController.handleGetAuctions());
 
-            // — Seller / Bidder —
             case "GET_MY_PRODUCTS" -> {
                 if (!isAuthenticated()) return;
                 send(auctionController.handleGetMyProducts(p));
@@ -121,61 +106,29 @@ public class ClientHandler implements Runnable {
                         currentUser.getUsername(), this);
             }
 
-            // — Bid History —
-
-            // [MERGE - Route 1] LiveBiddingController: delegate qua AuctionController
-            // Client gửi: GET_BID_HISTORY { "itemId"|"auctionId"|"productId": "..." }
-            // Server trả: BID_HISTORY_RESPONSE { "success", "history": [...] }
+            // ── FIX: GET_BID_HISTORY (ban goc THIEU case nay) ─────────────
             case "GET_BID_HISTORY" -> {
-                if (!isAuthenticated()) return;
+                // Khong can dang nhap — ai cung xem duoc lich su
                 send(auctionController.handleGetBidHistory(p));
             }
 
-            // [MERGE - Route 2] LiveBiddingController (biến thể từ nhánh bạn): gọi bidDAO trực tiếp
-            // Client gửi: GET_BID_HISTORY_ITEM { "itemId": "..." }
-            // Server trả: BID_HISTORY_RESPONSE { "success", "history": [...] }
-            case "GET_BID_HISTORY_ITEM" -> {
-                if (!isAuthenticated()) return;
-                try {
-                    GetBidHistoryItemDto dto = gson.fromJson(p, GetBidHistoryItemDto.class);
-                    List<Map<String, Object>> history = bidDAO.getBidHistory(dto.itemId());
-                    send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
-                            "success", true,
-                            "history", history))));
-                } catch (Exception e) {
-                    send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
-                            "success", false,
-                            "history", List.of()))));
-                }
-            }
-
-            // [MERGE - Route 3] BidHistoryController: delegate qua AuctionController
-            // Client gửi: GET_USER_BID_HISTORY { "bidderId": "..." }
-            // Server trả: USER_BID_HISTORY_RESPONSE [...]
+            // ── THÊM MỚI: Định tuyến lấy lịch sử tổng hợp của cá nhân người dùng ─────────────
             case "GET_USER_BID_HISTORY" -> {
                 if (!isAuthenticated()) return;
                 send(auctionController.handleGetUserBidHistory(p));
             }
 
-            // [MERGE - Route 4] BidHistoryController (biến thể từ nhánh bạn): gọi auctionService trực tiếp
-            // Client gửi: GET_BID_HISTORY_BIDDER {} (dùng currentUser.getId() tự động)
-            // Server trả: BID_HISTORY_RESPONSE { "success", "records": [...] }
-            case "GET_BID_HISTORY_BIDDER" -> {
+            // ── FIX: Auto-Bid routes (ban goc THIEU 2 case nay) ──────────
+            case "REGISTER_AUTO_BID" -> {
                 if (!isAuthenticated()) return;
-                try {
-                    List<Map<String, Object>> records =
-                            auctionService.getBidHistoryForBidder(currentUser.getId());
-                    send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
-                            "success", true,
-                            "records", records))));
-                } catch (Exception e) {
-                    send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
-                            "success", false,
-                            "message", "Lỗi tải lịch sử: " + e.getMessage()))));
-                }
+                send(auctionController.handleRegisterAutoBid(p, currentUser.getId()));
+            }
+            case "CANCEL_AUTO_BID" -> {
+                if (!isAuthenticated()) return;
+                send(auctionController.handleCancelAutoBid(p, currentUser.getId()));
             }
 
-            // — Admin —
+            // ── Admin ─────────────────────────────────────────────────────
             case "ADMIN_GET_PRODUCTS" -> {
                 if (!isAdmin()) return;
                 send(adminController.handleGetProducts());
@@ -202,8 +155,7 @@ public class ClientHandler implements Runnable {
             }
 
             default -> send(new Message("ERROR",
-                    gson.toJson(Map.of(
-                            "message", "Unknown type: " + msg.getType()))));
+                    gson.toJson(java.util.Map.of("message", "Unknown type: " + msg.getType()))));
         }
     }
 
@@ -214,7 +166,7 @@ public class ClientHandler implements Runnable {
     private boolean isAuthenticated() {
         if (currentUser == null) {
             send(new Message("ERROR", gson.toJson(
-                    Map.of("message", "Vui lòng đăng nhập trước."))));
+                    java.util.Map.of("message", "Vui long dang nhap truoc."))));
             return false;
         }
         return true;
@@ -224,7 +176,7 @@ public class ClientHandler implements Runnable {
         if (!isAuthenticated()) return false;
         if (!"ADMIN".equals(currentUser.getRole())) {
             send(new Message("ERROR", gson.toJson(
-                    Map.of("message", "Không có quyền truy cập."))));
+                    java.util.Map.of("message", "Khong co quyen truy cap."))));
             return false;
         }
         return true;
@@ -239,5 +191,4 @@ public class ClientHandler implements Runnable {
     }
 
     private record WatchDto(String auctionId) {}
-    private record GetBidHistoryItemDto(String itemId) {} // [MERGE - Route 2]
 }
