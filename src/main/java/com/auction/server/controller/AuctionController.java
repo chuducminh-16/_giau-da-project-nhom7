@@ -1,17 +1,17 @@
 package com.auction.server.controller;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
 import com.auction.client.network.Message;
+import com.auction.server.dao.bid.BidDAO;
 import com.auction.server.network.ClientHandler;
 import com.auction.server.network.NetworkServer;
 import com.auction.server.service.AuctionService;
 import com.auction.server.service.AutoBidService;
-import com.auction.server.dao.bid.BidDAO;
 import com.auction.shared.model.Entity.Item.Item;
 import com.google.gson.Gson;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Server-side AuctionController.
@@ -40,7 +40,9 @@ public class AuctionController {
     public Message handleGetAuctions() {
         try {
             List<Item> items = auctionService.getActiveAuctions();
-            return new Message("AUCTIONS_RESPONSE", gson.toJson(items));
+            return new Message("AUCTIONS_RESPONSE", gson.toJson(
+                Map.of("auctions", items)   // ← thêm wrapper
+            ));
         } catch (Exception e) {
             return error("Khong the tai danh sach dau gia: " + e.getMessage());
         }

@@ -274,7 +274,7 @@ public class ManageProductController implements Initializable {
                             arr = obj.getAsJsonArray("products");
                         }
                         for (JsonElement el : arr) {
-                            Item item = deserializeItem(root.getAsJsonObject("item"));
+                            Item item = deserializeItem(el.getAsJsonObject()); // đúng
                             if (item != null) items.add(item);
                         }
                         productData.setAll(items);
