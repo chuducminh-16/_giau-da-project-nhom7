@@ -34,6 +34,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 
@@ -47,6 +48,8 @@ public class HomeController implements Initializable {
     @FXML private Label heroBid;
     @FXML private Label heroStatus;
     @FXML private Label heroDesc;
+    @FXML private ImageView heroImage;
+    @FXML private Label heroPlaceholder;
 
     // Bảng
     @FXML private TableView<Item>           auctionTable;
@@ -91,13 +94,21 @@ public class HomeController implements Initializable {
             if (obj.has("type") && !obj.get("type").isJsonNull()) {
                 type = obj.get("type").getAsString().toUpperCase();
             }
-            return switch (type) {
+            System.out.println("[Home] Deserializing as type: " + type);
+            System.out.println("[Home] Object keys: " + obj.keySet());
+
+            Item item = switch (type) {
                 case "ELECTRONICS" -> gson.fromJson(obj, Electronics.class);
                 case "VEHICLE"     -> gson.fromJson(obj, Vehicle.class);
                 default            -> gson.fromJson(obj, Art.class);
             };
+            if (item != null) {
+                System.out.println("[Home] ✓ Deserialized: " + item.getName() + " (id: " + item.getId() + ")");
+            }
+            return item;
         } catch (Exception e) {
             System.err.println("[HomeController] deserializeItem lỗi: " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }
@@ -110,6 +121,7 @@ public class HomeController implements Initializable {
 
         setupTable();
         client.addListener(listener);
+        System.out.println("[Home] Listener added, sending GET_AUCTIONS request...");
         client.send(new Message("GET_AUCTIONS", "{}"));
     }
 
@@ -164,27 +176,61 @@ public class HomeController implements Initializable {
     }
 
     private void handleServerMessage(Message msg) {
+        System.out.println("[Home] Received message type: " + msg.getType());
+        System.out.println("[Home] Payload: " + msg.getPayload());
+
         switch (msg.getType()) {
 
-            case "AUCTIONS_RESPONSE" -> {
+            case "AUCTIONS_RESPONSE", "AUCTIONS_LIST", "GET_AUCTIONS_RESPONSE" -> {
                 try {
-                    JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                    if (!root.has("auctions") || !root.get("auctions").isJsonArray()) return;
-
-                    JsonArray arr = root.getAsJsonArray("auctions");
-                    List<Item> items = new ArrayList<>();
-                    for (JsonElement el : arr) {
-                        Item item = deserializeItem(el.getAsJsonObject(), gson);
-                        if (item != null) items.add(item);
+                    JsonElement parsed = gson.fromJson(msg.getPayload(), JsonElement.class);
+                    if (parsed == null || parsed.isJsonNull()) {
+                        System.err.println("[Home] Payload is null/empty");
+                        return;
                     }
 
+                    JsonArray arr = null;
+                    if (parsed.isJsonObject()) {
+                        JsonObject root = parsed.getAsJsonObject();
+                        if (root.has("auctions") && root.get("auctions").isJsonArray()) {
+                            arr = root.getAsJsonArray("auctions");
+                        } else if (root.has("items") && root.get("items").isJsonArray()) {
+                            arr = root.getAsJsonArray("items");
+                        }
+                    } else if (parsed.isJsonArray()) {
+                        arr = parsed.getAsJsonArray();
+                    }
+
+                    if (arr == null) {
+                        System.err.println("[Home] Could not extract array from payload");
+                        return;
+                    }
+
+                    System.out.println("[Home] Array size: " + arr.size());
+                    List<Item> items = new ArrayList<>();
+                    for (int i = 0; i < arr.size(); i++) {
+                        JsonElement el = arr.get(i);
+                        if (!el.isJsonObject()) {
+                            System.err.println("[Home] Element " + i + " is not JSON object");
+                            continue;
+                        }
+                        Item item = deserializeItem(el.getAsJsonObject(), gson);
+                        if (item != null) {
+                            items.add(item);
+                            System.out.println("[Home] Added item: " + item.getName());
+                        } else {
+                            System.err.println("[Home] Failed to deserialize element " + i);
+                        }
+                    }
+
+                    System.out.println("[Home] Total items deserialized: " + items.size());
                     Platform.runLater(() -> {
                         auctionList.setAll(items);
                         if (!items.isEmpty()) updateHeroCard(items.get(0));
-                        System.out.println("[Home] Loaded " + items.size() + " auctions");
+                        System.out.println("[Home] ✓ Loaded " + items.size() + " auctions to table");
                     });
                 } catch (Exception e) {
-                    System.err.println("[Home] Lỗi parse AUCTIONS_LIST: " + e.getMessage());
+                    System.err.println("[Home] Lỗi parse AUCTIONS_RESPONSE: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
@@ -222,6 +268,28 @@ public class HomeController implements Initializable {
             String desc = item.getDescription();
             heroDesc.setText(desc != null && !desc.isBlank() ? desc :
                     (item.getSellerName() != null ? item.getSellerName() : ""));
+        }
+
+        // --- Xử lý hiển thị ảnh ---
+        if (heroImage != null) {
+            String path = item.getImagePath();
+            if (path != null && !path.isBlank()) {
+                try {
+                    // Tải ảnh (background loading = true để tránh lag UI)
+                    javafx.scene.image.Image img = new javafx.scene.image.Image("file:" + path, true);
+                    heroImage.setImage(img);
+
+                    // Ẩn icon camera khi đã có ảnh
+                    if (heroPlaceholder != null) heroPlaceholder.setVisible(false);
+                } catch (Exception e) {
+                    System.err.println("[Home] Lỗi load ảnh hero: " + e.getMessage());
+                    heroImage.setImage(null);
+                    if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+                }
+            } else {
+                heroImage.setImage(null);
+                if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+            }
         }
     }
 

@@ -18,10 +18,10 @@ module com.auction.client {
     opens com.auction.server.controller to com.google.gson;
  
     // ── QUAN TRỌNG: mở cả package cha (Entity) cho Gson ─────────────────
-    opens com.auction.shared.model.Entity                   to com.google.gson;
-    opens com.auction.shared.model.Entity.User              to com.google.gson;
-    opens com.auction.shared.model.Entity.Item              to com.google.gson;
-    opens com.auction.shared.model.Entity.Auction_Bid       to com.google.gson;
- 
+    opens com.auction.shared.model.Entity                   to com.google.gson, javafx.base;
+    opens com.auction.shared.model.Entity.User              to com.google.gson, javafx.base;
+    opens com.auction.shared.model.Entity.Item              to com.google.gson, javafx.base;
+    opens com.auction.shared.model.Entity.Auction_Bid       to com.google.gson, javafx.base;
+
     exports com.auction.client;
 }
