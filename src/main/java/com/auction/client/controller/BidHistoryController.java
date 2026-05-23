@@ -159,9 +159,8 @@ public class BidHistoryController implements Initializable {
 
     // ── Load từ server ────────────────────────────────────────────────────
     private void loadHistory() {
-        String bidderId = UserSession.getInstance().getUserId();
-        client.send(new Message("GET_BID_HISTORY",
-                gson.toJson(java.util.Map.of("bidderId", bidderId))));
+        // GET_BID_HISTORY_BIDDER → ClientHandler route sang handleGetProductHistory(bidderId)
+        client.send(new Message("GET_BID_HISTORY_BIDDER", "{}"));
     }
 
     // ── Xử lý message từ server ───────────────────────────────────────────
@@ -379,4 +378,3 @@ public class BidHistoryController implements Initializable {
             String sellerName
     ) {}
 }
-
