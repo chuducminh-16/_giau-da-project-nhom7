@@ -20,8 +20,13 @@ import com.google.gson.Gson;
 /**
  * ClientHandler — route message đến đúng controller.
  *
- * FIX 1: thêm route GET_BID_HISTORY → trả lịch sử bid cho LiveBiddingController
- * FIX 2: thêm route GET_BID_HISTORY_BIDDER → trả lịch sử bid của 1 bidder
+ * Merge từ 2 nhánh:
+ *  Nhánh 3: GET_BID_HISTORY    → auctionController.handleGetBidHistory()  → trả "BID_HISTORY"
+ *           GET_USER_BID_HISTORY → auctionController.handleGetUserBidHistory() → trả "USER_BID_HISTORY_RESPONSE"
+ *  Nhánh 4: GET_BID_HISTORY    → bidDAO trực tiếp                          → trả "BID_HISTORY_RESPONSE"
+ *           GET_BID_HISTORY_BIDDER → auctionService trực tiếp              → trả "BID_HISTORY_RESPONSE"
+ *
+ * Tất cả 4 route được giữ lại vì mỗi cái phục vụ 1 chức năng riêng.
  */
 public class ClientHandler implements Runnable {
 
@@ -32,8 +37,8 @@ public class ClientHandler implements Runnable {
     private final UserController     userController;
     private final AuctionController  auctionController;
     private final AdminController    adminController;
-    private final AuctionService     auctionService = new AuctionService();
-    private final BidDAO             bidDAO         = new BidDAO();
+    private final AuctionService     auctionService = new AuctionService(); // [Nhánh 4]
+    private final BidDAO             bidDAO         = new BidDAO();         // [Nhánh 4]
 
     private PrintWriter    out;
     private BufferedReader in;
@@ -115,27 +120,43 @@ public class ClientHandler implements Runnable {
                         currentUser.getUsername(), this);
             }
 
-            // ✅ FIX 1: Lấy lịch sử bid của 1 item — dùng bởi LiveBiddingController khi vào phòng
-            // Client gửi: GET_BID_HISTORY { "itemId": "I01" }
-            // Server trả: BID_HISTORY_RESPONSE { "history": [ { bidTime, username, bidPrice }, ... ] }
+            // — Bid History —
+
+            // [Nhánh 3] LiveBiddingController: delegate qua AuctionController
+            // Client gửi: GET_BID_HISTORY { "auctionId": "..." hoặc "productId": "..." }
+            // Server trả: BID_HISTORY { "auctionId", "bids": [...] }
             case "GET_BID_HISTORY" -> {
+                if (!isAuthenticated()) return;
+                send(auctionController.handleGetBidHistory(p));
+            }
+
+            // [Nhánh 4] LiveBiddingController (biến thể): gọi bidDAO trực tiếp
+            // Client gửi: GET_BID_HISTORY_ITEM { "itemId": "..." }
+            // Server trả: BID_HISTORY_RESPONSE { "success", "history": [...] }
+            case "GET_BID_HISTORY_ITEM" -> {
                 try {
                     GetBidHistoryDto dto = gson.fromJson(p, GetBidHistoryDto.class);
                     List<Map<String, Object>> history = bidDAO.getBidHistory(dto.itemId());
                     send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
                             "success", true,
-                            "history", history
-                    ))));
+                            "history", history))));
                 } catch (Exception e) {
                     send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
                             "success", false,
-                            "history", List.of()
-                    ))));
+                            "history", List.of()))));
                 }
             }
 
-            // ✅ FIX 2: Lấy lịch sử bid của 1 bidder — dùng bởi BidHistoryController
-            // Client gửi: GET_BID_HISTORY_BIDDER {}
+            // [Nhánh 3] BidHistoryController: delegate qua AuctionController
+            // Client gửi: GET_USER_BID_HISTORY { "bidderId": "..." }
+            // Server trả: USER_BID_HISTORY_RESPONSE [...]
+            case "GET_USER_BID_HISTORY" -> {
+                if (!isAuthenticated()) return;
+                send(auctionController.handleGetUserBidHistory(p));
+            }
+
+            // [Nhánh 4] BidHistoryController (biến thể): gọi auctionService trực tiếp
+            // Client gửi: GET_BID_HISTORY_BIDDER {}  (dùng currentUser.getId() tự động)
             // Server trả: BID_HISTORY_RESPONSE { "success", "records": [...] }
             case "GET_BID_HISTORY_BIDDER" -> {
                 if (!isAuthenticated()) return;
@@ -144,13 +165,11 @@ public class ClientHandler implements Runnable {
                             auctionService.getBidHistoryForBidder(currentUser.getId());
                     send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
                             "success", true,
-                            "records", records
-                    ))));
+                            "records", records))));
                 } catch (Exception e) {
                     send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
                             "success", false,
-                            "message", "Lỗi tải lịch sử: " + e.getMessage()
-                    ))));
+                            "message", "Lỗi tải lịch sử: " + e.getMessage()))));
                 }
             }
 
@@ -218,5 +237,5 @@ public class ClientHandler implements Runnable {
     }
 
     private record WatchDto(String auctionId) {}
-    private record GetBidHistoryDto(String itemId) {}
+    private record GetBidHistoryDto(String itemId) {} // [Nhánh 4]
 }
