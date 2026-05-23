@@ -81,7 +81,7 @@ public class ManageProductController implements Initializable {
     private final NetworkClient client = NetworkClient.getInstance();
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
 
-    // ── Gson xử lý Item abstract ──
+    // ── Logic Gson ──
     private static Gson buildGson() {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
@@ -97,23 +97,14 @@ public class ManageProductController implements Initializable {
             if (obj.has("type") && !obj.get("type").isJsonNull())
                 type = obj.get("type").getAsString().toUpperCase();
 
-            System.out.println("[ManageProduct] Deserializing as type: " + type);
-            System.out.println("[ManageProduct] Object keys: " + obj.keySet());
-
             Gson plain = new Gson();
-            Item item = switch (type) {
+            return switch (type) {
                 case "ELECTRONICS" -> plain.fromJson(obj, Electronics.class);
                 case "VEHICLE"     -> plain.fromJson(obj, Vehicle.class);
                 default            -> plain.fromJson(obj, Art.class);
             };
-
-            if (item != null) {
-                System.out.println("[ManageProduct] ✓ Deserialized: " + item.getName() + " (id: " + item.getId() + ")");
-            }
-            return item;
         } catch (Exception e) {
             System.err.println("[ManageProduct] deserializeItem lỗi: " + e.getMessage());
-            e.printStackTrace();
             return null;
         }
     }
@@ -121,18 +112,16 @@ public class ManageProductController implements Initializable {
     // ── Khởi tạo ──
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Fix từ Code 2: Tránh trùng lặp listener
         client.removeListener(listener);
         client.addListener(listener);
-        System.out.println("[ManageProduct] Listener added");
 
         setupTable();
         setupRowClickListener();
         setupTimeFieldListeners();
         loadMyProducts();
-        System.out.println("[ManageProduct] ✓ Initialization complete");
     }
 
+    // ── UI Logic: Giới hạn số nhập vào ô thời gian ──
     private void setupTimeFieldListeners() {
         limitTimeField(txtStartHour, 23);
         limitTimeField(txtStartMinute, 59);
@@ -267,26 +256,22 @@ public class ManageProductController implements Initializable {
         showStatus("Đang cập nhật...", false);
     }
 
-    // ── [GIỮ TỪ CODE 2] Parse JSON thô — không crash khi field thiếu ──────
+    // ── [FIX] Parse JSON đúng kiểu ──────────────────────────────────────
     private void handleServerResponse(Message msg) {
-        System.out.println("[ManageProduct] Received message type: " + msg.getType());
-        System.out.println("[ManageProduct] Payload: " + msg.getPayload());
-
         Platform.runLater(() -> {
             switch (msg.getType()) {
 
-                case "MY_PRODUCTS_RESPONSE", "GET_MY_PRODUCTS_RESPONSE" -> {
+                // ✅ FIX: Server trả về JsonArray trực tiếp, KHÔNG phải JsonObject bọc ngoài
+                case "MY_PRODUCTS_RESPONSE" -> {
                     try {
-                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                        if (!root.has("products") || !root.get("products").isJsonArray()) return;
-                        JsonArray arr = root.getAsJsonArray("products");
+                        JsonArray arr = gson.fromJson(msg.getPayload(), JsonArray.class);
                         List<Item> items = new ArrayList<>();
                         for (JsonElement el : arr) {
-                            Item item = deserializeItem(root.getAsJsonObject("item"));
+                            Item item = deserializeItem(el.getAsJsonObject());
                             if (item != null) items.add(item);
                         }
                         productData.setAll(items);
-                        System.out.println("[ManageProduct] ✓ Loaded " + items.size() + " products to table");
+                        showStatus("Tải " + items.size() + " sản phẩm thành công.", false);
                     } catch (Exception e) {
                         System.err.println("[ManageProduct] parse MY_PRODUCTS_RESPONSE lỗi: " + e.getMessage());
                         e.printStackTrace();
@@ -296,71 +281,55 @@ public class ManageProductController implements Initializable {
 
                 case "ADD_PRODUCT_RESPONSE" -> {
                     try {
-                        System.out.println("[ManageProduct] Processing ADD_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
-                            if (root.has("product") && !root.get("product").isJsonNull()) {
-                                Item item = deserializeItem(root.getAsJsonObject("product"));
+                            if (root.has("item") && !root.get("item").isJsonNull()) {
+                                Item item = deserializeItem(root.getAsJsonObject("item"));
                                 if (item != null) productData.add(0, item);
                             }
                             clearForm();
                             showStatus("✓ Thêm sản phẩm thành công!", false);
                             loadMyProducts();
                         } else {
-                            System.err.println("[ManageProduct] Add failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
-                        System.err.println("[ManageProduct] ADD_PRODUCT_RESPONSE lỗi: " + e.getMessage());
-                        e.printStackTrace();
                         showStatus("⚠ Lỗi parse response: " + e.getMessage(), true);
                     }
                 }
 
                 case "UPDATE_PRODUCT_RESPONSE" -> {
                     try {
-                        System.out.println("[ManageProduct] Processing UPDATE_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
-                            System.out.println("[ManageProduct] ✓ Update product success");
                             loadMyProducts();
                             showStatus("✓ Cập nhật thành công!", false);
                         } else {
-                            System.err.println("[ManageProduct] Update failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
-                        System.err.println("[ManageProduct] UPDATE_PRODUCT_RESPONSE lỗi: " + e.getMessage());
-                        e.printStackTrace();
                         showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
 
                 case "DELETE_PRODUCT_RESPONSE" -> {
                     try {
-                        System.out.println("[ManageProduct] Processing DELETE_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
-                            System.out.println("[ManageProduct] ✓ Delete product success");
                             Item selected = tableProducts.getSelectionModel().getSelectedItem();
                             if (selected != null) productData.remove(selected);
                             clearForm();
                             showStatus("✓ Đã xoá sản phẩm!", false);
                         } else {
-                            System.err.println("[ManageProduct] Delete failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
-                        System.err.println("[ManageProduct] DELETE_PRODUCT_RESPONSE lỗi: " + e.getMessage());
-                        e.printStackTrace();
                         showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
-
-                default -> System.out.println("[ManageProduct] Unhandled message type: " + msg.getType());
             }
         });
     }
@@ -424,13 +393,11 @@ public class ManageProductController implements Initializable {
         UserSession session = UserSession.getInstance();
         if (session != null && session.getUserId() != null) {
             String sellerId = session.getUserId();
-            System.out.println("[ManageProduct] Sending GET_MY_PRODUCTS for seller: " + sellerId);
             client.send(new Message("GET_MY_PRODUCTS", gson.toJson(Map.of("sellerId", sellerId))));
-        } else {
-            System.err.println("[ManageProduct] UserSession is null or userId is null");
         }
     }
 
+    // ── Clear form ──
     private void clearForm() {
         txtName.clear(); txtStartingPrice.clear();
         txtBidIncrement.clear(); txtDescription.clear();
@@ -452,6 +419,7 @@ public class ManageProductController implements Initializable {
         SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 
+    // ── DELETE ──
     @FXML
     private void onDeleteClick(ActionEvent event) {
         Item selected = tableProducts.getSelectionModel().getSelectedItem();
@@ -484,6 +452,7 @@ public class ManageProductController implements Initializable {
         }
     }
 
+    // ── Helpers ──
     private String safeMsg(JsonObject root) {
         return root.has("message") ? root.get("message").getAsString() : "Lỗi không xác định";
     }
