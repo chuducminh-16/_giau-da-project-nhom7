@@ -1,5 +1,14 @@
 package com.auction.client.controller;
 
+import java.io.File;
+import java.net.URL;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
+
 import com.auction.client.SceneEngine;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
@@ -14,14 +23,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.*;
+
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.*;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DatePicker;
@@ -35,15 +43,6 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.FileChooser;
-
-import java.io.File;
-import java.net.URL;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
 
 public class ManageProductController implements Initializable {
 
@@ -78,12 +77,11 @@ public class ManageProductController implements Initializable {
     private final ObservableList<Item> productData = FXCollections.observableArrayList();
     private String currentImagePath = "";
 
-    // Sử dụng GsonBuilder từ Code 2 để xử lý Đa hình (Polymorphism)
     private final Gson gson = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
 
-    // ── Logic Gson từ Code 2 (Xử lý Item trừu tượng) ──
+    // ── Logic Gson ──
     private static Gson buildGson() {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
@@ -99,23 +97,14 @@ public class ManageProductController implements Initializable {
             if (obj.has("type") && !obj.get("type").isJsonNull())
                 type = obj.get("type").getAsString().toUpperCase();
 
-            System.out.println("[ManageProduct] Deserializing as type: " + type);
-            System.out.println("[ManageProduct] Object keys: " + obj.keySet());
-
             Gson plain = new Gson();
-            Item item = switch (type) {
+            return switch (type) {
                 case "ELECTRONICS" -> plain.fromJson(obj, Electronics.class);
                 case "VEHICLE"     -> plain.fromJson(obj, Vehicle.class);
                 default            -> plain.fromJson(obj, Art.class);
             };
-
-            if (item != null) {
-                System.out.println("[ManageProduct] ✓ Deserialized: " + item.getName() + " (id: " + item.getId() + ")");
-            }
-            return item;
         } catch (Exception e) {
             System.err.println("[ManageProduct] deserializeItem lỗi: " + e.getMessage());
-            e.printStackTrace();
             return null;
         }
     }
@@ -123,20 +112,16 @@ public class ManageProductController implements Initializable {
     // ── Khởi tạo ──
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Fix từ Code 2: Tránh trùng lặp listener
-        System.out.println("[ManageProduct] Initializing controller...");
         client.removeListener(listener);
         client.addListener(listener);
-        System.out.println("[ManageProduct] Listener added");
 
         setupTable();
         setupRowClickListener();
-        setupTimeFieldListeners(); // Từ Code 1
+        setupTimeFieldListeners();
         loadMyProducts();
-        System.out.println("[ManageProduct] ✓ Initialization complete");
     }
 
-    // ── UI Logic: Giới hạn số nhập vào ô thời gian (Code 1) ──
+    // ── UI Logic: Giới hạn số nhập vào ô thời gian ──
     private void setupTimeFieldListeners() {
         limitTimeField(txtStartHour, 23);
         limitTimeField(txtStartMinute, 59);
@@ -185,7 +170,6 @@ public class ManageProductController implements Initializable {
                 super.updateItem(item, empty);
                 if (empty || item == null) { setText(null); setStyle(""); return; }
                 setText(item);
-                // Kết hợp các loại status từ cả 2 code
                 setStyle(switch (item) {
                     case "ACTIVE", "RUNNING" -> "-fx-text-fill:#2ecc71; -fx-font-weight:bold;";
                     case "SOLD", "FINISHED"  -> "-fx-text-fill:#e74c3c; -fx-font-weight:bold;";
@@ -272,142 +256,104 @@ public class ManageProductController implements Initializable {
         showStatus("Đang cập nhật...", false);
     }
 
+    // ── [ĐÃ SỬA] Nhận và phân tích cú pháp gói tin phản hồi từ Server ──
     private void handleServerResponse(Message msg) {
-        System.out.println("[ManageProduct] Received message type: " + msg.getType());
-        System.out.println("[ManageProduct] Payload: " + msg.getPayload());
-
         Platform.runLater(() -> {
             switch (msg.getType()) {
 
-                case "MY_PRODUCTS_RESPONSE", "GET_MY_PRODUCTS_RESPONSE" -> {
+                // ✅ FIX: Sửa tận gốc lỗi "Expected a JsonArray but was JsonObject"
+                case "MY_PRODUCTS_RESPONSE" -> {
                     try {
-                        JsonElement parsed = gson.fromJson(msg.getPayload(), JsonElement.class);
+                        // 1. Phải đưa về đúng bản chất là JsonObject bọc ngoài của Server trước
+                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                        
+                        // 2. Tìm mảng danh sách được bọc trong các từ khóa thuộc tính thông dụng
                         JsonArray arr = null;
-
-                        if (parsed == null || parsed.isJsonNull()) {
-                            System.err.println("[ManageProduct] Payload is null");
-                            return;
+                        if (root.has("products") && !root.get("products").isJsonNull()) {
+                            arr = root.getAsJsonArray("products");
+                        } else if (root.has("items") && !root.get("items").isJsonNull()) {
+                            arr = root.getAsJsonArray("items");
+                        } else if (root.has("data") && !root.get("data").isJsonNull()) {
+                            arr = root.getAsJsonArray("data");
                         }
 
-                        if (parsed.isJsonObject()) {
-                            JsonObject root = parsed.getAsJsonObject();
-                            if (root.has("products") && root.get("products").isJsonArray()) {
-                                arr = root.getAsJsonArray("products");
-                            } else if (root.has("items") && root.get("items").isJsonArray()) {
-                                arr = root.getAsJsonArray("items");
+                        // 3. Nếu tìm thấy mảng, bóc tách và đổ dữ liệu đa hình vào TableView
+                        if (arr != null) {
+                            List<Item> items = new ArrayList<>();
+                            for (JsonElement el : arr) {
+                                Item item = deserializeItem(el.getAsJsonObject());
+                                if (item != null) items.add(item);
                             }
-                        } else if (parsed.isJsonArray()) {
-                            arr = parsed.getAsJsonArray();
+                            productData.setAll(items);
+                            showStatus("Tải " + items.size() + " sản phẩm thành công.", false);
+                        } else {
+                            // Trường hợp Server gửi dạng Object thông báo không có sản phẩm hoặc lỗi
+                            String errorMsg = root.has("message") ? root.get("message").getAsString() : "Không tìm thấy danh sách sản phẩm.";
+                            showStatus("⚠ " + errorMsg, true);
                         }
-
-                        if (arr == null) {
-                            System.err.println("[ManageProduct] Could not extract array from payload");
-                            showStatus("⚠ Lỗi parse dữ liệu sản phẩm", true);
-                            return;
-                        }
-
-                        System.out.println("[ManageProduct] Array size: " + arr.size());
-                        List<Item> items = new ArrayList<>();
-                        for (int i = 0; i < arr.size(); i++) {
-                            JsonElement el = arr.get(i);
-                            if (!el.isJsonObject()) {
-                                System.err.println("[ManageProduct] Element " + i + " is not JSON object");
-                                continue;
-                            }
-                            Item item = deserializeItem(el.getAsJsonObject());
-                            if (item != null) {
-                                items.add(item);
-                                System.out.println("[ManageProduct] Added item: " + item.getName());
-                            } else {
-                                System.err.println("[ManageProduct] Failed to deserialize element " + i);
-                            }
-                        }
-                        productData.setAll(items);
-                        System.out.println("[ManageProduct] ✓ Loaded " + items.size() + " products to table");
                     } catch (Exception e) {
                         System.err.println("[ManageProduct] parse MY_PRODUCTS_RESPONSE lỗi: " + e.getMessage());
                         e.printStackTrace();
-                        showStatus("⚠ Lỗi tải danh sách sản phẩm: " + e.getMessage(), true);
+                        showStatus("⚠ Lỗi xử lý cấu trúc dữ liệu từ Server!", true);
                     }
                 }
 
                 case "ADD_PRODUCT_RESPONSE" -> {
                     try {
-                        System.out.println("[ManageProduct] Processing ADD_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
-                            System.out.println("[ManageProduct] ✓ Add product success");
-                            if (root.has("product") && !root.get("product").isJsonNull()) {
-                                Item item = deserializeItem(root.getAsJsonObject("product"));
-                                if (item != null) {
-                                    productData.add(0, item);
-                                    System.out.println("[ManageProduct] Added item to table: " + item.getName());
-                                }
+                            if (root.has("item") && !root.get("item").isJsonNull()) {
+                                Item item = deserializeItem(root.getAsJsonObject("item"));
+                                if (item != null) productData.add(0, item);
                             }
                             clearForm();
                             showStatus("✓ Thêm sản phẩm thành công!", false);
                             loadMyProducts();
                         } else {
-                            System.err.println("[ManageProduct] Add failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
-                        System.err.println("[ManageProduct] ADD_PRODUCT_RESPONSE lỗi: " + e.getMessage());
-                        e.printStackTrace();
                         showStatus("⚠ Lỗi parse response: " + e.getMessage(), true);
                     }
                 }
 
                 case "UPDATE_PRODUCT_RESPONSE" -> {
                     try {
-                        System.out.println("[ManageProduct] Processing UPDATE_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
-                            System.out.println("[ManageProduct] ✓ Update product success");
                             loadMyProducts();
                             showStatus("✓ Cập nhật thành công!", false);
                         } else {
-                            System.err.println("[ManageProduct] Update failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
-                        System.err.println("[ManageProduct] UPDATE_PRODUCT_RESPONSE lỗi: " + e.getMessage());
-                        e.printStackTrace();
                         showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
 
                 case "DELETE_PRODUCT_RESPONSE" -> {
                     try {
-                        System.out.println("[ManageProduct] Processing DELETE_PRODUCT_RESPONSE");
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
-                            System.out.println("[ManageProduct] ✓ Delete product success");
                             Item selected = tableProducts.getSelectionModel().getSelectedItem();
                             if (selected != null) productData.remove(selected);
                             clearForm();
                             showStatus("✓ Đã xoá sản phẩm!", false);
                         } else {
-                            System.err.println("[ManageProduct] Delete failed: " + safeMsg(root));
                             showStatus("⚠ " + safeMsg(root), true);
                         }
                     } catch (Exception e) {
-                        System.err.println("[ManageProduct] DELETE_PRODUCT_RESPONSE lỗi: " + e.getMessage());
-                        e.printStackTrace();
                         showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
-
-                default -> System.out.println("[ManageProduct] Unhandled message type: " + msg.getType());
             }
         });
     }
 
-
-    // ── Validate ───────────────────────────────────────────────────────────
+    // ── Validate ──
     private boolean validateForm() {
         if (txtName.getText().trim().isEmpty()) {
             showStatus("⚠ Tên sản phẩm không được để trống.", true); return false;
@@ -425,7 +371,6 @@ public class ManageProductController implements Initializable {
                 dpStartDate.getValue().isAfter(dateEnd.getValue())) {
             showStatus("⚠ Ngày bắt đầu phải trước ngày kết thúc.", true); return false;
         }
-        // Validate giờ/phút/giây
         if (!isValidTime(txtStartHour, txtStartMinute, txtStartSecond)) {
             showStatus("⚠ Giờ bắt đầu không hợp lệ.", true); return false;
         }
@@ -434,7 +379,7 @@ public class ManageProductController implements Initializable {
         }
         return true;
     }
-    // ── [GIỮ TỪ CODE 1] Build LocalDateTime từ DatePicker + 3 TextField ───
+
     private boolean isValidTime(TextField h, TextField m, TextField s) {
         try {
             int hour   = h.getText().isEmpty() ? 0 : Integer.parseInt(h.getText());
@@ -467,19 +412,15 @@ public class ManageProductController implements Initializable {
         UserSession session = UserSession.getInstance();
         if (session != null && session.getUserId() != null) {
             String sellerId = session.getUserId();
-            System.out.println("[ManageProduct] Sending GET_MY_PRODUCTS for seller: " + sellerId);
             client.send(new Message("GET_MY_PRODUCTS", gson.toJson(Map.of("sellerId", sellerId))));
-        } else {
-            System.err.println("[ManageProduct] UserSession is null or userId is null");
         }
     }
 
-    // ── Clear form ─────────────────────────────────────────────────────────
+    // ── Clear form ──
     private void clearForm() {
         txtName.clear(); txtStartingPrice.clear();
         txtBidIncrement.clear(); txtDescription.clear();
         dpStartDate.setValue(null);
-        // [GIỮ TỪ CODE 1] clear cả 6 ô giờ/phút/giây
         txtStartHour.clear(); txtStartMinute.clear(); txtStartSecond.clear();
         dateEnd.setValue(null);
         txtEndHour.clear(); txtEndMinute.clear(); txtEndSecond.clear();
@@ -497,7 +438,7 @@ public class ManageProductController implements Initializable {
         SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 
-    // ── DELETE ─────────────────────────────────────────────────────────────
+    // ── DELETE ──
     @FXML
     private void onDeleteClick(ActionEvent event) {
         Item selected = tableProducts.getSelectionModel().getSelectedItem();
@@ -517,6 +458,7 @@ public class ManageProductController implements Initializable {
         });
     }
 
+    // ── Chọn ảnh ──
     @FXML
     private void onSelectImageClick() {
         FileChooser chooser = new FileChooser();
@@ -526,11 +468,12 @@ public class ManageProductController implements Initializable {
         File file = chooser.showOpenDialog(imgPreview.getScene().getWindow());
         if (file != null) {
             imgPreview.setImage(new Image(file.toURI().toString()));
-            currentImagePath = file.getAbsolutePath();
+            // Lưu tên file hoặc một cấu trúc tương đối để phục vụ đóng gói đồng bộ về sau thay vì đường dẫn tuyệt đối máy cá nhân
+            currentImagePath = file.getName(); 
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
+    // ── Helpers ──
     private String safeMsg(JsonObject root) {
         return root.has("message") ? root.get("message").getAsString() : "Lỗi không xác định";
     }

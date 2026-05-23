@@ -14,22 +14,20 @@ import com.auction.shared.model.Entity.User.User;
 import com.google.gson.Gson;
 
 /**
- * ClientHandler
- *
- * FIX so voi ban goc:
- *   1. Them case "GET_BID_HISTORY"      -> handleGetBidHistory()
- *   2. Them case "REGISTER_AUTO_BID"    -> handleRegisterAutoBid()
- *   3. Them case "CANCEL_AUTO_BID"      -> handleCancelAutoBid()
+ * Chỉ lo 2 việc:
+ *   1. Đọc/ghi socket (network)
+ *   2. Route message đến đúng controller
+ * Mọi business logic đều nằm trong Controller và Service.
  */
 public class ClientHandler implements Runnable {
 
-    private final Socket            socket;
-    private final NetworkServer     server;
-    private final Gson              gson = new Gson();
+    private final Socket             socket;
+    private final NetworkServer      server;
+    private final Gson               gson = new Gson();
 
-    private final UserController    userController;
-    private final AuctionController auctionController;
-    private final AdminController   adminController;
+    private final UserController     userController;
+    private final AuctionController  auctionController;
+    private final AdminController    adminController;
 
     private PrintWriter    out;
     private BufferedReader in;
@@ -52,11 +50,11 @@ public class ClientHandler implements Runnable {
             String line;
             while ((line = in.readLine()) != null) {
                 Message msg = gson.fromJson(line, Message.class);
-                System.out.println("[Server] Nhan: " + msg.getType());
+                System.out.println("[Server] Nhận: " + msg.getType());
                 route(msg);
             }
         } catch (IOException e) {
-            System.out.println("[ClientHandler] Client ngat ket noi.");
+            System.out.println("[ClientHandler] Client ngắt kết nối.");
         } finally {
             server.removeClient(this);
             try { socket.close(); } catch (IOException ignored) {}
@@ -68,7 +66,7 @@ public class ClientHandler implements Runnable {
 
         switch (msg.getType()) {
 
-            // ── Auth ──────────────────────────────────────────────────────
+            // — Auth —
             case "LOGIN" -> {
                 UserController.LoginResult r = userController.handleLogin(p);
                 if (r.user() != null) currentUser = r.user();
@@ -76,9 +74,15 @@ public class ClientHandler implements Runnable {
             }
             case "REGISTER" -> send(userController.handleRegister(p));
 
-            // ── Auction chung ─────────────────────────────────────────────
+            // — Product detail (dùng bởi DetailController & LiveBiddingController) —
+            // Không yêu cầu authentication — ai cũng có thể xem
+            case "GET_PRODUCT_DETAIL" ->
+                send(auctionController.handleGetProductDetail(p));
+
+            // — Auction list —
             case "GET_AUCTIONS" -> send(auctionController.handleGetAuctions());
 
+            // — Seller / Bidder (yêu cầu đăng nhập) —
             case "GET_MY_PRODUCTS" -> {
                 if (!isAuthenticated()) return;
                 send(auctionController.handleGetMyProducts(p));
@@ -105,7 +109,6 @@ public class ClientHandler implements Runnable {
                         p, role(), currentUser.getId(),
                         currentUser.getUsername(), this);
             }
-
             // ── FIX: GET_BID_HISTORY (ban goc THIEU case nay) ─────────────
             case "GET_BID_HISTORY" -> {
                 // Khong can dang nhap — ai cung xem duoc lich su
@@ -155,7 +158,8 @@ public class ClientHandler implements Runnable {
             }
 
             default -> send(new Message("ERROR",
-                    gson.toJson(java.util.Map.of("message", "Unknown type: " + msg.getType()))));
+                    gson.toJson(java.util.Map.of(
+                            "message", "Unknown type: " + msg.getType()))));
         }
     }
 
@@ -166,7 +170,7 @@ public class ClientHandler implements Runnable {
     private boolean isAuthenticated() {
         if (currentUser == null) {
             send(new Message("ERROR", gson.toJson(
-                    java.util.Map.of("message", "Vui long dang nhap truoc."))));
+                    java.util.Map.of("message", "Vui lòng đăng nhập trước."))));
             return false;
         }
         return true;
@@ -176,7 +180,7 @@ public class ClientHandler implements Runnable {
         if (!isAuthenticated()) return false;
         if (!"ADMIN".equals(currentUser.getRole())) {
             send(new Message("ERROR", gson.toJson(
-                    java.util.Map.of("message", "Khong co quyen truy cap."))));
+                    java.util.Map.of("message", "Không có quyền truy cập."))));
             return false;
         }
         return true;
@@ -187,7 +191,7 @@ public class ClientHandler implements Runnable {
     }
 
     public boolean isWatchingAuction(String auctionId) {
-        return auctionId != null && auctionId.equals(watchingAuctionId);
+        return auctionId.equals(watchingAuctionId);
     }
 
     private record WatchDto(String auctionId) {}
