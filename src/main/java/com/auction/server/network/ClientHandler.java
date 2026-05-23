@@ -14,10 +14,7 @@ import com.auction.shared.model.Entity.User.User;
 import com.google.gson.Gson;
 
 /**
- * Chỉ lo 2 việc:
- *   1. Đọc/ghi socket (network)
- *   2. Route message đến đúng controller
- * Mọi business logic đều nằm trong Controller và Service.
+ * ClientHandler — thêm case GET_USER_BID_HISTORY để BidHistoryController hoạt động.
  */
 public class ClientHandler implements Runnable {
 
@@ -74,15 +71,14 @@ public class ClientHandler implements Runnable {
             }
             case "REGISTER" -> send(userController.handleRegister(p));
 
-            // — Product detail (dùng bởi DetailController & LiveBiddingController) —
-            // Không yêu cầu authentication — ai cũng có thể xem
+            // — Product detail —
             case "GET_PRODUCT_DETAIL" ->
                 send(auctionController.handleGetProductDetail(p));
 
             // — Auction list —
             case "GET_AUCTIONS" -> send(auctionController.handleGetAuctions());
 
-            // — Seller / Bidder (yêu cầu đăng nhập) —
+            // — Seller / Bidder —
             case "GET_MY_PRODUCTS" -> {
                 if (!isAuthenticated()) return;
                 send(auctionController.handleGetMyProducts(p));
@@ -108,6 +104,18 @@ public class ClientHandler implements Runnable {
                 auctionController.handlePlaceBid(
                         p, role(), currentUser.getId(),
                         currentUser.getUsername(), this);
+            }
+
+            // FIX: Lịch sử của 1 sản phẩm (LiveBiddingController)
+            case "GET_BID_HISTORY" -> {
+                if (!isAuthenticated()) return;
+                send(auctionController.handleGetBidHistory(p));
+            }
+
+            // FIX: Lịch sử cá nhân Bidder (BidHistoryController) — ĐÂY LÀ CÁI BỊ THIẾU
+            case "GET_USER_BID_HISTORY" -> {
+                if (!isAuthenticated()) return;
+                send(auctionController.handleGetUserBidHistory(p));
             }
 
             // — Admin —
@@ -170,7 +178,7 @@ public class ClientHandler implements Runnable {
     }
 
     public boolean isWatchingAuction(String auctionId) {
-        return auctionId.equals(watchingAuctionId);
+        return auctionId != null && auctionId.equals(watchingAuctionId);
     }
 
     private record WatchDto(String auctionId) {}
