@@ -1,6 +1,8 @@
 package com.auction.server.controller;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,9 +16,15 @@ import com.auction.shared.model.Entity.Item.Item;
 import com.google.gson.Gson;
 
 /**
- * AuctionController — thêm 2 method còn thiếu:
- *   1. handleGetBidHistory()     — lịch sử 1 sản phẩm (LiveBiddingController)
- *   2. handleGetUserBidHistory() — lịch sử cá nhân Bidder (BidHistoryController)
+ * AuctionController — xử lý request liên quan đến sản phẩm & đấu giá.
+ *
+ * Merge từ 2 nhánh:
+ *  - Nhánh gốc : broadcastToAuction cho BID_UPDATE (chỉ gửi người đang xem phiên)
+ *  - Nhánh bạn : broadcastToAll cho BID_UPDATE (live update toàn bộ client — HomeController, DetailController)
+ *                handleGetBidHistory() map đúng field (amount→bidPrice, createdAt→bidTime)
+ *                handleGetUserBidHistory() cho BidHistoryController
+ *                BidHistoryDto hỗ trợ cả 3 field: itemId, auctionId, productId
+ *                newSeconds trong AUCTION_EXTENDED để client cập nhật countdown đúng
  */
 public class AuctionController {
 
@@ -64,17 +72,35 @@ public class AuctionController {
     }
 
     // ── GET_BID_HISTORY — lịch sử của 1 sản phẩm (LiveBiddingController) ─
+    // [MERGE] Map đúng field: amount→bidPrice, createdAt→bidTime để client đọc được
+    // [MERGE] Hỗ trợ cả 3 field: itemId (client gửi), auctionId, productId
     public Message handleGetBidHistory(String payload) {
         try {
             BidHistoryDto dto = gson.fromJson(payload, BidHistoryDto.class);
-            // Hỗ trợ cả field "auctionId" lẫn "productId"
-            String id = dto.auctionId() != null ? dto.auctionId() : dto.productId();
-            List<BidDAO.BidRecord> history = auctionService.getBidHistory(id);
-            return new Message("BID_HISTORY", gson.toJson(Map.of(
-                    "auctionId", id,
-                    "bids",      history)));
+            String id = dto.itemId() != null    ? dto.itemId()
+                      : dto.auctionId() != null ? dto.auctionId()
+                      : dto.productId();
+
+            List<BidDAO.BidRecord> records = auctionService.getBidHistory(id);
+
+            // Map BidRecord sang format client đọc được
+            List<Map<String, Object>> history = new ArrayList<>();
+            for (BidDAO.BidRecord r : records) {
+                Map<String, Object> row = new HashMap<>();
+                row.put("username", r.username());
+                row.put("bidderId", r.bidderId());
+                row.put("bidPrice", r.amount());    // amount → bidPrice
+                row.put("bidTime",  r.createdAt()); // createdAt → bidTime
+                history.add(row);
+            }
+
+            return new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
+                    "success", true,
+                    "history", history)));
         } catch (Exception e) {
-            return error("BID_HISTORY", "Không thể tải lịch sử: " + e.getMessage());
+            return new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
+                    "success", false,
+                    "history", List.of())));
         }
     }
 
@@ -88,7 +114,6 @@ public class AuctionController {
                 return new Message("USER_BID_HISTORY_RESPONSE", gson.toJson(List.of()));
             }
 
-            // Gọi AuctionService — method đã có sẵn trong AuctionService của bạn
             List<Map<String, Object>> records = auctionService.getBidHistoryForBidder(bidderId);
             return new Message("USER_BID_HISTORY_RESPONSE", gson.toJson(records));
 
@@ -174,29 +199,34 @@ public class AuctionController {
 
         switch (outcome.result()) {
             case SUCCESS -> {
+                // Gửi kết quả cho người đặt giá
                 handler.send(new Message("BID_RESULT", gson.toJson(Map.of(
                         "success", true,
                         "message", "Đặt giá thành công!",
                         "newBid",  outcome.newBid()))));
 
-                server.broadcastToAuction(dto.productId(),
-                        new Message("BID_UPDATE", gson.toJson(Map.of(
-                                "productId",  dto.productId(),
-                                "newBid",     outcome.newBid(),
-                                "bidderId",   currentUserId,
-                                "bidderName", currentUsername,
-                                "timestamp",  LocalDateTime.now().toString()))));
+                // [MERGE] broadcastToAll: HomeController, DetailController,
+                // LiveBiddingController đều nhận BID_UPDATE real-time
+                server.broadcastToAll(new Message("BID_UPDATE", gson.toJson(Map.of(
+                        "productId",  dto.productId(),
+                        "newBid",     outcome.newBid(),
+                        "bidderId",   currentUserId,
+                        "bidderName", currentUsername,
+                        "timestamp",  LocalDateTime.now().toString()))));
 
+                // Anti-sniping: broadcast AUCTION_EXTENDED đến người đang xem phiên
                 if (outcome.newEndTime() != null) {
-                    // Tính newSeconds để client cập nhật countdown đúng
                     try {
                         LocalDateTime newEnd = LocalDateTime.parse(
                                 outcome.newEndTime().replace(" ", "T"));
+                        // [MERGE] Tính newSeconds để client cập nhật countdown đúng
                         long newSeconds = java.time.Duration
                                 .between(LocalDateTime.now(), newEnd).getSeconds();
+
                         server.broadcastToAuction(dto.productId(),
                                 new Message("AUCTION_EXTENDED", gson.toJson(Map.of(
                                         "auctionId",  dto.productId(),
+                                        "productId",  dto.productId(),
                                         "newSeconds", newSeconds,
                                         "newEndTime", outcome.newEndTime(),
                                         "message",    "Phiên được gia hạn thêm 60 giây!"))));
@@ -227,7 +257,8 @@ public class AuctionController {
     // ── DTOs ──────────────────────────────────────────────────────────────
     private record ProductDetailDto(String itemId) {}
     private record SellerDto(String sellerId) {}
-    private record BidHistoryDto(String auctionId, String productId) {}
+    // [MERGE] hỗ trợ cả 3 field để tương thích mọi client
+    private record BidHistoryDto(String itemId, String auctionId, String productId) {}
     private record ProductDto(String sellerId, String name, String description,
                               String startPrice, String bidIncrement,
                               String imagePath, String startTime, String endTime) {}
