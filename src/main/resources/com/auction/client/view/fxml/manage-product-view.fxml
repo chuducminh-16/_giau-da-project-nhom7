@@ -112,16 +112,19 @@
                         </HBox>
 
                         <!-- Image preview -->
-                        <ImageView fx:id="imgPreview" fitHeight="120" fitWidth="340" pickOnBounds="true" preserveRatio="true">
+                        <ImageView fx:id="imgPreview" fitHeight="127.0" fitWidth="374.0" pickOnBounds="true" preserveRatio="true">
                            <VBox.margin><Insets bottom="8" left="20" top="8" /></VBox.margin>
                         </ImageView>
 
                         <!-- Nút hành động -->
-                        <HBox alignment="CENTER_LEFT" prefHeight="52" spacing="10">
+                        <HBox alignment="CENTER_LEFT" prefHeight="52" spacing="30.0">
                            <children>
-                              <Button mnemonicParsing="false" onAction="#onSelectImageClick" prefHeight="40" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-size: 12;" text="Select Image" />
-                              <Button mnemonicParsing="false" onAction="#onAddProductClick" prefHeight="40" prefWidth="120" style="-fx-background-color: #4299e1; -fx-text-fill: white;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-weight: bold; -fx-font-size: 12;" text="Add Product" />
-                              <Button fx:id="btnUpdate" mnemonicParsing="false" onAction="#handleUpdateProduct" prefHeight="40" prefWidth="90" style="-fx-background-color: #38a169; -fx-text-fill: white;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-weight: bold; -fx-font-size: 12;" text="Update" />
+                              <Button mnemonicParsing="false" onAction="#onSelectImageClick" prefHeight="40" prefWidth="149.0" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-size: 12;" text="Select Image">
+                                 <opaqueInsets>
+                                    <Insets right="20.0" />
+                                 </opaqueInsets></Button>
+                              <Button mnemonicParsing="false" onAction="#onAddProductClick" prefHeight="40" prefWidth="161.0" style="-fx-background-color: #4299e1; -fx-text-fill: white;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-weight: bold; -fx-font-size: 12;" text="Add Product" />
+                              <Button fx:id="btnUpdate" mnemonicParsing="false" onAction="#handleUpdateProduct" prefHeight="40" prefWidth="142.0" style="-fx-background-color: #38a169; -fx-text-fill: white;                                              -fx-background-radius: 6; -fx-cursor: hand;                                              -fx-font-weight: bold; -fx-font-size: 12;" text="Update" />
                            </children>
                         </HBox>
 
