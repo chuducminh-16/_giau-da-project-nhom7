@@ -1,10 +1,9 @@
 package com.auction.client.session;
 
-import com.auction.shared.model.Entity.Item.Item;
-
 /**
- * Singleton lưu item đang được chọn.
- * Home set → Detail/LiveBidding get.
+ * Singleton — lưu ID của item đang được xem.
+ * Chỉ lưu String itemId, KHÔNG cache Item object.
+ * Detail/LiveBidding tự fetch fresh data từ server khi cần.
  */
 public class SelectedProductSession {
 
@@ -17,9 +16,9 @@ public class SelectedProductSession {
 
     private SelectedProductSession() {}
 
-    private Item selectedItem;
+    private String selectedItemId;
 
-    public void setProduct(Item item) { this.selectedItem = item; }
-    public Item getProduct()          { return selectedItem; }
-    public void clear()               { selectedItem = null; }
+    public void setProductId(String itemId) { this.selectedItemId = itemId; }
+    public String getProductId()            { return selectedItemId; }
+    public void clear()                     { selectedItemId = null; }
 }
