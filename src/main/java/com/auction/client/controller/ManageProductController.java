@@ -256,26 +256,45 @@ public class ManageProductController implements Initializable {
         showStatus("Đang cập nhật...", false);
     }
 
-    // ── [FIX] Parse JSON đúng kiểu ──────────────────────────────────────
+    // ── [ĐÃ SỬA] Nhận và phân tích cú pháp gói tin phản hồi từ Server ──
     private void handleServerResponse(Message msg) {
         Platform.runLater(() -> {
             switch (msg.getType()) {
 
-                // ✅ FIX: Server trả về JsonArray trực tiếp, KHÔNG phải JsonObject bọc ngoài
+                // ✅ FIX: Sửa tận gốc lỗi "Expected a JsonArray but was JsonObject"
                 case "MY_PRODUCTS_RESPONSE" -> {
                     try {
-                        JsonArray arr = gson.fromJson(msg.getPayload(), JsonArray.class);
-                        List<Item> items = new ArrayList<>();
-                        for (JsonElement el : arr) {
-                            Item item = deserializeItem(el.getAsJsonObject());
-                            if (item != null) items.add(item);
+                        // 1. Phải đưa về đúng bản chất là JsonObject bọc ngoài của Server trước
+                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                        
+                        // 2. Tìm mảng danh sách được bọc trong các từ khóa thuộc tính thông dụng
+                        JsonArray arr = null;
+                        if (root.has("products") && !root.get("products").isJsonNull()) {
+                            arr = root.getAsJsonArray("products");
+                        } else if (root.has("items") && !root.get("items").isJsonNull()) {
+                            arr = root.getAsJsonArray("items");
+                        } else if (root.has("data") && !root.get("data").isJsonNull()) {
+                            arr = root.getAsJsonArray("data");
                         }
-                        productData.setAll(items);
-                        showStatus("Tải " + items.size() + " sản phẩm thành công.", false);
+
+                        // 3. Nếu tìm thấy mảng, bóc tách và đổ dữ liệu đa hình vào TableView
+                        if (arr != null) {
+                            List<Item> items = new ArrayList<>();
+                            for (JsonElement el : arr) {
+                                Item item = deserializeItem(el.getAsJsonObject());
+                                if (item != null) items.add(item);
+                            }
+                            productData.setAll(items);
+                            showStatus("Tải " + items.size() + " sản phẩm thành công.", false);
+                        } else {
+                            // Trường hợp Server gửi dạng Object thông báo không có sản phẩm hoặc lỗi
+                            String errorMsg = root.has("message") ? root.get("message").getAsString() : "Không tìm thấy danh sách sản phẩm.";
+                            showStatus("⚠ " + errorMsg, true);
+                        }
                     } catch (Exception e) {
                         System.err.println("[ManageProduct] parse MY_PRODUCTS_RESPONSE lỗi: " + e.getMessage());
                         e.printStackTrace();
-                        showStatus("⚠ Lỗi tải danh sách sản phẩm: " + e.getMessage(), true);
+                        showStatus("⚠ Lỗi xử lý cấu trúc dữ liệu từ Server!", true);
                     }
                 }
 
@@ -439,6 +458,7 @@ public class ManageProductController implements Initializable {
         });
     }
 
+    // ── Chọn ảnh ──
     @FXML
     private void onSelectImageClick() {
         FileChooser chooser = new FileChooser();
@@ -448,7 +468,8 @@ public class ManageProductController implements Initializable {
         File file = chooser.showOpenDialog(imgPreview.getScene().getWindow());
         if (file != null) {
             imgPreview.setImage(new Image(file.toURI().toString()));
-            currentImagePath = file.getAbsolutePath();
+            // Lưu tên file hoặc một cấu trúc tương đối để phục vụ đóng gói đồng bộ về sau thay vì đường dẫn tuyệt đối máy cá nhân
+            currentImagePath = file.getName(); 
         }
     }
 
