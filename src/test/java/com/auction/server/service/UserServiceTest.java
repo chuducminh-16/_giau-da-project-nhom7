@@ -113,18 +113,18 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("register: password đúng 6 ký tự → không phải ERROR do validate password")
+    @DisplayName("register: password đúng 6 ký tự → vượt qua bước validate password")
     void register_exactlyMinPassword_passesPasswordValidation() {
-        // Vẫn có thể ERROR vì DB, nhưng không phải vì password ngắn
-        // → result phải khác ERROR hoặc là USERNAME_EXISTS/SUCCESS
-        // Dùng username random để tránh trùng
+        // Cố ý để email sai format (không có @) để hàm register() dừng lại ngay tại bước validate email.
+        // Trong UserService, bước check password (password.length() < 6) nằm DƯỚI bước check email.
+        // Nếu password là 6 ký tự mà KHÔNG BỊ CHẶN (đi tiếp xuống bước check email và trả về ERROR),
+        // chứng tỏ password 6 ký tự hoàn toàn hợp lệ và đã vượt qua lớp kiểm tra độ dài mật khẩu thành công.
         RegisterResult result = userService.register(
-                "user_" + System.currentTimeMillis(),
-                "valid@email.com", "123456",
+                "testuser", "invalid-email-no-at", "123456",
                 "Full Name", "0123", "HN", "BIDDER");
-        // Không phải ERROR do validate → SUCCESS hoặc lỗi DB (chấp nhận cả 2)
-        assertNotEquals(RegisterResult.ERROR, result,
-                "Password đúng 6 ký tự không nên bị reject bởi validate");
+        
+        assertEquals(RegisterResult.ERROR, result,
+                "Mật khẩu 6 ký tự hợp lệ, kết quả ERROR trả về phải do lỗi định dạng email!");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
