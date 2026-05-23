@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
@@ -31,41 +32,43 @@
                <children>
 
                   <!-- ── Cột trái: ảnh lớn + thumbnails (giữ nguyên fx:id) ── -->
-                  <VBox prefWidth="440" spacing="12">
+                  <VBox prefHeight="632.0" prefWidth="663.0" spacing="12">
                      <children>
                         <!-- Ảnh chính -->
-                        <StackPane prefHeight="380" prefWidth="440" style="-fx-background-color: #2d3748;                                           -fx-background-radius: 12;                                           -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.18),12,0,0,4);">
+                        <StackPane prefHeight="432.0" prefWidth="512.0" style="-fx-background-color: #2d3748;                                           -fx-background-radius: 12;                                           -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.18),12,0,0,4);">
                            <children>
-                              <ImageView fx:id="mainImageView" fitHeight="380" fitWidth="440" pickOnBounds="true" preserveRatio="true" />
-                              <Label style="-fx-font-size: 48; -fx-text-fill: #4a5568;" text="📷" />
+                              <ImageView fx:id="mainImageView" fitHeight="434.0" fitWidth="662.0" pickOnBounds="true" preserveRatio="true" />
                            </children>
                         </StackPane>
 
                         <!-- Thumbnails — giữ nguyên fx:id và onMouseClicked -->
-                        <HBox alignment="CENTER" spacing="10">
+                        <HBox alignment="CENTER" prefHeight="186.0" prefWidth="663.0" spacing="30.0">
                            <children>
                               <StackPane prefHeight="100" prefWidth="130" style="-fx-background-color: #2d3748;                                                 -fx-background-radius: 8; -fx-cursor: hand;">
                                  <children>
-                                    <ImageView fx:id="thumb1" fitHeight="100" fitWidth="130" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
+                                    <ImageView fx:id="thumb1" fitHeight="139.0" fitWidth="183.0" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
                                  </children>
                               </StackPane>
                               <StackPane prefHeight="100" prefWidth="130" style="-fx-background-color: #2d3748;                                                 -fx-background-radius: 8; -fx-cursor: hand;">
                                  <children>
-                                    <ImageView fx:id="thumb2" fitHeight="100" fitWidth="130" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
+                                    <ImageView fx:id="thumb2" fitHeight="141.0" fitWidth="175.0" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
                                  </children>
                               </StackPane>
-                              <StackPane prefHeight="100" prefWidth="130" style="-fx-background-color: #2d3748;                                                 -fx-background-radius: 8; -fx-cursor: hand;">
+                              <StackPane prefHeight="139.0" prefWidth="180.0" style="-fx-background-color: #2d3748;                                                 -fx-background-radius: 8; -fx-cursor: hand;">
                                  <children>
-                                    <ImageView fx:id="thumb3" fitHeight="100" fitWidth="130" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
+                                    <ImageView fx:id="thumb3" fitHeight="141.0" fitWidth="180.0" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
                                  </children>
                               </StackPane>
                            </children>
+                           <padding>
+                              <Insets top="40.0" />
+                           </padding>
                         </HBox>
                      </children>
                   </VBox>
 
                   <!-- ── Cột phải: thông tin sản phẩm (giữ nguyên fx:id) ── -->
-                  <VBox prefWidth="560" spacing="16" style="-fx-padding: 0 0 0 48;" HBox.hgrow="ALWAYS">
+                  <VBox prefHeight="632.0" prefWidth="542.0" spacing="16" style="-fx-padding: 0 0 0 48;" HBox.hgrow="ALWAYS">
                      <children>
 
                         <!-- Tên sản phẩm -->
@@ -82,7 +85,7 @@
                         <!-- Mô tả sản phẩm — hiện dữ liệu từ server -->
                         <ScrollPane fitToWidth="true" prefHeight="110" prefWidth="500" style="-fx-background-color: white;                    -fx-background-radius: 8;                    -fx-border-color: #e2e8f0;                    -fx-border-radius: 8;">
                            <content>
-                              <Label fx:id="lblDescription" prefHeight="108.0" prefWidth="509.0" style="-fx-text-fill: #4a5568; -fx-font-size: 13;                     -fx-padding: 8; -fx-background-color: white;" wrapText="true" />
+                              <Label fx:id="lblDescription" alignment="TOP_LEFT" contentDisplay="CENTER" prefHeight="127.0" prefWidth="650.0" style="-fx-text-fill: #4a5568; -fx-font-size: 13;                     -fx-padding: 8; -fx-background-color: white;" wrapText="true" />
                            </content>
                         </ScrollPane>
 
@@ -90,7 +93,7 @@
                         <Label style="-fx-text-fill: #cbd5e0;" text="──────────────────────────────────────────" />
 
                         <!-- GridPane thông tin chi tiết — giữ nguyên toàn bộ nội dung -->
-                        <GridPane style="-fx-background-color: white;                                          -fx-background-radius: 10;                                          -fx-padding: 16;                                          -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);">
+                        <GridPane prefWidth="489.0" style="-fx-background-color: white;                                          -fx-background-radius: 10;                                          -fx-padding: 16;                                          -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);">
                            <columnConstraints>
                               <ColumnConstraints hgrow="SOMETIMES" minWidth="10" prefWidth="160" />
                               <ColumnConstraints hgrow="SOMETIMES" minWidth="10" prefWidth="280" />
@@ -105,22 +108,22 @@
                            </rowConstraints>
                            <children>
                               <!-- Labels cột trái -->
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Giá khởi điểm">
+                              <Label prefHeight="19.0" prefWidth="174.0" style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Giá khởi điểm:">
                                  <font><Font size="13" /></font>
                               </Label>
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Bước giá" GridPane.rowIndex="1">
+                              <Label prefHeight="19.0" prefWidth="189.0" style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Bước giá:" GridPane.rowIndex="1">
                                  <font><Font size="13" /></font>
                               </Label>
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Tình trạng" GridPane.rowIndex="2">
+                              <Label prefHeight="19.0" prefWidth="235.0" style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Tình trạng:" GridPane.rowIndex="2">
                                  <font><Font size="13" /></font>
                               </Label>
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Danh mục hàng" GridPane.rowIndex="3">
+                              <Label prefHeight="19.0" prefWidth="190.0" style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Danh mục hàng:" GridPane.rowIndex="3">
                                  <font><Font size="13" /></font>
                               </Label>
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Xuất xứ" GridPane.rowIndex="4">
+                              <Label prefHeight="19.0" prefWidth="215.0" style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Xuất xứ:" GridPane.rowIndex="4">
                                  <font><Font size="13" /></font>
                               </Label>
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Người bán" GridPane.rowIndex="5">
+                              <Label prefHeight="19.0" prefWidth="209.0" style="-fx-text-fill: #718096; -fx-font-size: 13;" text="Người bán:" GridPane.rowIndex="5">
                                  <font><Font size="13" /></font>
                               </Label>
 
