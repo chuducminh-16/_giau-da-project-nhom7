@@ -1,11 +1,23 @@
 package com.auction.client.controller;
 
+import java.net.URL;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
+import java.util.ResourceBundle;
+
 import com.auction.client.SceneEngine;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
+import com.auction.shared.model.Entity.Item.Art;
+import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
+import com.auction.shared.model.Entity.Item.Vehicle;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonObject;
+
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -14,11 +26,6 @@ import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
-
-import java.net.URL;
-import java.time.format.DateTimeFormatter;
-import java.util.Map;
-import java.util.ResourceBundle;
 
 public class DetailController implements Initializable {
 
@@ -36,25 +43,91 @@ public class DetailController implements Initializable {
     @FXML private Label lblEndTime;
     @FXML private Label lblDescription;
 
+    // currentItem giờ là local display state; được set từ server response
     private Item currentItem;
+    private String itemId;
 
-    private final Gson          gson   = new Gson();
+    private final Gson          gson   = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
 
     private final NetworkClient.MessageListener listener = this::handleServerMessage;
+
+    // ── Custom Gson để deserialize abstract Item ──────────────────────────
+    private static Gson buildGson() {
+        return new GsonBuilder()
+                .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
+                    JsonObject obj = json.getAsJsonObject();
+                    String type = obj.has("type") && !obj.get("type").isJsonNull()
+                            ? obj.get("type").getAsString().toUpperCase() : "ART";
+                    return switch (type) {
+                        case "ELECTRONICS" -> ctx.deserialize(obj, Electronics.class);
+                        case "VEHICLE"     -> ctx.deserialize(obj, Vehicle.class);
+                        default            -> ctx.deserialize(obj, Art.class);
+                    };
+                })
+                .create();
+    }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         client.addListener(listener);
 
-        currentItem = SelectedProductSession.getInstance().getProduct();
+        // Lấy itemId từ Session (chỉ lưu ID, không lưu object)
+        itemId = SelectedProductSession.getInstance().getProductId();
 
-        if (currentItem != null) {
-            populateUI(currentItem);
-            client.send(new Message("WATCH_AUCTION",
-                    gson.toJson(Map.of("auctionId", currentItem.getId()))));
+        if (itemId != null) {
+            // Luôn fetch fresh data từ server — không dùng cached object
+            client.send(new Message("GET_PRODUCT_DETAIL",
+                    gson.toJson(Map.of("itemId", itemId))));
+            setText(productNameLabel, "Đang tải...");
         } else {
-            productNameLabel.setText("Không tìm thấy sản phẩm.");
+            setText(productNameLabel, "Không tìm thấy sản phẩm.");
+        }
+    }
+
+    private void handleServerMessage(Message msg) {
+        switch (msg.getType()) {
+
+            // Server trả fresh product detail
+            case "PRODUCT_DETAIL_RESPONSE" -> {
+                try {
+                    JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                    if (!root.has("success") || !root.get("success").getAsBoolean()) {
+                        Platform.runLater(() -> setText(productNameLabel, "Không tìm thấy sản phẩm."));
+                        return;
+                    }
+                    Item item = gson.fromJson(root.get("item"), Item.class);
+                    if (item == null) return;
+
+                    Platform.runLater(() -> {
+                        currentItem = item;
+                        populateUI(item);
+                        // Đăng ký theo dõi realtime BID_UPDATE sau khi có item
+                        client.send(new Message("WATCH_AUCTION",
+                                gson.toJson(Map.of("auctionId", item.getId()))));
+                    });
+                } catch (Exception e) {
+                    System.err.println("[Detail] Lỗi parse PRODUCT_DETAIL_RESPONSE: " + e.getMessage());
+                }
+            }
+
+            // Realtime bid update — cập nhật giá hiện tại
+            case "BID_UPDATE" -> {
+                try {
+                    JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
+                    String productId = dto.get("productId").getAsString();
+                    if (currentItem == null || !currentItem.getId().equals(productId)) return;
+
+                    double newBid = dto.get("newBid").getAsDouble();
+                    Platform.runLater(() -> {
+                        currentItem.setCurrentBid(newBid);
+                        currentPriceLabel.setText(
+                                String.format("Current Bid: %,.0f VNĐ", newBid));
+                    });
+                } catch (Exception e) {
+                    System.err.println("[Detail] Lỗi parse BID_UPDATE: " + e.getMessage());
+                }
+            }
         }
     }
 
@@ -62,7 +135,8 @@ public class DetailController implements Initializable {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
         productNameLabel.setText(item.getName());
-        currentPriceLabel.setText(String.format("Current Bid: %,.0f VNĐ", item.getCurrentBid()));
+        currentPriceLabel.setText(
+                String.format("Current Bid: %,.0f VNĐ", item.getCurrentBid()));
 
         setText(lblStartingPrice, String.format("%,.0f VNĐ", item.getStartingPrice()));
         setText(lblBidIncrement,  String.format("%,.0f VNĐ", item.getBidIncrement()));
@@ -70,32 +144,24 @@ public class DetailController implements Initializable {
         setText(lblCategory,      item.getType());
         setText(lblOrigin,        item.getSellerId() != null ? item.getSellerId() : "—");
         setText(lblSeller,        item.getSellerName() != null ? item.getSellerName() : "—");
-        setText(lblEndTime,       item.getEndTime() != null ? item.getEndTime().format(fmt) : "—");
+        setText(lblEndTime,       item.getEndTime() != null
+                ? item.getEndTime().format(fmt) : "—");
 
-        // ✅ FIX: dùng getDescription() thay vì showDetails() cho mô tả
         String desc = item.getDescription();
         setText(lblDescription, desc != null && !desc.isBlank() ? desc : item.showDetails());
 
         loadImage(item.getImagePath());
     }
 
-    private void handleServerMessage(Message msg) {
-        if (!"BID_UPDATE".equals(msg.getType())) return;
-        BidUpdateDto dto = gson.fromJson(msg.getPayload(), BidUpdateDto.class);
-        if (currentItem == null || !currentItem.getId().equals(dto.productId)) return;
-        Platform.runLater(() -> {
-            currentItem.setCurrentBid(dto.newBid);
-            currentPriceLabel.setText(String.format("Current Bid: %,.0f VNĐ", dto.newBid));
-        });
-    }
-
     @FXML public void onJoinRoomClick(ActionEvent event) {
+        // itemId đã có trong session, LiveBidding sẽ dùng
         client.removeListener(listener);
         SceneEngine.changeScene(event, "live-bidding-view.fxml", "Phòng Đấu Giá Trực Tiếp");
     }
 
     @FXML public void onBackToHomeClick(ActionEvent event) {
         client.removeListener(listener);
+        SelectedProductSession.getInstance().clear();
         SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 
@@ -126,6 +192,4 @@ public class DetailController implements Initializable {
             System.err.println("[Detail] Không load được ảnh: " + e.getMessage());
         }
     }
-
-    private record BidUpdateDto(String productId, double newBid) {}
 }

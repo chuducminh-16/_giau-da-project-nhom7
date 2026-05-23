@@ -394,4 +394,3 @@ public class BidHistoryController implements Initializable {
             String sellerName
     ) {}
 }
-
