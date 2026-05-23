@@ -469,7 +469,7 @@ public class ManageProductController implements Initializable {
         if (file != null) {
             imgPreview.setImage(new Image(file.toURI().toString()));
             // Lưu tên file hoặc một cấu trúc tương đối để phục vụ đóng gói đồng bộ về sau thay vì đường dẫn tuyệt đối máy cá nhân
-            currentImagePath = file.getName(); 
+            currentImagePath = file.getAbsolutePath();
         }
     }
 

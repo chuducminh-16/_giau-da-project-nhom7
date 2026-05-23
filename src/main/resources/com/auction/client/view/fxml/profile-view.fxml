@@ -144,7 +144,29 @@
                               <TextField fx:id="addressField" prefHeight="36" prefWidth="392" style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0; -fx-border-radius: 6;                                                 -fx-background-radius: 6; -fx-padding: 0 10;" />
                            </children>
                         </VBox>
+                        <!-- ══ Chọn Role ══ -->
+                        <VBox spacing="6">
+                           <children>
+                              <Label style="-fx-text-fill: #4a5568; -fx-font-size: 10;                               -fx-font-weight: bold;" text="ACCOUNT ROLE" />
+                              <HBox alignment="CENTER_LEFT" spacing="20">
+                                 <children>
+                                    <!-- Bidder — mặc định được chọn, đồng thời khai báo ToggleGroup tại đây -->
+                                    <RadioButton fx:id="radioBidder" prefHeight="19.0" prefWidth="116.0" selected="true" style="-fx-font-size: 13; -fx-text-fill: #2d3748; -fx-cursor: hand;" text="Bidder">
+                                       <toggleGroup>
+                                          <ToggleGroup fx:id="roleToggleGroup" />
+                                       </toggleGroup>
+                                    </RadioButton>
+                                    <!-- Seller — dùng $roleToggleGroup để tham chiếu lại -->
+                                    <RadioButton fx:id="radioSeller" prefHeight="19.0" prefWidth="121.0" style="-fx-font-size: 13; -fx-text-fill: #2d3748; -fx-cursor: hand;" text="Seller" toggleGroup="$roleToggleGroup" />
+                                    <!-- Admin -->
+                                    <RadioButton fx:id="radioAdmin" prefHeight="19.0" prefWidth="95.0" style="-fx-font-size: 13; -fx-text-fill: #2d3748; -fx-cursor: hand;" text="Admin" toggleGroup="$roleToggleGroup" />
+                                 </children>
+                              </HBox>
+                           </children>
+                        </VBox>
 
+<<<<<<< HEAD
+=======
                         <VBox spacing="6">
                            <children>
                               <Label style="-fx-text-fill: #4a5568; -fx-font-size: 10;                               -fx-font-weight: bold;" text="ACCOUNT ROLE" />
@@ -162,6 +184,7 @@
                            </children>
                         </VBox>
 
+>>>>>>> 047e37a682ea24854e4fa3367031b48d42a35874
                         <Label fx:id="errorLabel" managed="false" prefWidth="392" style="-fx-font-size: 12px; -fx-padding: 4 0 0 0;" visible="false" wrapText="true" />
 
                         <!-- Nút REGISTER + Back to login — giữ nguyên fx:id, onAction -->

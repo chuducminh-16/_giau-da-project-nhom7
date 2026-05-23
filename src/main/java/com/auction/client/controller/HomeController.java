@@ -221,20 +221,20 @@ public class HomeController implements Initializable {
         if (heroImage != null) {
             String path = item.getImagePath();
             if (path != null && !path.isBlank()) {
-                 try {
-                    // Tải ảnh (background loading = true để tránh lag UI)
-                    javafx.scene.image.Image img = new javafx.scene.image.Image("file:"
-                    + path, true);
-
-                    heroImage.setImage(img);
-
-                    // Ẩn icon camera khi đã có ảnh
-                    if (heroPlaceholder != null) heroPlaceholder.setVisible(false);
-
-                 } catch (Exception e) {
+                try {
+                    java.io.File imgFile = new java.io.File(path);
+                    if (imgFile.exists()) {
+                        javafx.scene.image.Image img = new javafx.scene.image.Image(
+                                imgFile.toURI().toString(), true);
+                        heroImage.setImage(img);
+                        if (heroPlaceholder != null) heroPlaceholder.setVisible(false);
+                    } else {
+                        heroImage.setImage(null);
+                        if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+                    }
+                } catch (Exception e) {
                     System.err.println("[Home] Lỗi load ảnh hero: " + e.getMessage());
                     heroImage.setImage(null);
-
                     if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
                  }
             } else {

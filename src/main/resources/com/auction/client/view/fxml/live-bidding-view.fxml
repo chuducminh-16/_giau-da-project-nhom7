@@ -114,20 +114,16 @@
 
                   <!-- Line Chart — giữ nguyên fx:id: priceChart, xAxis, yAxis -->
                   <LineChart fx:id="priceChart" VBox.vgrow="ALWAYS"
-                             animated="false"
                              style="-fx-background-color: white;
                                     -fx-background-radius: 10;
                                     -fx-padding: 10;
                                     -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);">
                      <VBox.margin><Insets top="16" /></VBox.margin>
                      <xAxis>
-                        <CategoryAxis fx:id="xAxis" side="BOTTOM" label="Thời gian" />
+                        <CategoryAxis fx:id="xAxis" side="BOTTOM" />
                      </xAxis>
                      <yAxis>
-                        <NumberAxis fx:id="yAxis" side="LEFT"
-                                    label="Giá (VNĐ)"
-                                    forceZeroInRange="false"
-                                    autoRanging="true" />
+                        <NumberAxis fx:id="yAxis" side="LEFT" />
                      </yAxis>
                   </LineChart>
 
