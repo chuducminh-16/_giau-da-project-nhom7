@@ -5,19 +5,23 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.List;
+import java.util.Map;
 
 import com.auction.client.network.Message;
 import com.auction.server.controller.AdminController;
 import com.auction.server.controller.AuctionController;
 import com.auction.server.controller.UserController;
+import com.auction.server.dao.bid.BidDAO;
+import com.auction.server.service.AuctionService;
 import com.auction.shared.model.Entity.User.User;
 import com.google.gson.Gson;
 
 /**
- * Chỉ lo 2 việc:
- *   1. Đọc/ghi socket (network)
- *   2. Route message đến đúng controller
- * Mọi business logic đều nằm trong Controller và Service.
+ * ClientHandler — route message đến đúng controller.
+ *
+ * FIX 1: thêm route GET_BID_HISTORY → trả lịch sử bid cho LiveBiddingController
+ * FIX 2: thêm route GET_BID_HISTORY_BIDDER → trả lịch sử bid của 1 bidder
  */
 public class ClientHandler implements Runnable {
 
@@ -28,6 +32,8 @@ public class ClientHandler implements Runnable {
     private final UserController     userController;
     private final AuctionController  auctionController;
     private final AdminController    adminController;
+    private final AuctionService     auctionService = new AuctionService();
+    private final BidDAO             bidDAO         = new BidDAO();
 
     private PrintWriter    out;
     private BufferedReader in;
@@ -74,15 +80,14 @@ public class ClientHandler implements Runnable {
             }
             case "REGISTER" -> send(userController.handleRegister(p));
 
-            // — Product detail (dùng bởi DetailController & LiveBiddingController) —
-            // Không yêu cầu authentication — ai cũng có thể xem
+            // — Product detail —
             case "GET_PRODUCT_DETAIL" ->
                 send(auctionController.handleGetProductDetail(p));
 
             // — Auction list —
             case "GET_AUCTIONS" -> send(auctionController.handleGetAuctions());
 
-            // — Seller / Bidder (yêu cầu đăng nhập) —
+            // — Seller / Bidder —
             case "GET_MY_PRODUCTS" -> {
                 if (!isAuthenticated()) return;
                 send(auctionController.handleGetMyProducts(p));
@@ -108,6 +113,45 @@ public class ClientHandler implements Runnable {
                 auctionController.handlePlaceBid(
                         p, role(), currentUser.getId(),
                         currentUser.getUsername(), this);
+            }
+
+            // ✅ FIX 1: Lấy lịch sử bid của 1 item — dùng bởi LiveBiddingController khi vào phòng
+            // Client gửi: GET_BID_HISTORY { "itemId": "I01" }
+            // Server trả: BID_HISTORY_RESPONSE { "history": [ { bidTime, username, bidPrice }, ... ] }
+            case "GET_BID_HISTORY" -> {
+                try {
+                    GetBidHistoryDto dto = gson.fromJson(p, GetBidHistoryDto.class);
+                    List<Map<String, Object>> history = bidDAO.getBidHistory(dto.itemId());
+                    send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
+                            "success", true,
+                            "history", history
+                    ))));
+                } catch (Exception e) {
+                    send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
+                            "success", false,
+                            "history", List.of()
+                    ))));
+                }
+            }
+
+            // ✅ FIX 2: Lấy lịch sử bid của 1 bidder — dùng bởi BidHistoryController
+            // Client gửi: GET_BID_HISTORY_BIDDER {}
+            // Server trả: BID_HISTORY_RESPONSE { "success", "records": [...] }
+            case "GET_BID_HISTORY_BIDDER" -> {
+                if (!isAuthenticated()) return;
+                try {
+                    List<Map<String, Object>> records =
+                            auctionService.getBidHistoryForBidder(currentUser.getId());
+                    send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
+                            "success", true,
+                            "records", records
+                    ))));
+                } catch (Exception e) {
+                    send(new Message("BID_HISTORY_RESPONSE", gson.toJson(Map.of(
+                            "success", false,
+                            "message", "Lỗi tải lịch sử: " + e.getMessage()
+                    ))));
+                }
             }
 
             // — Admin —
@@ -137,7 +181,7 @@ public class ClientHandler implements Runnable {
             }
 
             default -> send(new Message("ERROR",
-                    gson.toJson(java.util.Map.of(
+                    gson.toJson(Map.of(
                             "message", "Unknown type: " + msg.getType()))));
         }
     }
@@ -149,7 +193,7 @@ public class ClientHandler implements Runnable {
     private boolean isAuthenticated() {
         if (currentUser == null) {
             send(new Message("ERROR", gson.toJson(
-                    java.util.Map.of("message", "Vui lòng đăng nhập trước."))));
+                    Map.of("message", "Vui lòng đăng nhập trước."))));
             return false;
         }
         return true;
@@ -159,7 +203,7 @@ public class ClientHandler implements Runnable {
         if (!isAuthenticated()) return false;
         if (!"ADMIN".equals(currentUser.getRole())) {
             send(new Message("ERROR", gson.toJson(
-                    java.util.Map.of("message", "Không có quyền truy cập."))));
+                    Map.of("message", "Không có quyền truy cập."))));
             return false;
         }
         return true;
@@ -170,8 +214,9 @@ public class ClientHandler implements Runnable {
     }
 
     public boolean isWatchingAuction(String auctionId) {
-        return auctionId.equals(watchingAuctionId);
+        return auctionId != null && auctionId.equals(watchingAuctionId);
     }
 
     private record WatchDto(String auctionId) {}
+    private record GetBidHistoryDto(String itemId) {}
 }

@@ -27,7 +27,6 @@ public class AuctionController {
     }
 
     // ── Lấy fresh detail của 1 sản phẩm theo itemId ───────────────────
-    // Được gọi khi DetailController hoặc LiveBiddingController khởi tạo
     public Message handleGetProductDetail(String payload) {
         try {
             ProductDetailDto dto = gson.fromJson(payload, ProductDetailDto.class);
@@ -153,19 +152,26 @@ public class AuctionController {
 
         switch (outcome.result()) {
             case SUCCESS -> {
+                // Gửi kết quả cho người đặt giá
                 handler.send(new Message("BID_RESULT", gson.toJson(Map.of(
                         "success", true,
                         "message", "Đặt giá thành công!",
                         "newBid",  outcome.newBid()
                 ))));
-                server.broadcastToAuction(dto.productId(),
-                        new Message("BID_UPDATE", gson.toJson(Map.of(
-                                "productId",  dto.productId(),
-                                "newBid",     outcome.newBid(),
-                                "bidderId",   currentUserId,
-                                "bidderName", currentUsername,
-                                "timestamp",  LocalDateTime.now().toString()
-                        ))));
+
+                // ✅ FIX: Dùng broadcastToAll thay vì broadcastToAuction
+                // để TẤT CẢ client (HomeController, DetailController, LiveBiddingController)
+                // đều nhận được BID_UPDATE, không chỉ người đang WATCH
+                String bidUpdatePayload = gson.toJson(Map.of(
+                        "productId",  dto.productId(),
+                        "newBid",     outcome.newBid(),
+                        "bidderId",   currentUserId,
+                        "bidderName", currentUsername,
+                        "timestamp",  LocalDateTime.now().toString()
+                ));
+                server.broadcastToAll(new Message("BID_UPDATE", bidUpdatePayload));
+
+                // Anti-sniping: vẫn chỉ broadcast AUCTION_EXTENDED đến người đang xem phiên
                 if (outcome.newEndTime() != null) {
                     server.broadcastToAuction(dto.productId(),
                             new Message("AUCTION_EXTENDED", gson.toJson(Map.of(
