@@ -45,17 +45,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.util.Duration;
 
-/**
- * LiveBiddingController — phòng đấu giá realtime.
- *
- * Merge từ 2 nhánh:
- *  - Nhánh gốc : chỉ dùng currentItem.getCurrentBid() làm giá hiện tại
- *  - Nhánh bạn : thêm latestBid (track giá riêng biệt), historyLoaded (tránh ghi đè),
- *                load lịch sử song song (GET_BID_HISTORY + GET_PRODUCT_DETAIL),
- *                xử lý BID_HISTORY_RESPONSE để điền bảng + vẽ chart từ lịch sử cũ,
- *                addChartPoint nhận timeLabel rõ ràng thay vì tự lấy LocalTime.now(),
- *                filter BID_UPDATE bằng itemId (không cần currentItem != null)
- */
 public class LiveBiddingController implements Initializable {
 
     @FXML private Label     lblCountdown;
@@ -77,18 +66,17 @@ public class LiveBiddingController implements Initializable {
     private Timeline countdownTimeline;
     private long     secondsRemaining;
 
-    // [MERGE] Track giá hiện tại riêng — không phụ thuộc vào currentItem.getCurrentBid()
-    // Được cập nhật từ lịch sử cũ (BID_HISTORY_RESPONSE) hoặc BID_UPDATE realtime
+    // Giá cao nhất hiện tại — cập nhật cả từ lịch sử lẫn BID_UPDATE realtime
     private double latestBid = 0;
 
-    // [MERGE] Cờ: đã nhận lịch sử chưa, để tránh PRODUCT_DETAIL ghi đè giá mới hơn
+    // true sau khi BID_HISTORY_RESPONSE đến — ngăn PRODUCT_DETAIL ghi đè giá
     private boolean historyLoaded = false;
 
     private final ObservableList<BidItem> bidHistory    = FXCollections.observableArrayList();
     private final ObservableList<String>  notifications = FXCollections.observableArrayList();
 
-    private final Gson          gson    = buildGson();
-    private final NetworkClient client  = NetworkClient.getInstance();
+    private final Gson          gson   = buildGson();
+    private final NetworkClient client = NetworkClient.getInstance();
     private final DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private final NetworkClient.MessageListener listener = this::handleServerMessage;
@@ -118,14 +106,11 @@ public class LiveBiddingController implements Initializable {
 
         if (itemId != null) {
             addLog("Đang kết nối phòng đấu giá...");
-
-            // [MERGE] Gửi đồng thời cả 2 request — không cần chờ nhau
-            // GET_PRODUCT_DETAIL: lấy thông tin sản phẩm, countdown, tên
-            // GET_BID_HISTORY: lấy lịch sử bid cũ để điền bảng và vẽ chart
             client.send(new Message("GET_PRODUCT_DETAIL",
                     gson.toJson(Map.of("itemId", itemId))));
+            // Server AuctionController.handleGetBidHistory nhận key "productId"
             client.send(new Message("GET_BID_HISTORY",
-                    gson.toJson(Map.of("itemId", itemId))));
+                    gson.toJson(Map.of("productId", itemId))));
         } else {
             addLog("Không tìm thấy thông tin sản phẩm!");
         }
@@ -147,11 +132,9 @@ public class LiveBiddingController implements Initializable {
                     Platform.runLater(() -> {
                         currentItem = item;
                         itemId = item.getId();
-
                         if (lblProductName != null) lblProductName.setText(item.getName());
 
-                        // [MERGE] Chỉ dùng giá từ PRODUCT_DETAIL nếu lịch sử chưa load
-                        // Tránh ghi đè giá cao hơn đã có từ BID_HISTORY_RESPONSE
+                        // Chỉ dùng giá từ PRODUCT_DETAIL nếu lịch sử chưa đến
                         if (!historyLoaded) {
                             latestBid = item.getCurrentBid();
                             updateCurrentBidLabel(latestBid);
@@ -164,73 +147,121 @@ public class LiveBiddingController implements Initializable {
                         addLog("Chào mừng vào phòng đấu giá: " + item.getName());
                     });
                 } catch (Exception e) {
-                    System.err.println("[LiveBidding] Lỗi parse PRODUCT_DETAIL_RESPONSE: " + e.getMessage());
+                    System.err.println("[LiveBidding] PRODUCT_DETAIL_RESPONSE lỗi: " + e.getMessage());
                 }
             }
 
-            // [MERGE] Xử lý lịch sử cũ: điền bảng + vẽ chart + cập nhật giá hiện tại
+            // ─────────────────────────────────────────────────────────────
+            // BID_HISTORY_RESPONSE
+            //
+            // Server trả JsonArray trực tiếp (List<BidRecord> được Gson serialize):
+            //   [{"bidderId":"...","username":"...","amount":101000.0,"createdAt":"2026-05-24 10:37:10"}, ...]
+            //
+            // Thứ tự: ORDER BY bid_time DESC → index 0 = mới nhất
+            //
+            // FIX TIMEZONE:
+            //   - DB Railway chạy UTC, connection string có serverTimezone=Asia/Ho_Chi_Minh
+            //   - getString("bid_time") trả chuỗi theo giờ server DB (UTC)
+            //   - Cần cộng +7 để ra giờ VN
+            //   - BID_UPDATE realtime dùng LocalTime.now() của máy client → đã đúng giờ VN
+            //     → KHÔNG cộng +7 cho BID_UPDATE
+            // ─────────────────────────────────────────────────────────────
             case "BID_HISTORY_RESPONSE" -> {
                 try {
-                    JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                    if (!root.has("history") || !root.get("history").isJsonArray()) return;
+                    String payload = msg.getPayload();
+                    if (payload == null || payload.isBlank()) return;
 
-                    JsonArray arr = root.getAsJsonArray("history");
+                    // Parse payload: có thể là JsonArray trực tiếp hoặc JsonObject bọc ngoài
+                    JsonArray arr = null;
+                    try {
+                        arr = gson.fromJson(payload, JsonArray.class);
+                    } catch (Exception e1) {
+                        try {
+                            JsonObject root = gson.fromJson(payload, JsonObject.class);
+                            if (root.has("history") && root.get("history").isJsonArray())
+                                arr = root.getAsJsonArray("history");
+                            else if (root.has("data") && root.get("data").isJsonArray())
+                                arr = root.getAsJsonArray("data");
+                        } catch (Exception e2) {
+                            System.err.println("[LiveBidding] Không parse được BID_HISTORY_RESPONSE");
+                            return;
+                        }
+                    }
 
-                    // Server trả theo ORDER BY bid_price DESC (mới/cao nhất trước)
-                    List<BidItem> rows = new ArrayList<>();
+                    if (arr == null || arr.size() == 0) return;
+
+                    // Dùng record để giữ time + price + user cùng nhau — tránh index mismatch
+                    record HistoryEntry(String timeLabel, String username,
+                                        String priceStr, double price) {}
+
+                    List<HistoryEntry> entries = new ArrayList<>();
                     double maxBid = 0;
-                    // Collect để vẽ chart theo thứ tự CŨ → MỚI (đảo ngược array)
-                    List<double[]> chartPoints = new ArrayList<>();
 
                     for (JsonElement el : arr) {
                         JsonObject row = el.getAsJsonObject();
-                        String rawTime  = safeStr(row, "bidTime", "");
-                        String username = safeStr(row, "username", "?");
-                        double price    = safeDouble(row, "bidPrice");
 
-                        String displayTime = formatDbTime(rawTime);
-                        rows.add(new BidItem(displayTime, username,
-                                String.format("%,.0f VNĐ", price)));
+                        // Key "createdAt" từ BidRecord (doc 71), fallback "bidTime" từ Map cũ
+                        String rawTime = safeStr(row, "createdAt",
+                                         safeStr(row, "bidTime", ""));
+
+                        String username = safeStr(row, "username", "?");
+
+                        // Key "amount" từ BidRecord (doc 71), fallback "bidPrice" từ Map cũ
+                        double price = safeDouble(row, "amount") > 0
+                                       ? safeDouble(row, "amount")
+                                       : safeDouble(row, "bidPrice");
+
+                        // FIX TIMEZONE: DB lưu UTC → cộng +7 để ra giờ VN
+                        // (chỉ áp dụng cho lịch sử DB, KHÔNG áp dụng cho BID_UPDATE realtime)
+                        String displayTime = convertUtcToVnTime(rawTime);
+
+                        entries.add(new HistoryEntry(displayTime, username,
+                                String.format("%,.0f VNĐ", price), price));
 
                         if (price > maxBid) maxBid = price;
-                        chartPoints.add(new double[]{ price });
                     }
 
-                    final double finalMaxBid        = maxBid;
-                    final List<BidItem> finalRows   = rows;
-                    final List<double[]> finalChart = chartPoints;
+                    final double finalMaxBid = maxBid;
+                    final List<HistoryEntry> finalEntries = entries;
 
                     Platform.runLater(() -> {
                         historyLoaded = true;
-                        bidHistory.setAll(finalRows);
 
-                        // Cập nhật Current Bid theo giá cao nhất trong lịch sử
+                        // Điền bảng: arr ORDER BY bid_time DESC → entries[0] = mới nhất → đặt ở đầu bảng ✓
+                        List<BidItem> rows = new ArrayList<>();
+                        for (HistoryEntry e : finalEntries) {
+                            rows.add(new BidItem(e.timeLabel(), e.username(), e.priceStr()));
+                        }
+                        bidHistory.setAll(rows);
+
+                        // Cập nhật giá hiện tại theo giá cao nhất trong lịch sử
                         if (finalMaxBid > 0) {
                             latestBid = finalMaxBid;
                             updateCurrentBidLabel(latestBid);
                             if (currentItem != null) currentItem.setCurrentBid(latestBid);
                         }
 
-                        // Vẽ chart từ lịch sử cũ — theo thứ tự CŨ → MỚI (đảo ngược)
+                        // Vẽ chart theo thứ tự CŨ → MỚI:
+                        // entries[0]=mới nhất → loop từ cuối về đầu (size-1 → 0)
+                        // Mỗi entry giữ cả timeLabel lẫn price → luôn khớp nhau
                         priceSeries.getData().clear();
-                        for (int i = finalChart.size() - 1; i >= 0; i--) {
-                            double price = finalChart.get(i)[0];
-                            String timeLabel = finalRows.get(i).timeProperty().get();
-                            addChartPoint(timeLabel, price);
+                        for (int i = finalEntries.size() - 1; i >= 0; i--) {
+                            HistoryEntry e = finalEntries.get(i);
+                            addChartPoint(e.timeLabel(), e.price());
                         }
 
-                        if (!finalRows.isEmpty()) {
-                            addLog("Đã tải " + finalRows.size() + " lần đặt giá trước đó.");
+                        if (!finalEntries.isEmpty()) {
+                            addLog("Đã tải " + finalEntries.size() + " lần đặt giá trước đó.");
                         }
                     });
                 } catch (Exception e) {
-                    System.err.println("[LiveBidding] Lỗi parse BID_HISTORY_RESPONSE: " + e.getMessage());
+                    System.err.println("[LiveBidding] BID_HISTORY_RESPONSE lỗi: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
 
-            // [MERGE] Filter bằng itemId (không cần currentItem != null) để tránh NPE
-            // khi BID_UPDATE đến trước PRODUCT_DETAIL_RESPONSE
+            // BID_UPDATE: nhận từ server khi có người đặt giá mới
+            // Thời gian dùng LocalTime.now() của máy client → đã đúng giờ VN → KHÔNG cộng +7
             case "BID_UPDATE" -> {
                 try {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
@@ -246,6 +277,7 @@ public class LiveBiddingController implements Initializable {
                         if (currentItem != null) currentItem.setCurrentBid(newBid);
                         updateCurrentBidLabel(newBid);
 
+                        // Dùng LocalTime.now() — giờ local của máy client, đã đúng VN, KHÔNG +7
                         String time = LocalTime.now().format(timeFmt);
                         bidHistory.add(0, new BidItem(time, bidderName,
                                 String.format("%,.0f VNĐ", newBid)));
@@ -253,32 +285,30 @@ public class LiveBiddingController implements Initializable {
                         addLog(String.format("%s vừa đặt %,.0f VNĐ", bidderName, newBid));
                     });
                 } catch (Exception e) {
-                    System.err.println("[LiveBidding] Lỗi parse BID_UPDATE: " + e.getMessage());
+                    System.err.println("[LiveBidding] BID_UPDATE lỗi: " + e.getMessage());
                 }
             }
 
             case "BID_RESULT" -> {
                 try {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
-                    boolean success  = dto.get("success").getAsBoolean();
-                    String  message  = dto.has("message") ? dto.get("message").getAsString() : "";
+                    boolean success = dto.get("success").getAsBoolean();
+                    String  message = dto.has("message") ? dto.get("message").getAsString() : "";
                     Platform.runLater(() ->
                             addLog(success ? "✅ Đặt giá thành công!" : "❌ Thất bại: " + message));
                 } catch (Exception e) {
-                    System.err.println("[LiveBidding] Lỗi parse BID_RESULT: " + e.getMessage());
+                    System.err.println("[LiveBidding] BID_RESULT lỗi: " + e.getMessage());
                 }
             }
 
-            // Anti-sniping: cập nhật đồng hồ khi server gia hạn
-            case "AUCTION_EXTENDED" -> {
+            case "TIME_EXTENDED", "AUCTION_EXTENDED" -> {
                 try {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
                     String newEndTimeStr = dto.has("newEndTime")
                             ? dto.get("newEndTime").getAsString() : null;
                     if (newEndTimeStr == null) return;
 
-                    LocalDateTime newEnd = LocalDateTime.parse(
-                            newEndTimeStr.replace(" ", "T"));
+                    LocalDateTime newEnd = LocalDateTime.parse(newEndTimeStr.replace(" ", "T"));
                     long newSeconds = java.time.Duration
                             .between(LocalDateTime.now(), newEnd).getSeconds();
                     if (newSeconds <= 0) return;
@@ -291,11 +321,10 @@ public class LiveBiddingController implements Initializable {
                         addLog("⏰ Phiên được gia hạn thêm 60 giây!");
                     });
                 } catch (Exception e) {
-                    System.err.println("[LiveBidding] Lỗi parse AUCTION_EXTENDED: " + e.getMessage());
+                    System.err.println("[LiveBidding] TIME_EXTENDED lỗi: " + e.getMessage());
                 }
             }
 
-            // Kết thúc phiên — hiển thị winner
             case "AUCTION_ENDED" -> {
                 Platform.runLater(() -> {
                     if (countdownTimeline != null) countdownTimeline.stop();
@@ -306,17 +335,14 @@ public class LiveBiddingController implements Initializable {
                                 ? dto.get("winnerName").getAsString() : null;
                         double finalPrice = dto.has("finalPrice")
                                 ? dto.get("finalPrice").getAsDouble() : 0;
-                        String message    = dto.has("message") && !dto.get("message").isJsonNull()
+                        String message = dto.has("message") && !dto.get("message").isJsonNull()
                                 ? dto.get("message").getAsString() : null;
 
-                        if (message != null) {
-                            addLog(message);
-                        } else if (winnerName != null && finalPrice > 0) {
+                        if (message != null) addLog(message);
+                        else if (winnerName != null && finalPrice > 0)
                             addLog(String.format("🏆 Người thắng: %s — Giá: %,.0f VNĐ",
                                     winnerName, finalPrice));
-                        } else {
-                            addLog("Phiên đấu giá đã kết thúc — không có người đặt giá.");
-                        }
+                        else addLog("Phiên đấu giá đã kết thúc — không có người đặt giá.");
                     } catch (Exception e) {
                         addLog("Phiên đấu giá đã kết thúc!");
                     }
@@ -407,8 +433,6 @@ public class LiveBiddingController implements Initializable {
             return;
         }
 
-        // [MERGE] Dùng latestBid để tính minBid — tránh trường hợp currentItem
-        // chưa được cập nhật giá mới nhất từ BID_UPDATE của người khác
         double effectiveBid = Math.max(latestBid, currentItem.getCurrentBid());
         double minBid       = effectiveBid + currentItem.getBidIncrement();
 
@@ -461,16 +485,10 @@ public class LiveBiddingController implements Initializable {
         }
     }
 
-    // ── Chart ─────────────────────────────────────────────────────────────
-
-    // [MERGE] Nhận timeLabel rõ ràng thay vì tự lấy LocalTime.now()
-    // Cho phép vẽ lại lịch sử với đúng thời điểm từ DB
     private void addChartPoint(String timeLabel, double price) {
         if (priceChart == null || priceSeries == null) return;
-
         XYChart.Data<String, Number> dataPoint = new XYChart.Data<>(timeLabel, price);
         priceSeries.getData().add(dataPoint);
-
         Platform.runLater(() -> {
             if (dataPoint.getNode() != null) {
                 Tooltip tip = new Tooltip(
@@ -480,43 +498,56 @@ public class LiveBiddingController implements Initializable {
                 Tooltip.install(dataPoint.getNode(), tip);
             }
         });
-
-        // Giữ tối đa 30 điểm để chart không quá dày
         if (priceSeries.getData().size() > 30)
             priceSeries.getData().remove(0);
     }
-
-    // ── Log / Notification ────────────────────────────────────────────────
 
     private void addLog(String message) {
         String time = LocalTime.now().format(timeFmt);
         Platform.runLater(() -> notifications.add(0, "[" + time + "] " + message));
     }
 
-    // ── Format helpers ────────────────────────────────────────────────────
-
-    /**
-     * Trả về thời gian hiện tại hoặc fallback nếu có.
-     */
     private String formatTime(String fallback) {
         return fallback != null ? fallback : LocalTime.now().format(timeFmt);
     }
 
     /**
-     * Format thời gian từ DB dạng "2026-05-23 16:27:11" hoặc "2026-05-23T16:27:11"
-     * → "16:27:11" để hiển thị trong bảng và chart.
+     * Convert thời gian từ DB (UTC) sang giờ Việt Nam (UTC+7).
+     *
+     * DB Railway chạy UTC. getString("bid_time") trả UTC string.
+     * serverTimezone=Asia/Ho_Chi_Minh trong connection string chỉ ảnh hưởng
+     * getTimestamp(), KHÔNG ảnh hưởng getString() → phải convert thủ công.
+     *
+     * QUAN TRỌNG: Chỉ gọi hàm này cho lịch sử từ DB (BID_HISTORY_RESPONSE).
+     * KHÔNG gọi cho BID_UPDATE realtime (đã dùng LocalTime.now() của máy client).
+     *
+     * Input:  "2026-05-24 10:37:10" hoặc "2026-05-24T10:37:10"
+     * Output: "17:37:10"
      */
-    private String formatDbTime(String raw) {
+    private String convertUtcToVnTime(String raw) {
         if (raw == null || raw.isBlank()) return "--:--:--";
         try {
-            String normalized = raw.replace("T", " ");
+            String normalized = raw.replace("T", " ").trim();
             String[] parts = normalized.split(" ");
-            if (parts.length >= 2) {
-                String timePart = parts[1];
-                return timePart.length() >= 8 ? timePart.substring(0, 8) : timePart;
-            }
-        } catch (Exception ignored) {}
-        return raw.length() >= 8 ? raw.substring(raw.length() - 8) : raw;
+            if (parts.length < 2) return raw;
+
+            String[] timeParts = parts[1].split(":");
+            if (timeParts.length < 2) return parts[1];
+
+            int hour   = Integer.parseInt(timeParts[0].trim());
+            int minute = Integer.parseInt(timeParts[1].trim());
+            int second = timeParts.length >= 3
+                    ? Integer.parseInt(timeParts[2].trim().substring(0, Math.min(2, timeParts[2].trim().length())))
+                    : 0;
+
+            // UTC+7 (Asia/Ho_Chi_Minh)
+            hour = (hour + 7) % 24;
+
+            return String.format("%02d:%02d:%02d", hour, minute, second);
+        } catch (Exception e) {
+            // Fallback: lấy 8 ký tự cuối (phần giờ:phút:giây)
+            return raw.length() >= 8 ? raw.substring(raw.length() - 8) : raw;
+        }
     }
 
     // ── JSON helpers ──────────────────────────────────────────────────────

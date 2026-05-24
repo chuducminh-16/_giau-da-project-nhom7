@@ -45,14 +45,16 @@ public class DetailController implements Initializable {
     @FXML private Label lblDescription;
 
     private Item currentItem;
-    private String itemId;
+
+    // FIX: lưu itemId riêng để filter BID_UPDATE ngay từ đầu,
+    // không phụ thuộc vào currentItem (có thể chưa load xong khi BID_UPDATE đến)
+    private String watchingItemId;
 
     private final Gson          gson   = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
 
     private final NetworkClient.MessageListener listener = this::handleServerMessage;
 
-    // ── Custom Gson để deserialize abstract Item ──────────────────────────
     private static Gson buildGson() {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
@@ -72,11 +74,18 @@ public class DetailController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         client.addListener(listener);
 
-        itemId = SelectedProductSession.getInstance().getProductId();
+        watchingItemId = SelectedProductSession.getInstance().getProductId();
 
-        if (itemId != null) {
+        if (watchingItemId != null) {
+            // FIX: gửi WATCH_AUCTION NGAY từ đầu để nhận BID_UPDATE realtime
+            // ngay cả khi PRODUCT_DETAIL_RESPONSE chưa về
+            // Server ClientHandler lưu watchingAuctionId = itemId,
+            // broadcastToAuction(productId, msg) filter theo itemId → khớp
+            client.send(new Message("WATCH_AUCTION",
+                    gson.toJson(Map.of("auctionId", watchingItemId))));
+
             client.send(new Message("GET_PRODUCT_DETAIL",
-                    gson.toJson(Map.of("itemId", itemId))));
+                    gson.toJson(Map.of("itemId", watchingItemId))));
             setText(productNameLabel, "Đang tải...");
         } else {
             setText(productNameLabel, "Không tìm thấy sản phẩm.");
@@ -98,9 +107,9 @@ public class DetailController implements Initializable {
 
                     Platform.runLater(() -> {
                         currentItem = item;
+                        watchingItemId = item.getId(); // đảm bảo khớp với server
                         populateUI(item);
-                        client.send(new Message("WATCH_AUCTION",
-                                gson.toJson(Map.of("auctionId", item.getId()))));
+                        // KHÔNG gửi WATCH_AUCTION lại ở đây — đã gửi trong initialize()
                     });
                 } catch (Exception e) {
                     System.err.println("[Detail] Lỗi parse PRODUCT_DETAIL_RESPONSE: " + e.getMessage());
@@ -111,16 +120,44 @@ public class DetailController implements Initializable {
                 try {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
                     String productId = dto.get("productId").getAsString();
-                    if (currentItem == null || !currentItem.getId().equals(productId)) return;
+
+                    // FIX: dùng watchingItemId (set ngay trong initialize) thay vì currentItem.getId()
+                    // để xử lý BID_UPDATE ngay cả khi currentItem chưa được load từ server
+                    if (watchingItemId == null || !watchingItemId.equals(productId)) return;
 
                     double newBid = dto.get("newBid").getAsDouble();
+
                     Platform.runLater(() -> {
-                        currentItem.setCurrentBid(newBid);
-                        currentPriceLabel.setText(
-                                String.format("Current Bid: %,.0f VNĐ", newBid));
+                        // Cập nhật label giá hiện tại
+                        if (currentPriceLabel != null) {
+                            currentPriceLabel.setText(
+                                    String.format("Current Bid: %,.0f VNĐ", newBid));
+                        }
+                        // Cập nhật object nếu đã có
+                        if (currentItem != null) {
+                            currentItem.setCurrentBid(newBid);
+                        }
+                        System.out.println("[Detail] BID_UPDATE nhận: " + newBid);
                     });
                 } catch (Exception e) {
                     System.err.println("[Detail] Lỗi parse BID_UPDATE: " + e.getMessage());
+                }
+            }
+
+            case "AUCTION_ENDED" -> {
+                try {
+                    JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
+                    String endedItemId = dto.has("itemId") && !dto.get("itemId").isJsonNull()
+                            ? dto.get("itemId").getAsString() : null;
+                    // Chỉ xử lý nếu đúng phiên mình đang xem
+                    if (endedItemId != null && !endedItemId.equals(watchingItemId)) return;
+
+                    Platform.runLater(() -> {
+                        if (lblStatus != null) lblStatus.setText("FINISHED");
+                        System.out.println("[Detail] Phiên đấu giá kết thúc.");
+                    });
+                } catch (Exception e) {
+                    System.err.println("[Detail] Lỗi parse AUCTION_ENDED: " + e.getMessage());
                 }
             }
         }
@@ -177,8 +214,8 @@ public class DetailController implements Initializable {
     }
 
     /**
-     * ✅ FIX: Dùng File.toURI().toString() để load ảnh đúng trên mọi OS.
-     * "file:" + path bị lỗi trên Windows do drive letter (C:\...) và khoảng trắng trong path.
+     * Load ảnh từ đường dẫn tuyệt đối.
+     * Dùng File.toURI().toString() để tránh lỗi trên Windows (drive letter, khoảng trắng).
      */
     private void loadImage(String imagePath) {
         if (imagePath == null || imagePath.isBlank()) return;
@@ -188,10 +225,8 @@ public class DetailController implements Initializable {
                 System.err.println("[Detail] Không tìm thấy file ảnh: " + imagePath);
                 return;
             }
-            // toURI().toString() → "file:///C:/Users/..." trên Windows, đúng chuẩn JavaFX
             Image img = new Image(imgFile.toURI().toString(), true);
             mainImageView.setImage(img);
-            // Đặt cùng ảnh cho thumbnails
             if (thumb1 != null) thumb1.setImage(img);
             if (thumb2 != null) thumb2.setImage(img);
         } catch (Exception e) {

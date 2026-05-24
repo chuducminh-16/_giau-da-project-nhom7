@@ -47,7 +47,6 @@ public class ItemSaveDAO {
         }
     }
 
-    // ── FIX: thêm method updateItem() mà AuctionService gọi tới ──────────
     public boolean updateItem(String productId, String name, String description,
                               double startPrice, double bidIncrement,
                               LocalDateTime endTime) {
@@ -67,21 +66,47 @@ public class ItemSaveDAO {
         }
     }
 
-    // ── FIX: thêm method deleteItem() mà AuctionService gọi tới ──────────
+    // ── FIX: xóa đúng thứ tự để tránh foreign key constraint ─────────────
+    // Thứ tự bắt buộc:
+    //   1. bids           (FK -> items)
+    //   2. auto_bids      (FK -> items)
+    //   3. transactions   (FK -> items) ← FIX: bản gốc thiếu dòng này
+    //   4. auctions       (FK -> items)
+    //   5. items          (xóa cuối cùng)
     public boolean deleteItem(String productId) {
-        String delBids    = "DELETE FROM bids WHERE item_id=?";
-        String delAuction = "DELETE FROM auctions WHERE item_id=?";
-        String delItem    = "DELETE FROM items WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             try {
-                try (PreparedStatement ps = conn.prepareStatement(delBids)) {
-                    ps.setString(1, productId); ps.executeUpdate();
+                // 1. Xóa bids
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM bids WHERE item_id=?")) {
+                    ps.setString(1, productId);
+                    ps.executeUpdate();
                 }
-                try (PreparedStatement ps = conn.prepareStatement(delAuction)) {
-                    ps.setString(1, productId); ps.executeUpdate();
+                // 2. Xóa auto_bids (nếu bảng tồn tại — bỏ qua nếu không có)
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM auto_bids WHERE item_id=?")) {
+                    ps.setString(1, productId);
+                    ps.executeUpdate();
+                } catch (Exception ignored) {
+                    // Bảng auto_bids chưa tạo thì bỏ qua
                 }
-                try (PreparedStatement ps = conn.prepareStatement(delItem)) {
+                // 3. FIX: Xóa transactions trước khi xóa items
+                // Bản gốc thiếu bước này → foreign key constraint khi item đã có giao dịch
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM transactions WHERE item_id=?")) {
+                    ps.setString(1, productId);
+                    ps.executeUpdate();
+                }
+                // 4. Xóa auctions
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM auctions WHERE item_id=?")) {
+                    ps.setString(1, productId);
+                    ps.executeUpdate();
+                }
+                // 5. Xóa item — lúc này đã không còn FK nào trỏ vào
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM items WHERE id=?")) {
                     ps.setString(1, productId);
                     int rows = ps.executeUpdate();
                     conn.commit();
