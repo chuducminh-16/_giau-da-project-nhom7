@@ -221,24 +221,36 @@ public class SnipeGuardServiceTest {
     @Test
     @DisplayName("Cascade: 3 bid liên tiếp trong cửa sổ snipe → mỗi lần đều gia hạn")
     void cascade_3bids_allExtend() {
+        // Mốc gốc: 12:00:00, kết thúc sau 30s (12:00:30)
         LocalDateTime now = LocalDateTime.of(2026, 5, 25, 12, 0, 0);
         LocalDateTime endTime = now.plusSeconds(30);
 
-        // Bid 1
+        // Bid 1: Đặt lúc 12:00:00 (Còn 30s <= 60s) -> Gia hạn thêm 60s
+        // Kết thúc mới (r1.newEndTime) = 12:01:30
         SnipeGuardResult r1 = simulateCheckAndExtend(now, endTime, 60, 60);
         assertTrue(r1.extended);
 
-        // Bid 2 — Giả lập thời gian trôi qua 5 giây (vẫn dùng mốc cố định không sợ lệch)
-        LocalDateTime nowBid2 = now.plusSeconds(5);
+        // Bid 2: Giả lập trôi qua 40 giây -> Lúc này là 12:00:40
+        // Thời gian còn lại: 12:01:30 - 12:00:40 = 50 giây (Nằm trong cửa sổ <= 60s) -> Phải gia hạn tiếp!
+        // Kết thúc mới (r2.newEndTime) = 12:02:30
+        LocalDateTime nowBid2 = now.plusSeconds(40);
         SnipeGuardResult r2 = simulateCheckAndExtend(nowBid2, r1.newEndTime, 60, 60);
-        assertTrue(r2.extended, "Bid 2 vẫn trong cửa sổ snipe → phải gia hạn lần 2");
+        assertTrue(r2.extended, "Bid 2 vẫn trong cửa sổ snipe (còn 50s) → phải gia hạn lần 2");
 
-        // Bid 3 — Giả lập thời gian trôi qua thêm 5 giây nữa
-        LocalDateTime nowBid3 = nowBid2.plusSeconds(5);
+        // Bid 3: Giả lập trôi qua thêm 40 giây nữa -> Lúc này là 12:01:20
+        // Thời gian còn lại: 12:02:30 - 12:01:20 = 70 giây. 
+        // ⚠️ Chờ đã! 70s > 60s nên Bid 3 sẽ KHÔNG được gia hạn.
+        // Để đạt mục tiêu cả 3 bid đều gia hạn, ta phải tiến sát hơn, ví dụ trôi qua 80 giây từ đầu (12:01:20)
+        // Khoảng cách còn lại: 12:02:30 - 12:01:20 = 70s (vẫn ngoài).
+        
+        // Sửa lại khoảng cách cho Bid 3: Đặt lúc 12:01:40 (trôi qua 100 giây từ mốc gốc)
+        // Thời gian còn lại: 12:02:30 - 12:01:40 = 50 giây (Nằm trong cửa sổ <= 60s) -> Gia hạn tiếp!
+        // Kết thúc mới (r3.newEndTime) = 12:03:30
+        LocalDateTime nowBid3 = now.plusSeconds(100);
         SnipeGuardResult r3 = simulateCheckAndExtend(nowBid3, r2.newEndTime, 60, 60);
-        assertTrue(r3.extended, "Bid 3 vẫn trong cửa sổ snipe → phải gia hạn lần 3");
+        assertTrue(r3.extended, "Bid 3 vẫn trong cửa sổ snipe (còn 50s) → phải gia hạn lần 3");
 
-        // Tổng thời gian gia hạn phải là 3 × 60 = 180s so với endTime ban đầu
+        // Tổng thời gian kết thúc cuối cùng (12:03:30) so với ban đầu (12:00:30) phải tăng đúng 3 lần gia hạn = 180s
         long totalExtension = java.time.Duration.between(endTime, r3.newEndTime).getSeconds();
         assertEquals(180, totalExtension);
     }
