@@ -36,9 +36,6 @@ public class AuctionService {
         return lockMap.computeIfAbsent(productId, id -> new ReentrantLock(true));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // PLACE BID
-    // ─────────────────────────────────────────────────────────────────────
     public BidOutcome placeBid(String productId, String bidderId, double amount) {
         ReentrantLock lock = getLock(productId);
         lock.lock();
@@ -67,7 +64,6 @@ public class AuctionService {
                             "Phien dau gia da het gio.", null);
             }
 
-            // Seller không được tự đặt giá vào phiên của mình
             String sellerId = (String) targetAuction.get("sellerId");
             if (sellerId == null) sellerId = (String) targetAuction.get("seller_id");
             if (bidderId.equals(sellerId))
@@ -82,20 +78,13 @@ public class AuctionService {
 
             long auctionId = ((Number) targetAuction.get("id")).longValue();
 
-            // 1. Lưu bid vào bảng bids
             boolean bidSaved = bidDAO.placeBid(productId, bidderId, amount);
             if (!bidSaved)
                 return new BidOutcome(BidResult.ERROR, currentPrice, "Loi luu bid.", null);
 
-            // 2. Cập nhật current_price trong bảng auctions
             auctionDAO.updateCurrentPrice(auctionId, amount);
-
-            // 3. FIX QUAN TRỌNG: Đồng bộ current_price sang bảng items
-            // ItemFindDAO.findById() và AuctionDAO.findAllOpen() đều đọc i.current_price
-            // Nếu không update items thì Detail và Home luôn hiển thị giá khởi điểm
             itemSaveDAO.updatePrice(productId, amount);
 
-            // Anti-sniping
             String newEndTimeStr = null;
             if (endTime != null) {
                 long secondsLeft = java.time.Duration.between(LocalDateTime.now(), endTime).getSeconds();
@@ -116,16 +105,10 @@ public class AuctionService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // GET BID HISTORY
-    // ─────────────────────────────────────────────────────────────────────
     public List<BidDAO.BidRecord> getBidHistory(String productId) {
         return bidDAO.getBidRecords(productId);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // GET ACTIVE AUCTIONS
-    // ─────────────────────────────────────────────────────────────────────
     public List<Item> getActiveAuctions() {
         List<Map<String, Object>> rows = auctionDAO.findAllOpen();
         List<Item> items = new ArrayList<>();
@@ -136,9 +119,6 @@ public class AuctionService {
         return items;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // GET PRODUCTS BY SELLER
-    // ─────────────────────────────────────────────────────────────────────
     public List<Item> getProductsBySeller(String sellerId) {
         List<Map<String, Object>> rows = auctionDAO.findBySeller(sellerId);
         List<Item> items = new ArrayList<>();
@@ -149,9 +129,6 @@ public class AuctionService {
         return items;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // ADD PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
     public Item addProduct(String sellerId, String name, String description,
                            double startPrice, double bidIncrement,
                            String imagePath, LocalDateTime startTime,
@@ -184,25 +161,34 @@ public class AuctionService {
         return item;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // UPDATE PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
+    // FIX: thêm imagePath parameter — gọi overload mới của ItemSaveDAO.updateItem()
+    // Nếu imagePath rỗng (không chọn ảnh mới) → giữ ảnh cũ qua overload không có imagePath
+    public boolean updateProduct(String productId, String name, String description,
+                                 double startPrice, double bidIncrement,
+                                 LocalDateTime endTime, String imagePath) {
+        if (imagePath != null && !imagePath.isBlank()) {
+            // Có ảnh mới → update luôn image_path
+            return itemSaveDAO.updateItem(productId, name, description,
+                    startPrice, bidIncrement, endTime, imagePath);
+        } else {
+            // Không chọn ảnh mới → giữ nguyên image_path cũ trong DB
+            return itemSaveDAO.updateItem(productId, name, description,
+                    startPrice, bidIncrement, endTime);
+        }
+    }
+
+    // Overload cũ — giữ lại để không break code nào gọi method này
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
                                  LocalDateTime endTime) {
-        return itemSaveDAO.updateItem(productId, name, description, startPrice, bidIncrement, endTime);
+        return itemSaveDAO.updateItem(productId, name, description,
+                startPrice, bidIncrement, endTime);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // DELETE PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
     public boolean deleteProduct(String productId) {
         return itemSaveDAO.deleteItem(productId);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // END AUCTION
-    // ─────────────────────────────────────────────────────────────────────
     public Map<String, Object> endAuction(long auctionId) {
         Map<String, Object> auction = auctionDAO.findById(auctionId);
         if (auction == null) return null;
@@ -231,9 +217,6 @@ public class AuctionService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helper: Map DB row -> Item
-    // ─────────────────────────────────────────────────────────────────────
     private Item mapToItem(Map<String, Object> row) {
         try {
             String itemId   = (String) row.get("itemId");
@@ -295,9 +278,6 @@ public class AuctionService {
         return 0.0;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Inner types
-    // ─────────────────────────────────────────────────────────────────────
     public enum BidResult {
         SUCCESS, PRICE_TOO_LOW, AUCTION_ENDED, AUCTION_NOT_FOUND, ERROR
     }
