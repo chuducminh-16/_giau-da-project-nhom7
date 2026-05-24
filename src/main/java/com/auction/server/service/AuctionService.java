@@ -20,14 +20,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * AuctionService — xu ly toan bo nghiep vu dau gia.
- *
- * FIX so voi ban goc:
- *   1. placeBid(): kiem tra Seller khong duoc tu bid vao phien cua minh
- *   2. placeBid(): su dung ReentrantLock(true) — fair lock, tranh starvation
- *   3. endAuction(): tra ve Map co "itemId" de AdminController broadcast duoc
- */
 public class AuctionService {
 
     private static final int SNIPE_WINDOW_SECONDS = 60;
@@ -38,7 +30,6 @@ public class AuctionService {
     private final ItemSaveDAO    itemSaveDAO    = new ItemSaveDAO();
     private final TransactionDAO transactionDAO = new TransactionDAO();
 
-    // Fair ReentrantLock per productId — tranh lost update va race condition
     private final ConcurrentHashMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(String productId) {
@@ -46,7 +37,7 @@ public class AuctionService {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // PLACE BID (thread-safe voi ReentrantLock per product)
+    // PLACE BID
     // ─────────────────────────────────────────────────────────────────────
     public BidOutcome placeBid(String productId, String bidderId, double amount) {
         ReentrantLock lock = getLock(productId);
@@ -76,7 +67,7 @@ public class AuctionService {
                             "Phien dau gia da het gio.", null);
             }
 
-            // FIX: Seller khong duoc tu dat gia vao phien cua minh
+            // Seller không được tự đặt giá vào phiên của mình
             String sellerId = (String) targetAuction.get("sellerId");
             if (sellerId == null) sellerId = (String) targetAuction.get("seller_id");
             if (bidderId.equals(sellerId))
@@ -90,11 +81,19 @@ public class AuctionService {
                         String.format("Gia phai cao hon %.0f VND.", currentPrice), null);
 
             long auctionId = ((Number) targetAuction.get("id")).longValue();
+
+            // 1. Lưu bid vào bảng bids
             boolean bidSaved = bidDAO.placeBid(productId, bidderId, amount);
             if (!bidSaved)
                 return new BidOutcome(BidResult.ERROR, currentPrice, "Loi luu bid.", null);
 
+            // 2. Cập nhật current_price trong bảng auctions
             auctionDAO.updateCurrentPrice(auctionId, amount);
+
+            // 3. FIX QUAN TRỌNG: Đồng bộ current_price sang bảng items
+            // ItemFindDAO.findById() và AuctionDAO.findAllOpen() đều đọc i.current_price
+            // Nếu không update items thì Detail và Home luôn hiển thị giá khởi điểm
+            itemSaveDAO.updatePrice(productId, amount);
 
             // Anti-sniping
             String newEndTimeStr = null;
@@ -202,7 +201,7 @@ public class AuctionService {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // END AUCTION (FIX: tra ve Map co "itemId" de controller broadcast duoc)
+    // END AUCTION
     // ─────────────────────────────────────────────────────────────────────
     public Map<String, Object> endAuction(long auctionId) {
         Map<String, Object> auction = auctionDAO.findById(auctionId);
@@ -310,13 +309,6 @@ public class AuctionService {
             String    newEndTime
     ) {}
 
-    /**
-     * Lấy lịch sử đấu giá của 1 bidder.
-     * Trả về list các phiên bidder đã tham gia kèm:
-     *   - itemName, myBid (giá cao nhất bidder đã đặt)
-     *   - finalPrice, winnerId (từ bảng auctions/transactions)
-     *   - status, endTime, sellerName
-     */
     public List<Map<String, Object>> getBidHistoryForBidder(String bidderId) {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT i.id AS itemId, i.name AS itemName, MAX(b.bid_price) AS myBid, " +
@@ -335,9 +327,9 @@ public class AuctionService {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(Map.of(
-                            "itemId", rs.getString("itemId"),
+                            "itemId",   rs.getString("itemId"),
                             "itemName", rs.getString("itemName"),
-                            "status", rs.getString("status")
+                            "status",   rs.getString("status")
                     ));
                 }
             }
@@ -345,11 +337,8 @@ public class AuctionService {
         return list;
     }
 
-    // Sửa nhận thông tin vào Bid History
     public List<java.util.Map<String, Object>> getUserBidHistory(String bidderId) {
         List<java.util.Map<String, Object>> list = new java.util.ArrayList<>();
-
-        // Câu lệnh SQL chuẩn hóa theo đúng cấu trúc bảng hệ thống của bạn
         String sql = "SELECT " +
                 "  i.id             AS itemId, " +
                 "  i.name           AS itemName, " +
@@ -366,19 +355,14 @@ public class AuctionService {
                 "LEFT JOIN transactions t ON t.item_id = i.id " +
                 "WHERE b.bidder_id = ? " +
                 "GROUP BY i.id, i.name, a.current_price, a.status, a.end_time, u.username, t.winner_id";
-
         try {
             java.sql.Connection conn = com.auction.server.database.DatabaseConnection.getConnection();
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-
-                // Thử nghiệm parse về Long nếu ID hệ thống của bạn dùng số tự tăng,
-                // nếu ID dạng chuỗi text thì giữ nguyên ps.setString(1, bidderId);
                 try {
                     ps.setLong(1, Long.parseLong(bidderId));
                 } catch (NumberFormatException e) {
                     ps.setString(1, bidderId);
                 }
-
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         java.util.Map<String, Object> row = new java.util.HashMap<>();
@@ -386,25 +370,20 @@ public class AuctionService {
                         row.put("itemName",   rs.getString("itemName"));
                         row.put("myBid",      rs.getDouble("myBid"));
                         row.put("finalPrice", rs.getDouble("finalPrice"));
-
                         String wId = rs.getString("winnerId");
                         row.put("winnerId",   wId != null ? wId : "");
-
                         String stat = rs.getString("status");
                         row.put("status",     stat != null ? stat : "FINISHED");
-
                         String eTime = rs.getString("endTime");
                         row.put("endTime",    eTime != null ? eTime : "");
-
                         String sName = rs.getString("sellerName");
                         row.put("sellerName", sName != null ? sName : "Không rõ");
-
                         list.add(row);
                     }
                 }
             }
         } catch (Exception e) {
-            System.err.println("[AuctionService] Lỗi quét lịch sử đồng bộ hệ thống: " + e.getMessage());
+            System.err.println("[AuctionService] Lỗi getUserBidHistory: " + e.getMessage());
             e.printStackTrace();
         }
         return list;
