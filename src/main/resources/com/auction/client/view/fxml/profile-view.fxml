@@ -41,26 +41,26 @@
 
          <!-- ══ BOTTOM FOOTER ══ -->
          <bottom>
-            <BorderPane prefHeight="56" prefWidth="1282" style="-fx-background-color: #1a1f2e; -fx-padding: 0 30 0 30;" BorderPane.alignment="CENTER">
+            <BorderPane prefHeight="84.0" prefWidth="1282" style="-fx-background-color: #1a1f2e; -fx-padding: 0 30 0 30;" BorderPane.alignment="CENTER">
                <left>
-                  <Label style="-fx-text-fill: #4a5568; -fx-font-size: 13; -fx-font-weight: bold;" text="🔨 CURATOR" BorderPane.alignment="TOP_LEFT" />
+                  <Label prefHeight="56.0" prefWidth="121.0" style="-fx-text-fill: #4a5568; -fx-font-size: 13; -fx-font-weight: bold;" text="🔨 CURATOR" BorderPane.alignment="TOP_LEFT" />
                </left>
                <right>
-                  <Label style="-fx-text-fill: #4a5568; -fx-font-size: 11;" text="© 2024 THE CURATOR AUCTION HOUSE" BorderPane.alignment="TOP_RIGHT" />
+                  <Label prefHeight="56.0" prefWidth="199.0" style="-fx-text-fill: #4a5568; -fx-font-size: 11;" text="© 2026 THE CURATOR AUCTION HOUSE" BorderPane.alignment="TOP_RIGHT" />
                </right>
             </BorderPane>
          </bottom>
 
          <!-- ══ CENTER: Brand card (trái) + Form đăng ký (phải) ══ -->
          <center>
-            <HBox alignment="CENTER" spacing="0" style="-fx-background-color: #f0f2f5; -fx-padding: 40 80 40 80;" BorderPane.alignment="CENTER">
+            <HBox alignment="CENTER" prefHeight="707.0" prefWidth="1282.0" spacing="0" style="-fx-background-color: #f0f2f5; -fx-padding: 40 80 40 80;" BorderPane.alignment="CENTER">
                <children>
 
                   <!-- ── Cột trái: Brand image card ── -->
                   <StackPane prefHeight="580" prefWidth="380">
                      <children>
                         <!-- Ảnh brand — giữ nguyên url -->
-                        <ImageView fitHeight="580" fitWidth="380" pickOnBounds="true" preserveRatio="true" style="-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.25),16,0,0,6);">
+                        <ImageView fitHeight="632.0" fitWidth="397.0" pickOnBounds="true" preserveRatio="true" style="-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.25),16,0,0,6);">
                            <image>
                               <Image url="@../images/profile-pic.png" />
                            </image>
@@ -71,7 +71,7 @@
                               <Label prefWidth="300" style="-fx-text-fill: white; -fx-font-size: 22;                                             -fx-font-weight: bold;" text="JOIN THE COLLECTION" wrapText="true" />
                               <Label prefWidth="300" style="-fx-text-fill: #a0aec0; -fx-font-size: 13;" text="Gain exclusive access..." wrapText="true" />
                               <Region VBox.vgrow="ALWAYS" />
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 12;" text="__EST. 2024__" />
+                              <Label style="-fx-text-fill: #718096; -fx-font-size: 12;" text="__EST. 2026__" />
                            </children>
                         </VBox>
                      </children>
@@ -151,15 +151,13 @@
                               <HBox alignment="CENTER_LEFT" spacing="20">
                                  <children>
                                     <!-- Bidder — mặc định được chọn, đồng thời khai báo ToggleGroup tại đây -->
-                                    <RadioButton fx:id="radioBidder" prefHeight="19.0" prefWidth="116.0" selected="true" style="-fx-font-size: 13; -fx-text-fill: #2d3748; -fx-cursor: hand;" text="Bidder">
+                                    <RadioButton fx:id="radioBidder" prefHeight="19.0" prefWidth="165.0" selected="true" style="-fx-font-size: 13; -fx-text-fill: #2d3748; -fx-cursor: hand;" text="Bidder">
                                        <toggleGroup>
                                           <ToggleGroup fx:id="roleToggleGroup" />
                                        </toggleGroup>
                                     </RadioButton>
                                     <!-- Seller — dùng $roleToggleGroup để tham chiếu lại -->
-                                    <RadioButton fx:id="radioSeller" prefHeight="19.0" prefWidth="121.0" style="-fx-font-size: 13; -fx-text-fill: #2d3748; -fx-cursor: hand;" text="Seller" toggleGroup="$roleToggleGroup" />
-                                    <!-- Admin -->
-                                    <RadioButton fx:id="radioAdmin" prefHeight="19.0" prefWidth="95.0" style="-fx-font-size: 13; -fx-text-fill: #2d3748; -fx-cursor: hand;" text="Admin" toggleGroup="$roleToggleGroup" />
+                                    <RadioButton fx:id="radioSeller" prefHeight="19.0" prefWidth="169.0" style="-fx-font-size: 13; -fx-text-fill: #2d3748; -fx-cursor: hand;" text="Seller" toggleGroup="$roleToggleGroup" />
                                  </children>
                               </HBox>
                            </children>
