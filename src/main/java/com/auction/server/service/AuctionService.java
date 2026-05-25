@@ -4,6 +4,7 @@ import com.auction.server.dao.auction.AuctionDAO;
 import com.auction.server.dao.bid.BidDAO;
 import com.auction.server.dao.item.ItemSaveDAO;
 import com.auction.server.dao.transaction.TransactionDAO;
+import com.auction.server.database.DatabaseConnection;
 import com.auction.shared.model.Entity.Item.Art;
 import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
@@ -30,88 +31,218 @@ public class AuctionService {
     private final ItemSaveDAO    itemSaveDAO    = new ItemSaveDAO();
     private final TransactionDAO transactionDAO = new TransactionDAO();
 
-    private final ConcurrentHashMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<>();
+    // ── STATIC: tất cả instance dùng chung 1 lockMap ─────────────────────
+    private static final ConcurrentHashMap<String, ReentrantLock> lockMap =
+            new ConcurrentHashMap<>();
 
-    private ReentrantLock getLock(String productId) {
+    private static ReentrantLock getLock(String productId) {
         return lockMap.computeIfAbsent(productId, id -> new ReentrantLock(true));
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    //  placeBid — toàn bộ logic đặt giá nằm trong 1 DB transaction duy nhất
+    //
+    //  Fix so với phiên bản trước:
+    //  1. Dùng autoCommit=false + SELECT FOR UPDATE trong CÙNG 1 Connection
+    //     → FOR UPDATE chỉ lock được khi nằm trong explicit transaction
+    //  2. Tất cả INSERT/UPDATE (bid, auction price, item price) dùng cùng
+    //     Connection đó → nếu bất kỳ bước nào lỗi thì rollback toàn bộ
+    //  3. currentPrice đọc từ auctions.current_price (nguồn duy nhất đúng),
+    //     KHÔNG đọc từ items.current_price (có thể lệch)
+    // ─────────────────────────────────────────────────────────────────────
     public BidOutcome placeBid(String productId, String bidderId, double amount) {
         ReentrantLock lock = getLock(productId);
         lock.lock();
         try {
-            List<Map<String, Object>> auctions = auctionDAO.findAllOpen();
-            Map<String, Object> targetAuction = auctions.stream()
-                    .filter(a -> productId.equals(a.get("itemId")))
-                    .findFirst()
-                    .orElse(null);
-
-            if (targetAuction == null)
-                return new BidOutcome(BidResult.AUCTION_NOT_FOUND, 0,
-                        "Khong tim thay phien dau gia.", null);
-
-            String status = (String) targetAuction.get("status");
-            if (!"OPEN".equals(status) && !"RUNNING".equals(status))
-                return new BidOutcome(BidResult.AUCTION_ENDED, 0,
-                        "Phien dau gia da ket thuc.", null);
-
-            String endTimeStr = (String) targetAuction.get("endTime");
-            LocalDateTime endTime = null;
-            if (endTimeStr != null) {
-                endTime = LocalDateTime.parse(endTimeStr.replace(" ", "T"));
-                if (LocalDateTime.now().isAfter(endTime))
-                    return new BidOutcome(BidResult.AUCTION_ENDED, 0,
-                            "Phien dau gia da het gio.", null);
-            }
-
-            String sellerId = (String) targetAuction.get("sellerId");
-            if (sellerId == null) sellerId = (String) targetAuction.get("seller_id");
-            if (bidderId.equals(sellerId))
-                return new BidOutcome(BidResult.ERROR, 0,
-                        "Seller khong the tu dat gia vao phien cua minh.", null);
-
-            // FIX race condition: đọc currentPrice trực tiếp từ DB thay vì dùng cache
-            // findAllOpen() có thể trả giá cũ khi 2 người đặt đồng thời
-            long auctionId = ((Number) targetAuction.get("id")).longValue();
-            Map<String, Object> freshAuction = auctionDAO.findById(auctionId);
-            double currentPrice = 0;
-            if (freshAuction != null) {
-                Object priceObj = freshAuction.get("currentPrice");
-                currentPrice = (priceObj instanceof Number n) ? n.doubleValue() : 0;
-
-            }
-            if (amount <= currentPrice)
-                return new BidOutcome(BidResult.PRICE_TOO_LOW, currentPrice,
-                        String.format("Gia phai cao hon %.0f VND.", currentPrice), null);
-
-            
-
-            boolean bidSaved = bidDAO.placeBid(productId, bidderId, amount);
-            if (!bidSaved)
-                return new BidOutcome(BidResult.ERROR, currentPrice, "Loi luu bid.", null);
-
-            auctionDAO.updateCurrentPrice(auctionId, amount);
-            itemSaveDAO.updatePrice(productId, amount);
-
-            String newEndTimeStr = null;
-            if (endTime != null) {
-                long secondsLeft = java.time.Duration.between(LocalDateTime.now(), endTime).getSeconds();
-                if (secondsLeft <= SNIPE_WINDOW_SECONDS) {
-                    boolean extended = auctionDAO.extendEndTime(auctionId, SNIPE_EXTEND_SECONDS);
-                    if (extended) {
-                        newEndTimeStr = auctionDAO.getEndTime(auctionId);
-                        System.out.printf("[AuctionService] Anti-sniping: phien #%d gia han +%ds%n",
-                                auctionId, SNIPE_EXTEND_SECONDS);
-                    }
-                }
-            }
-
-            return new BidOutcome(BidResult.SUCCESS, amount, "Dat gia thanh cong!", newEndTimeStr);
-
+            return placeBidInTransaction(productId, bidderId, amount);
         } finally {
             lock.unlock();
         }
     }
+
+    private BidOutcome placeBidInTransaction(String productId, String bidderId, double amount) {
+        // Mở 1 Connection duy nhất, tắt autoCommit để bắt đầu explicit transaction
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // ── Bước 1: Đọc auction với FOR UPDATE (lock row DB) ──────
+                // FOR UPDATE chỉ có hiệu lực khi autoCommit=false
+                // → thread khác SELECT cùng row phải chờ transaction này commit
+                BidCheckResult check = readForUpdate(conn, productId);
+
+                if (check == null) {
+                    conn.rollback();
+                    return new BidOutcome(BidResult.AUCTION_NOT_FOUND, 0,
+                            "Khong tim thay phien dau gia.", null);
+                }
+
+                if (!"OPEN".equals(check.status) && !"RUNNING".equals(check.status)) {
+                    conn.rollback();
+                    return new BidOutcome(BidResult.AUCTION_ENDED, 0,
+                            "Phien dau gia da ket thuc.", null);
+                }
+
+                if (check.endTime != null && LocalDateTime.now().isAfter(check.endTime)) {
+                    conn.rollback();
+                    return new BidOutcome(BidResult.AUCTION_ENDED, 0,
+                            "Phien dau gia da het gio.", null);
+                }
+
+                if (bidderId.equals(check.sellerId)) {
+                    conn.rollback();
+                    return new BidOutcome(BidResult.ERROR, 0,
+                            "Seller khong the tu dat gia vao phien cua minh.", null);
+                }
+
+                // ── Bước 2: Kiểm tra giá — dùng currentPrice từ FOR UPDATE ─
+                // Đây là giá MỚI NHẤT, đã bị lock, không thể bị thread khác
+                // thay đổi cho đến khi transaction này commit/rollback
+                if (amount <= check.currentPrice) {
+                    conn.rollback();
+                    return new BidOutcome(BidResult.PRICE_TOO_LOW, check.currentPrice,
+                            String.format("Gia phai cao hon %.0f VND.", check.currentPrice), null);
+                }
+
+                // ── Bước 3: Lưu bid ──────────────────────────────────────
+                boolean bidSaved = insertBid(conn, productId, bidderId, amount);
+                if (!bidSaved) {
+                    conn.rollback();
+                    return new BidOutcome(BidResult.ERROR, check.currentPrice,
+                            "Loi luu bid.", null);
+                }
+
+                // ── Bước 4: Cập nhật giá trong auctions VÀ items ─────────
+                updateAuctionPrice(conn, check.auctionId, amount);
+                updateItemPrice(conn, productId, amount);
+
+                // ── Bước 5: Anti-sniping ──────────────────────────────────
+                String newEndTimeStr = null;
+                if (check.endTime != null) {
+                    long secondsLeft = java.time.Duration
+                            .between(LocalDateTime.now(), check.endTime).getSeconds();
+                    if (secondsLeft <= SNIPE_WINDOW_SECONDS) {
+                        extendEndTime(conn, check.auctionId, SNIPE_EXTEND_SECONDS);
+                        newEndTimeStr = getEndTime(conn, check.auctionId);
+                        System.out.printf("[AuctionService] Anti-sniping: phien #%d gia han +%ds%n",
+                                check.auctionId, SNIPE_EXTEND_SECONDS);
+                    }
+                }
+
+                // ── Commit toàn bộ ────────────────────────────────────────
+                conn.commit();
+                System.out.printf("[AuctionService] BID OK: product=%s bidder=%s amount=%.0f%n",
+                        productId, bidderId, amount);
+
+                return new BidOutcome(BidResult.SUCCESS, amount,
+                        "Dat gia thanh cong!", newEndTimeStr);
+
+            } catch (Exception e) {
+                conn.rollback();
+                System.err.println("[AuctionService] placeBid rollback: " + e.getMessage());
+                e.printStackTrace();
+                return new BidOutcome(BidResult.ERROR, 0,
+                        "Loi he thong: " + e.getMessage(), null);
+            }
+        } catch (Exception e) {
+            System.err.println("[AuctionService] Loi mo connection: " + e.getMessage());
+            return new BidOutcome(BidResult.ERROR, 0,
+                    "Loi ket noi database.", null);
+        }
+    }
+
+    // ── SQL helpers — tất cả dùng Connection được truyền vào ─────────────
+
+    /** SELECT FOR UPDATE: lock row auction, trả về thông tin cần thiết. */
+    private BidCheckResult readForUpdate(Connection conn, String productId) throws Exception {
+        String sql = "SELECT a.id, a.seller_id, a.status, a.end_time, a.current_price " +
+                     "FROM auctions a " +
+                     "WHERE a.item_id = ? AND a.status IN ('OPEN','RUNNING') " +
+                     "ORDER BY a.id DESC LIMIT 1 " +
+                     "FOR UPDATE";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                long          auctionId    = rs.getLong("id");
+                String        sellerId     = rs.getString("seller_id");
+                String        status       = rs.getString("status");
+                double        currentPrice = rs.getDouble("current_price");
+                String        endTimeStr   = rs.getString("end_time");
+                LocalDateTime endTime      = null;
+                if (endTimeStr != null) {
+                    try { endTime = LocalDateTime.parse(endTimeStr.replace(" ", "T")); }
+                    catch (Exception ignored) {}
+                }
+                return new BidCheckResult(auctionId, sellerId, status, currentPrice, endTime);
+            }
+        }
+    }
+
+    private boolean insertBid(Connection conn, String itemId,
+                               String bidderId, double amount) throws Exception {
+        String sql = "INSERT INTO bids (item_id, bidder_id, bid_price, bid_time) " +
+                     "VALUES (?, ?, ?, NOW())";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, itemId);
+            ps.setString(2, bidderId);
+            ps.setDouble(3, amount);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    private void updateAuctionPrice(Connection conn, long auctionId,
+                                    double newPrice) throws Exception {
+        String sql = "UPDATE auctions SET current_price = ?, status = 'RUNNING' WHERE id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, newPrice);
+            ps.setLong(2, auctionId);
+            ps.executeUpdate();
+        }
+    }
+
+    private void updateItemPrice(Connection conn, String itemId,
+                                 double newPrice) throws Exception {
+        String sql = "UPDATE items SET current_price = ? WHERE id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, newPrice);
+            ps.setString(2, itemId);
+            ps.executeUpdate();
+        }
+    }
+
+    private void extendEndTime(Connection conn, long auctionId,
+                               int extraSeconds) throws Exception {
+        String sql = "UPDATE auctions " +
+                     "SET end_time = DATE_ADD(end_time, INTERVAL ? SECOND) WHERE id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, extraSeconds);
+            ps.setLong(2, auctionId);
+            ps.executeUpdate();
+        }
+    }
+
+    private String getEndTime(Connection conn, long auctionId) throws Exception {
+        String sql = "SELECT end_time FROM auctions WHERE id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, auctionId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString("end_time") : null;
+            }
+        }
+    }
+
+    /** Kết quả đọc auction để kiểm tra trước khi đặt giá. */
+    private record BidCheckResult(
+            long          auctionId,
+            String        sellerId,
+            String        status,
+            double        currentPrice,
+            LocalDateTime endTime
+    ) {}
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Các method còn lại — giữ nguyên
+    // ─────────────────────────────────────────────────────────────────────
 
     public List<BidDAO.BidRecord> getBidHistory(String productId) {
         return bidDAO.getBidRecords(productId);
@@ -145,7 +276,6 @@ public class AuctionService {
         String itemId   = "I-" + UUID.randomUUID().toString().substring(0, 8);
         String itemType = (type != null && !type.isBlank()) ? type.toUpperCase() : "ART";
 
-        // Tạo đúng subclass theo type
         Item item = switch (itemType) {
             case "ELECTRONICS" -> {
                 Electronics e = new Electronics(itemId, name, startPrice, endTime, sellerId, 0);
@@ -172,7 +302,7 @@ public class AuctionService {
             return null;
         }
 
-        long auctionId    = System.currentTimeMillis();
+        long auctionId = System.currentTimeMillis();
         boolean auctionSaved = auctionDAO.saveAuction(
                 auctionId, itemId, sellerId, startPrice, endTime.toString());
         if (!auctionSaved) {
@@ -185,36 +315,31 @@ public class AuctionService {
         return item;
     }
 
-    // ── Overload CŨ (giữ nguyên để không break code gọi thiếu type) ──────
     public Item addProduct(String sellerId, String name, String description,
                            double startPrice, double bidIncrement,
                            String imagePath, LocalDateTime startTime,
                            LocalDateTime endTime) {
-        // Gọi qua overload mới, mặc định ART
         return addProduct(sellerId, name, description, startPrice, bidIncrement,
                 imagePath, startTime, endTime, "ART");
     }
 
-    // FIX: thêm imagePath parameter — gọi overload mới của ItemSaveDAO.updateItem()
-    // Nếu imagePath rỗng (không chọn ảnh mới) → giữ ảnh cũ qua overload không có imagePath
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
                                  LocalDateTime endTime, String imagePath, String type) {
         if (imagePath != null && !imagePath.isBlank()) {
             return itemSaveDAO.updateItem(productId, name, description,
-                    startPrice, bidIncrement, endTime, imagePath, type); // Truyền type xuống DAO
+                    startPrice, bidIncrement, endTime, imagePath, type);
         } else {
             return itemSaveDAO.updateItem(productId, name, description,
-                    startPrice, bidIncrement, endTime, type); // Overload không có image
+                    startPrice, bidIncrement, endTime, type);
         }
     }
 
-    // Overload cũ — giữ lại để không break code nào gọi method này
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
                                  LocalDateTime endTime, String type) {
         return itemSaveDAO.updateItem(productId, name, description,
-                startPrice, bidIncrement, endTime, type); // Gọi overload mới của DAO
+                startPrice, bidIncrement, endTime, type);
     }
 
     public boolean deleteProduct(String productId) {
@@ -237,10 +362,8 @@ public class AuctionService {
         if (winner != null) {
             String winnerId   = (String) winner.get("bidderId");
             double finalPrice = ((Number) winner.get("finalPrice")).doubleValue();
-
             transactionDAO.saveTransaction(itemId, winnerId, finalPrice);
             auctionDAO.updateStatus(auctionId, "FINISHED");
-
             winner.put("itemId", itemId);
             return winner;
         } else {
@@ -335,7 +458,7 @@ public class AuctionService {
                 "LEFT JOIN transactions t ON t.item_id = i.id " +
                 "WHERE b.bidder_id = ? " +
                 "GROUP BY i.id, i.name, a.current_price, a.status, a.end_time, u.username, t.winner_id";
-        try (Connection conn = com.auction.server.database.DatabaseConnection.getConnection();
+        try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, bidderId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -370,7 +493,7 @@ public class AuctionService {
                 "WHERE b.bidder_id = ? " +
                 "GROUP BY i.id, i.name, a.current_price, a.status, a.end_time, u.username, t.winner_id";
         try {
-            java.sql.Connection conn = com.auction.server.database.DatabaseConnection.getConnection();
+            java.sql.Connection conn = DatabaseConnection.getConnection();
             try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
                 try {
                     ps.setLong(1, Long.parseLong(bidderId));
