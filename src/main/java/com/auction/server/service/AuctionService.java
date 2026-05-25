@@ -70,13 +70,21 @@ public class AuctionService {
                 return new BidOutcome(BidResult.ERROR, 0,
                         "Seller khong the tu dat gia vao phien cua minh.", null);
 
-            Object priceObj = targetAuction.get("currentPrice");
-            double currentPrice = (priceObj instanceof Number n) ? n.doubleValue() : 0;
+            // FIX race condition: đọc currentPrice trực tiếp từ DB thay vì dùng cache
+            // findAllOpen() có thể trả giá cũ khi 2 người đặt đồng thời
+            long auctionId = ((Number) targetAuction.get("id")).longValue();
+            Map<String, Object> freshAuction = auctionDAO.findById(auctionId);
+            double currentPrice = 0;
+            if (freshAuction != null) {
+                Object priceObj = freshAuction.get("currentPrice");
+                currentPrice = (priceObj instanceof Number n) ? n.doubleValue() : 0;
+
+            }
             if (amount <= currentPrice)
                 return new BidOutcome(BidResult.PRICE_TOO_LOW, currentPrice,
                         String.format("Gia phai cao hon %.0f VND.", currentPrice), null);
 
-            long auctionId = ((Number) targetAuction.get("id")).longValue();
+            
 
             boolean bidSaved = bidDAO.placeBid(productId, bidderId, amount);
             if (!bidSaved)
