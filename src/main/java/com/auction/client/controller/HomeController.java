@@ -10,6 +10,7 @@ import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
 import com.auction.client.session.UserSession;
+import com.auction.client.utils.ToastNotification;
 import com.auction.shared.model.Entity.Item.Art;
 import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
@@ -22,6 +23,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import javafx.application.Platform;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -37,7 +39,6 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import com.auction.client.utils.ToastNotification;
 import javafx.stage.Stage;
 
 public class HomeController implements Initializable {
@@ -93,7 +94,7 @@ public class HomeController implements Initializable {
                 default            -> gson.fromJson(obj, Art.class);
             };
         } catch (Exception e) {
-            System.err.println("[HomeController] deserializeItem lỗi: " + e.getMessage());
+            System.err.println("[HomeController] deserializeItem loi: " + e.getMessage());
             return null;
         }
     }
@@ -112,17 +113,16 @@ public class HomeController implements Initializable {
     private void setupTable() {
         colAuctionName.setCellValueFactory(new PropertyValueFactory<>("name"));
 
-        // FIX: SimpleObjectProperty thay vì PropertyValueFactory("currentBid")
-        // PropertyValueFactory chỉ hoạt động với JavaFX Property (DoubleProperty),
-        // không hoạt động với double field thường → giá không cập nhật khi auctionList.set()
+        // FIX: SimpleObjectProperty thay vi PropertyValueFactory("currentBid")
+        // PropertyValueFactory chi hoat dong voi JavaFX Property (DoubleProperty),
+        // khong hoat dong voi double field thuong → gia khong cap nhat khi auctionList.set()
         colAuctionPrice.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleObjectProperty<>(
-                        cellData.getValue().getCurrentBid()));
+                new SimpleObjectProperty<>(cellData.getValue().getCurrentBid()));
         colAuctionPrice.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(Double item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : String.format("%,.0f VNĐ", item));
+                setText(empty || item == null ? null : String.format("%,.0f VND", item));
             }
         });
 
@@ -162,6 +162,11 @@ public class HomeController implements Initializable {
         });
 
         auctionTable.setItems(auctionList);
+
+        // Click vao dong nao thi hero card cap nhat theo
+        auctionTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) updateHeroCard(newVal);
+        });
     }
 
     private void handleServerMessage(Message msg) {
@@ -183,30 +188,9 @@ public class HomeController implements Initializable {
                         auctionList.setAll(items);
                         if (!items.isEmpty()) updateHeroCard(items.get(0));
                         System.out.println("[Home] Loaded " + items.size() + " auctions");
-
-                        // FIX: sau khi load danh sách, subscribe WATCH_AUCTION cho từng item
-                        // để server biết client này cần nhận BID_UPDATE cho tất cả phiên
-                        // Server broadcastToAuction(productId, msg) filter theo watchingAuctionId
-                        // → mỗi client chỉ subscribe 1 auctionId tại một thời điểm (xem ClientHandler)
-                        //
-                        // NHƯNG ClientHandler chỉ lưu 1 watchingAuctionId duy nhất
-                        // → gửi nhiều WATCH_AUCTION thì chỉ cái cuối cùng có hiệu lực
-                        //
-                        // GIẢI PHÁP THỰC SỰ: server cần broadcast BID_UPDATE đến TẤT CẢ client
-                        // (broadcastToAll) thay vì chỉ client đang watch phiên đó
-                        // → Sửa NetworkServer.broadcastToAll() trong handlePlaceBid
-                        // Nhưng không muốn sửa server → dùng cách khác:
-                        // Subscribe WATCH_AUCTION = "ALL" và server hiểu là broadcast cho all
-                        //
-                        // CÁCH ĐƠN GIẢN NHẤT không cần sửa server:
-                        // Home không nhận BID_UPDATE realtime — chỉ load lại khi user bấm Refresh
-                        // Nhưng nếu muốn realtime → cần sửa server broadcastToAll cho BID_UPDATE
-                        // 
-                        // → Sửa server: broadcastToAll thay vì broadcastToAuction trong handlePlaceBid
-                        // để Home screen và Detail screen đều nhận được BID_UPDATE
                     });
                 } catch (Exception e) {
-                    System.err.println("[Home] Lỗi parse AUCTIONS_LIST: " + e.getMessage());
+                    System.err.println("[Home] Loi parse AUCTIONS_LIST: " + e.getMessage());
                 }
             }
 
@@ -215,32 +199,34 @@ public class HomeController implements Initializable {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
                     String productId = dto.get("productId").getAsString();
                     double newBid    = dto.get("newBid").getAsDouble();
+                    String bidder    = dto.has("bidderName")
+                            ? dto.get("bidderName").getAsString() : "Ai do";
 
                     Platform.runLater(() -> {
-                        // Tìm item trong list và cập nhật giá
-                        // Dùng auctionList.set(i, item) để trigger ObservableList change event
-                        // → TableView tự render lại row đó với giá mới
                         for (int i = 0; i < auctionList.size(); i++) {
                             Item item = auctionList.get(i);
                             if (item.getId().equals(productId)) {
                                 item.setCurrentBid(newBid);
                                 item.setStatus("RUNNING");
-                                auctionList.set(i, item); // trigger re-render
+                                // trigger ObservableList change → TableView re-render gia moi
+                                auctionList.set(i, item);
+
                                 if (heroItem != null && heroItem.getId().equals(productId))
                                     updateHeroCard(item);
 
-                                // Toast thông báo bid mới
-                                Stage stage = (Stage) auctionTable.getScene().getWindow();
-                                String name = item.getName();
-                                String bidder = dto.has("bidderName")
-                                        ? dto.get("bidderName").getAsString() : "Ai đó";
-                                ToastNotification.bid(stage, bidder, name, newBid);
+                                // Toast thong bao bid moi
+                                try {
+                                    Stage stage = (Stage) auctionTable.getScene().getWindow();
+                                    ToastNotification.bid(stage, bidder, item.getName(), newBid);
+                                } catch (Exception ex) {
+                                    System.err.println("[Home] Toast loi: " + ex.getMessage());
+                                }
                                 break;
                             }
                         }
                     });
                 } catch (Exception e) {
-                    System.err.println("[Home] Lỗi parse BID_UPDATE: " + e.getMessage());
+                    System.err.println("[Home] Loi parse BID_UPDATE: " + e.getMessage());
                 }
             }
         }
@@ -249,16 +235,17 @@ public class HomeController implements Initializable {
     private void updateHeroCard(Item item) {
         this.heroItem = item;
         if (heroName   != null) heroName.setText(item.getName());
-        if (heroBid    != null) heroBid.setText(String.format("%,.0f VNĐ", item.getCurrentBid()));
+        if (heroBid    != null) heroBid.setText(String.format("%,.0f VND", item.getCurrentBid()));
         if (heroStatus != null) heroStatus.setText("Lot • " + item.getStatus());
         if (heroDesc   != null) {
             String desc = item.getDescription();
             heroDesc.setText(desc != null && !desc.isBlank() ? desc :
                     (item.getSellerName() != null ? item.getSellerName() : ""));
         }
+
         if (heroImage != null) {
             String rawPath = item.getImagePath();
-            // Lấy ảnh đầu tiên (ảnh chính) từ "main|thumb1|thumb2|thumb3"
+            // Lay anh dau tien (anh chinh) tu "main|thumb1|thumb2|thumb3"
             String path = (rawPath != null && rawPath.contains("|"))
                     ? rawPath.split("\\|")[0]
                     : rawPath;
@@ -275,6 +262,7 @@ public class HomeController implements Initializable {
                         if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
                     }
                 } catch (Exception e) {
+                    System.err.println("[Home] Loi load anh hero: " + e.getMessage());
                     heroImage.setImage(null);
                     if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
                 }
@@ -288,7 +276,7 @@ public class HomeController implements Initializable {
     private void openDetail(Item item, ActionEvent event) {
         SelectedProductSession.getInstance().setProductId(item.getId());
         client.removeListener(listener);
-        SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiết sản phẩm");
+        SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiet san pham");
     }
 
     @FXML public void onHeroBidClicked(ActionEvent event) {
@@ -313,7 +301,7 @@ public class HomeController implements Initializable {
 
     @FXML public void onBidHistoryClick(ActionEvent event) {
         client.removeListener(listener);
-        SceneEngine.changeScene(event, "bid-history-view.fxml", "The Curator - Lịch sử đấu giá");
+        SceneEngine.changeScene(event, "bid-history-view.fxml", "The Curator - Lich su dau gia");
     }
 
     @FXML public void onSellerDashboardClick(ActionEvent event) {
@@ -325,7 +313,7 @@ public class HomeController implements Initializable {
         client.removeListener(listener);
         UserSession.getInstance().logout();
         SelectedProductSession.getInstance().clear();
-        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập");
+        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Dang nhap");
     }
 
     @FXML public void onCardBidClicked(ActionEvent event) {}

@@ -70,6 +70,38 @@
                            </children>
                         </HBox>
 
+                        <!-- ══ LOẠI SẢN PHẨM (MỚI THÊM) ══ -->
+                        <Label style="-fx-text-fill: #2d3748; -fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 6 0 6 0;" text="📦 Loại sản phẩm" />
+                        <HBox alignment="CENTER_LEFT" prefHeight="44" spacing="10">
+                           <VBox.margin><Insets bottom="4" /></VBox.margin>
+                           <children>
+                              <!-- Nút ART -->
+                              <Button fx:id="btnTypeArt" mnemonicParsing="false" onAction="#onTypeArtClick"
+                                      prefHeight="36" prefWidth="120"
+                                      text="🎨 Art"
+                                      style="-fx-background-color: #4299e1; -fx-text-fill: white;
+                                             -fx-background-radius: 8; -fx-cursor: hand;
+                                             -fx-font-size: 13; -fx-font-weight: bold;
+                                             -fx-border-radius: 8;" />
+                              <!-- Nút ELECTRONICS -->
+                              <Button fx:id="btnTypeElectronics" mnemonicParsing="false" onAction="#onTypeElectronicsClick"
+                                      prefHeight="36" prefWidth="160"
+                                      text="💻 Electronics"
+                                      style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;
+                                             -fx-background-radius: 8; -fx-cursor: hand;
+                                             -fx-font-size: 13; -fx-font-weight: bold;
+                                             -fx-border-radius: 8;" />
+                              <!-- Nút VEHICLE -->
+                              <Button fx:id="btnTypeVehicle" mnemonicParsing="false" onAction="#onTypeVehicleClick"
+                                      prefHeight="36" prefWidth="130"
+                                      text="🚗 Vehicle"
+                                      style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;
+                                             -fx-background-radius: 8; -fx-cursor: hand;
+                                             -fx-font-size: 13; -fx-font-weight: bold;
+                                             -fx-border-radius: 8;" />
+                           </children>
+                        </HBox>
+
                         <!-- Ngày + Giờ bắt đầu -->
                         <Label style="-fx-text-fill: #2d3748; -fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 6 0 4 0;" text="⏰ Thời gian bắt đầu" />
                         <HBox alignment="CENTER_LEFT" prefHeight="44" spacing="8">
@@ -150,7 +182,7 @@
                                     <Button mnemonicParsing="false" onAction="#onSelectImage4Click" prefHeight="26" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568; -fx-background-radius: 5; -fx-cursor: hand; -fx-font-size: 11;" text="Ảnh 4" />
                                  </children>
                               </VBox>
-                                          
+
                            </children>
                         </HBox>
 
