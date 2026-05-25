@@ -10,6 +10,7 @@ import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
 import com.auction.client.session.UserSession;
+import com.auction.client.utils.ToastNotification;
 import com.auction.shared.model.Entity.Item.Art;
 import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
@@ -22,6 +23,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import javafx.application.Platform;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -37,6 +39,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.stage.Stage;
 
 public class HomeController implements Initializable {
 
@@ -91,7 +94,7 @@ public class HomeController implements Initializable {
                 default            -> gson.fromJson(obj, Art.class);
             };
         } catch (Exception e) {
-            System.err.println("[HomeController] deserializeItem lỗi: " + e.getMessage());
+            System.err.println("[HomeController] deserializeItem loi: " + e.getMessage());
             return null;
         }
     }
@@ -110,12 +113,16 @@ public class HomeController implements Initializable {
     private void setupTable() {
         colAuctionName.setCellValueFactory(new PropertyValueFactory<>("name"));
 
-        colAuctionPrice.setCellValueFactory(new PropertyValueFactory<>("currentBid"));
+        // FIX: SimpleObjectProperty thay vi PropertyValueFactory("currentBid")
+        // PropertyValueFactory chi hoat dong voi JavaFX Property (DoubleProperty),
+        // khong hoat dong voi double field thuong → gia khong cap nhat khi auctionList.set()
+        colAuctionPrice.setCellValueFactory(cellData ->
+                new SimpleObjectProperty<>(cellData.getValue().getCurrentBid()));
         colAuctionPrice.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(Double item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : String.format("%,.0f VNĐ", item));
+                setText(empty || item == null ? null : String.format("%,.0f VND", item));
             }
         });
 
@@ -156,11 +163,9 @@ public class HomeController implements Initializable {
 
         auctionTable.setItems(auctionList);
 
-        // ── THÊM MỚI: click vào dòng nào thì hero card cập nhật theo ──
+        // Click vao dong nao thi hero card cap nhat theo
         auctionTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                updateHeroCard(newVal);
-            }
+            if (newVal != null) updateHeroCard(newVal);
         });
     }
 
@@ -185,7 +190,7 @@ public class HomeController implements Initializable {
                         System.out.println("[Home] Loaded " + items.size() + " auctions");
                     });
                 } catch (Exception e) {
-                    System.err.println("[Home] Lỗi parse AUCTIONS_LIST: " + e.getMessage());
+                    System.err.println("[Home] Loi parse AUCTIONS_LIST: " + e.getMessage());
                 }
             }
 
@@ -194,20 +199,34 @@ public class HomeController implements Initializable {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
                     String productId = dto.get("productId").getAsString();
                     double newBid    = dto.get("newBid").getAsDouble();
+                    String bidder    = dto.has("bidderName")
+                            ? dto.get("bidderName").getAsString() : "Ai do";
 
-                    Platform.runLater(() ->
-                            auctionList.stream()
-                                    .filter(p -> p.getId().equals(productId))
-                                    .findFirst()
-                                    .ifPresent(p -> {
-                                        p.setCurrentBid(newBid);
-                                        auctionTable.refresh();
-                                        if (heroItem != null && heroItem.getId().equals(productId))
-                                            updateHeroCard(p);
-                                    })
-                    );
+                    Platform.runLater(() -> {
+                        for (int i = 0; i < auctionList.size(); i++) {
+                            Item item = auctionList.get(i);
+                            if (item.getId().equals(productId)) {
+                                item.setCurrentBid(newBid);
+                                item.setStatus("RUNNING");
+                                // trigger ObservableList change → TableView re-render gia moi
+                                auctionList.set(i, item);
+
+                                if (heroItem != null && heroItem.getId().equals(productId))
+                                    updateHeroCard(item);
+
+                                // Toast thong bao bid moi
+                                try {
+                                    Stage stage = (Stage) auctionTable.getScene().getWindow();
+                                    ToastNotification.bid(stage, bidder, item.getName(), newBid);
+                                } catch (Exception ex) {
+                                    System.err.println("[Home] Toast loi: " + ex.getMessage());
+                                }
+                                break;
+                            }
+                        }
+                    });
                 } catch (Exception e) {
-                    System.err.println("[Home] Lỗi parse BID_UPDATE: " + e.getMessage());
+                    System.err.println("[Home] Loi parse BID_UPDATE: " + e.getMessage());
                 }
             }
         }
@@ -216,7 +235,7 @@ public class HomeController implements Initializable {
     private void updateHeroCard(Item item) {
         this.heroItem = item;
         if (heroName   != null) heroName.setText(item.getName());
-        if (heroBid    != null) heroBid.setText(String.format("%,.0f VNĐ", item.getCurrentBid()));
+        if (heroBid    != null) heroBid.setText(String.format("%,.0f VND", item.getCurrentBid()));
         if (heroStatus != null) heroStatus.setText("Lot • " + item.getStatus());
         if (heroDesc   != null) {
             String desc = item.getDescription();
@@ -224,24 +243,29 @@ public class HomeController implements Initializable {
                     (item.getSellerName() != null ? item.getSellerName() : ""));
         }
 
-        // --- Xử lý hiển thị ảnh ---
         if (heroImage != null) {
-            String path = item.getImagePath();
+            String rawPath = item.getImagePath();
+            // Lay anh dau tien (anh chinh) tu "main|thumb1|thumb2|thumb3"
+            String path = (rawPath != null && rawPath.contains("|"))
+                    ? rawPath.split("\\|")[0]
+                    : rawPath;
             if (path != null && !path.isBlank()) {
-                 try {
-                    javafx.scene.image.Image img = new javafx.scene.image.Image("file:"
-                    + path, true);
-
-                    heroImage.setImage(img);
-
-                    if (heroPlaceholder != null) heroPlaceholder.setVisible(false);
-
-                 } catch (Exception e) {
-                    System.err.println("[Home] Lỗi load ảnh hero: " + e.getMessage());
+                try {
+                    java.io.File imgFile = new java.io.File(path);
+                    if (imgFile.exists()) {
+                        javafx.scene.image.Image img = new javafx.scene.image.Image(
+                                imgFile.toURI().toString(), true);
+                        heroImage.setImage(img);
+                        if (heroPlaceholder != null) heroPlaceholder.setVisible(false);
+                    } else {
+                        heroImage.setImage(null);
+                        if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+                    }
+                } catch (Exception e) {
+                    System.err.println("[Home] Loi load anh hero: " + e.getMessage());
                     heroImage.setImage(null);
-
                     if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
-                 }
+                }
             } else {
                 heroImage.setImage(null);
                 if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
@@ -252,7 +276,7 @@ public class HomeController implements Initializable {
     private void openDetail(Item item, ActionEvent event) {
         SelectedProductSession.getInstance().setProductId(item.getId());
         client.removeListener(listener);
-        SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiết sản phẩm");
+        SceneEngine.changeScene(event, "detail-view.fxml", "The Curator - Chi tiet san pham");
     }
 
     @FXML public void onHeroBidClicked(ActionEvent event) {
@@ -277,8 +301,7 @@ public class HomeController implements Initializable {
 
     @FXML public void onBidHistoryClick(ActionEvent event) {
         client.removeListener(listener);
-        SceneEngine.changeScene(event,
-                "bid-history-view.fxml", "The Curator - Lịch sử đấu giá");
+        SceneEngine.changeScene(event, "bid-history-view.fxml", "The Curator - Lich su dau gia");
     }
 
     @FXML public void onSellerDashboardClick(ActionEvent event) {
@@ -290,7 +313,7 @@ public class HomeController implements Initializable {
         client.removeListener(listener);
         UserSession.getInstance().logout();
         SelectedProductSession.getInstance().clear();
-        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập");
+        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Dang nhap");
     }
 
     @FXML public void onCardBidClicked(ActionEvent event) {}

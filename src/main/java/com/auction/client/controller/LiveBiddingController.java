@@ -46,7 +46,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-import javafx.stage.Stage;
+
 
 public class LiveBiddingController implements Initializable {
 
@@ -286,6 +286,17 @@ public class LiveBiddingController implements Initializable {
                                 String.format("%,.0f VNĐ", newBid)));
                         addChartPoint(time, newBid);
                         addLog(String.format("%s vừa đặt %,.0f VNĐ", bidderName, newBid));
+
+                        // Toast bid mới — hiển cho tất cả mọi người
+                        try {
+                            Stage stage = (Stage) lblCountdown.getScene().getWindow();
+                            String itemName = currentItem != null ? currentItem.getName() : "";
+                            ToastNotification.bid(stage, bidderName, itemName, newBid);
+
+                        } catch (Exception ex) {
+                            System.err.println("[LiveBidding] Toast loi: " + ex.getMessage());
+                        }
+                        
                     });
                 } catch (Exception e) {
                     System.err.println("[LiveBidding] BID_UPDATE lỗi: " + e.getMessage());
