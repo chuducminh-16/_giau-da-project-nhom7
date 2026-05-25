@@ -1,8 +1,8 @@
 package com.auction.client.utils;
 
-import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 import javafx.application.Platform;
 import javafx.scene.image.Image;
@@ -11,44 +11,44 @@ import javafx.stage.FileChooser;
 import javafx.stage.Window;
 
 import java.io.File;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * Helper xử lý toàn bộ việc upload và load ảnh từ server.
+ * ImageUploadHandler — upload ảnh lên ImgBB, lưu URL vào DB.
  *
- * Cách dùng trong controller:
+ * Interface giữ nguyên 100% so với bản cũ:
+ *   - pickAndUpload(window)
+ *   - loadFromServer(serverPath)
+ *   - onUploadResponse(payload)   ← không dùng nữa nhưng giữ để không lỗi compile
+ *   - onGetImageResponse(payload) ← không dùng nữa nhưng giữ để không lỗi compile
+ *   - clearPreview()
+ *   - onSuccess(callback)
+ *   - onError(callback)
  *
- *   // 1. Khởi tạo (trong initialize())
- *   imageHandler = new ImageUploadHandler(client, imgPreview1);
- *
- *   // 2. Nút chọn ảnh
- *   imageHandler.pickAndUpload(window, path -> currentImagePath = path);
- *
- *   // 3. Load ảnh khi chọn row (truyền server path)
- *   imageHandler.loadFromServer(item.getImagePath());
- *
- *   // 4. Trong handleServerResponse switch:
- *   case "UPLOAD_IMAGE_RESPONSE" -> imageHandler.onUploadResponse(msg.getPayload());
- *   case "GET_IMAGE_RESPONSE"    -> imageHandler.onGetImageResponse(msg.getPayload());
+ * ManageProductController KHÔNG cần sửa gì.
+ * ClientHandler KHÔNG cần sửa gì.
  */
 public class ImageUploadHandler {
 
-    // Cache dùng chung giữa tất cả màn hình trong phiên
-    private static final java.util.Map<String, Image> IMAGE_CACHE = new ConcurrentHashMap<>();
+    private static final String IMGBB_API_KEY = "d0f0926c9891fa0a282354311d5835c8";
+    private static final String IMGBB_URL     = "https://api.imgbb.com/1/upload";
 
-    private final NetworkClient client;
+    // Cache URL → Image để không load lại nhiều lần
+    private static final Map<String, Image> IMAGE_CACHE = new ConcurrentHashMap<>();
+
+    private final NetworkClient client;      // giữ để không lỗi compile, không dùng nữa
     private final ImageView     previewView;
     private final Gson          gson = new Gson();
 
-    // Callback báo lại serverPath sau khi upload thành công
     private Consumer<String> onUploadSuccess;
-
-    // Callback báo lỗi (tùy chọn)
     private Consumer<String> onError;
 
-    // Path hiện tại đang hiển thị — để map GET_IMAGE_RESPONSE đúng
     private String currentRequestPath = "";
 
     public ImageUploadHandler(NetworkClient client, ImageView previewView) {
@@ -56,13 +56,11 @@ public class ImageUploadHandler {
         this.previewView = previewView;
     }
 
-    /** Đặt callback nhận serverPath khi upload xong. */
     public ImageUploadHandler onSuccess(Consumer<String> callback) {
         this.onUploadSuccess = callback;
         return this;
     }
 
-    /** Đặt callback nhận thông báo lỗi. */
     public ImageUploadHandler onError(Consumer<String> callback) {
         this.onError = callback;
         return this;
@@ -73,10 +71,8 @@ public class ImageUploadHandler {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Mở FileChooser, nén ảnh, upload lên server.
-     * Gọi trong @FXML button handler.
-     *
-     * @param window  cửa sổ cha để hiển thị dialog
+     * Mở FileChooser, nén ảnh, upload lên ImgBB, trả về URL công khai.
+     * URL này được lưu vào DB thay cho local path cũ.
      */
     public void pickAndUpload(Window window) {
         FileChooser chooser = new FileChooser();
@@ -97,28 +93,34 @@ public class ImageUploadHandler {
         // Preview local ngay lập tức
         setPreviewFromFile(file);
 
-        // Nén + upload trong background
+        // Upload lên ImgBB trong background thread
         new Thread(() -> {
             try {
-                String base64  = ImageUtils.compressToBase64(file);
-                String outName = file.getName().replaceAll("\\.[^.]+$", "") + ".jpg";
-                String payload = gson.toJson(Map.of("fileName", outName, "data", base64));
-                client.send(new Message("UPLOAD_IMAGE", payload));
+                String base64 = ImageUtils.compressToBase64(file);
+                String imgbbUrl = uploadToImgBB(base64);
+
+                if (imgbbUrl != null) {
+                    // Cache luôn để loadFromServer không phải load lại
+                    IMAGE_CACHE.put(imgbbUrl, previewView.getImage());
+                    if (onUploadSuccess != null)
+                        Platform.runLater(() -> onUploadSuccess.accept(imgbbUrl));
+                } else {
+                    fireError("Upload ImgBB thất bại, vui lòng thử lại.");
+                }
             } catch (Exception e) {
-                fireError("Lỗi nén ảnh: " + e.getMessage());
+                fireError("Lỗi upload: " + e.getMessage());
             }
         }).start();
     }
 
     /**
-     * Load ảnh từ server path (khi chọn row trong table hoặc mở màn hình detail).
-     * Nếu đã cache thì hiển thị ngay, không request server.
-     *
-     * @param serverPath  đường dẫn server, ví dụ "uploads/images/xxx.jpg"
+     * Load ảnh từ URL (ImgBB) hoặc path cũ (local — fallback, sẽ null nếu file không tồn tại).
+     * Nếu là URL http/https → load thẳng bằng JavaFX Image.
+     * Nếu là path local cũ → thử load file, không có thì bỏ qua.
      */
     public void loadFromServer(String serverPath) {
         if (serverPath == null || serverPath.isBlank()) {
-            if (previewView != null) previewView.setImage(null);
+            if (previewView != null) Platform.runLater(() -> previewView.setImage(null));
             return;
         }
 
@@ -131,59 +133,44 @@ public class ImageUploadHandler {
             return;
         }
 
-        // Chưa có → request server
-        client.send(new Message("GET_IMAGE",
-                gson.toJson(Map.of("imagePath", serverPath))));
+        // URL ImgBB (http/https) → JavaFX Image load trực tiếp
+        if (serverPath.startsWith("http://") || serverPath.startsWith("https://")) {
+            new Thread(() -> {
+                try {
+                    Image img = new Image(serverPath, true); // background load
+                    IMAGE_CACHE.put(serverPath, img);
+                    Platform.runLater(() -> setPreviewImage(img));
+                } catch (Exception e) {
+                    System.err.println("[ImageUploadHandler] Lỗi load URL: " + e.getMessage());
+                }
+            }).start();
+            return;
+        }
+
+        // Path local cũ (fallback) — thử load file
+        File f = new File(serverPath);
+        if (f.exists()) {
+            setPreviewFromFile(f);
+        } else {
+            // File không tồn tại trên máy này → clear preview
+            if (previewView != null) Platform.runLater(() -> previewView.setImage(null));
+        }
     }
 
     /**
-     * Gọi từ switch "UPLOAD_IMAGE_RESPONSE" trong controller.
+     * Giữ nguyên để ManageProductController không lỗi compile.
+     * Không còn dùng vì upload đã chuyển sang ImgBB trực tiếp.
      */
     public void onUploadResponse(String payload) {
-        try {
-            com.google.gson.JsonObject root =
-                    gson.fromJson(payload, com.google.gson.JsonObject.class);
-            boolean success = root.has("success") && root.get("success").getAsBoolean();
-
-            if (success) {
-                String path = root.get("imagePath").getAsString();
-                if (onUploadSuccess != null)
-                    Platform.runLater(() -> onUploadSuccess.accept(path));
-            } else {
-                String err = root.has("message")
-                        ? root.get("message").getAsString() : "Upload thất bại";
-                fireError(err);
-            }
-        } catch (Exception e) {
-            fireError("Lỗi parse upload response: " + e.getMessage());
-        }
+        // No-op — upload giờ xử lý trong pickAndUpload() trực tiếp
     }
 
     /**
-     * Gọi từ switch "GET_IMAGE_RESPONSE" trong controller.
-     * Chỉ áp dụng nếu imagePath trong response khớp với currentRequestPath.
+     * Giữ nguyên để ManageProductController không lỗi compile.
+     * Không còn dùng vì load ảnh dùng URL ImgBB trực tiếp.
      */
     public void onGetImageResponse(String payload) {
-        try {
-            com.google.gson.JsonObject obj =
-                    gson.fromJson(payload, com.google.gson.JsonObject.class);
-            if (!obj.get("success").getAsBoolean()) return;
-
-            String imgPath = obj.get("imagePath").getAsString();
-
-            // Bỏ qua nếu response không dành cho handler này
-            if (!imgPath.equals(currentRequestPath)) return;
-
-            String base64 = obj.get("data").getAsString();
-            byte[] bytes  = java.util.Base64.getDecoder().decode(base64);
-            Image  img    = new Image(new java.io.ByteArrayInputStream(bytes));
-
-            IMAGE_CACHE.put(imgPath, img);
-            Platform.runLater(() -> setPreviewImage(img));
-
-        } catch (Exception e) {
-            System.err.println("[ImageUploadHandler] Lỗi GET_IMAGE_RESPONSE: " + e.getMessage());
-        }
+        // No-op — load ảnh giờ dùng loadFromServer() với URL trực tiếp
     }
 
     /** Xoá preview (dùng khi clearForm). */
@@ -193,7 +180,61 @@ public class ImageUploadHandler {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // PRIVATE helpers
+    // PRIVATE — ImgBB upload
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Upload Base64 lên ImgBB, trả về URL display (url) của ảnh.
+     * Dùng multipart/form-data đơn giản.
+     *
+     * @return URL công khai dạng https://i.ibb.co/xxx/yyy.jpg, hoặc null nếu lỗi
+     */
+    private String uploadToImgBB(String base64Data) throws Exception {
+        String boundary = "----FormBoundary" + System.currentTimeMillis();
+        String apiUrl   = IMGBB_URL + "?key=" + IMGBB_API_KEY;
+
+        URL url = new URL(apiUrl);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(15_000);
+        conn.setReadTimeout(30_000);
+        conn.setRequestProperty("Content-Type",
+                "multipart/form-data; boundary=" + boundary);
+
+        // Build multipart body
+        StringBuilder sb = new StringBuilder();
+        sb.append("--").append(boundary).append("\r\n");
+        sb.append("Content-Disposition: form-data; name=\"image\"").append("\r\n");
+        sb.append("\r\n");
+        sb.append(base64Data).append("\r\n");
+        sb.append("--").append(boundary).append("--").append("\r\n");
+
+        byte[] body = sb.toString().getBytes(StandardCharsets.UTF_8);
+        conn.setRequestProperty("Content-Length", String.valueOf(body.length));
+
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(body);
+        }
+
+        int status = conn.getResponseCode();
+        if (status != 200) {
+            System.err.println("[ImgBB] HTTP " + status);
+            return null;
+        }
+
+        // Đọc response
+        String response = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        JsonObject json = gson.fromJson(response, JsonObject.class);
+
+        if (!json.get("success").getAsBoolean()) return null;
+
+        // Lấy URL trực tiếp của ảnh (không phải trang web ImgBB)
+        return json.getAsJsonObject("data").get("url").getAsString();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — UI helpers
     // ─────────────────────────────────────────────────────────────────────
 
     private void setPreviewImage(Image img) {
