@@ -28,11 +28,6 @@
                   <!-- Logo / Brand -->
                   <Label style="-fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold; -fx-padding: 0 32 0 0;" text="🔨 THE CURATOR" />
 
-                  <!-- Nav links -->
-                  <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 13; -fx-padding: 0 20 0 0; -fx-cursor: hand;" text="Auctions" />
-                  <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 13; -fx-padding: 0 20 0 0; -fx-cursor: hand;" text="Categories" />
-                  <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 13; -fx-padding: 0 20 0 0; -fx-cursor: hand;" text="Private Sales" />
-
                   <Region HBox.hgrow="ALWAYS" />
 
                   <!-- Search -->

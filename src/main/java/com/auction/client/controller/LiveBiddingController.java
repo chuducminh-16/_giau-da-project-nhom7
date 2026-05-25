@@ -38,18 +38,21 @@ import javafx.fxml.Initializable;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
 
 public class LiveBiddingController implements Initializable {
 
+    // ── FXML (giữ nguyên fx:id cũ) ───────────────────────────────────────
     @FXML private Label     lblCountdown;
     @FXML private Label     lblProductName;
     @FXML private Label     lblCurrentBid;
@@ -63,17 +66,27 @@ public class LiveBiddingController implements Initializable {
 
     @FXML private ListView<String> listNotifications;
 
+    // ── FXML mới: Auto-Bid ────────────────────────────────────────────────
+    @FXML private TextField txtMaxBid;
+    @FXML private Button    btnAutoBid;
+    @FXML private Label     lblAutoBidStatus;
+    @FXML private Label     lblAutoBidInfo;
+    @FXML private HBox      hboxAutoBidInfo;
+
+    // ── Auto-bid state ────────────────────────────────────────────────────
+    /** true khi người dùng đã kích hoạt auto-bid */
+    private boolean autoBidActive = false;
+    /** Giá tối đa người dùng chịu đặt */
+    private double  autoBidMaxPrice = 0;
+
+    // ── State cũ (giữ nguyên) ─────────────────────────────────────────────
     private Item     currentItem;
     private String   itemId;
     private XYChart.Series<String, Number> priceSeries;
     private Timeline countdownTimeline;
     private long     secondsRemaining;
-
-    // Giá cao nhất hiện tại — cập nhật cả từ lịch sử lẫn BID_UPDATE realtime
-    private double latestBid = 0;
-
-    // true sau khi BID_HISTORY_RESPONSE đến — ngăn PRODUCT_DETAIL ghi đè giá
-    private boolean historyLoaded = false;
+    private double   latestBid     = 0;
+    private boolean  historyLoaded = false;
 
     private final ObservableList<BidItem> bidHistory    = FXCollections.observableArrayList();
     private final ObservableList<String>  notifications = FXCollections.observableArrayList();
@@ -84,6 +97,7 @@ public class LiveBiddingController implements Initializable {
 
     private final NetworkClient.MessageListener listener = this::handleServerMessage;
 
+    // ── Gson builder (giữ nguyên) ─────────────────────────────────────────
     private static Gson buildGson() {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
@@ -99,6 +113,7 @@ public class LiveBiddingController implements Initializable {
                 .create();
     }
 
+    // ── Initialize (giữ nguyên + gắn tooltip auto-bid) ───────────────────
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         setupTable();
@@ -111,14 +126,215 @@ public class LiveBiddingController implements Initializable {
             addLog("Đang kết nối phòng đấu giá...");
             client.send(new Message("GET_PRODUCT_DETAIL",
                     gson.toJson(Map.of("itemId", itemId))));
-            // Server AuctionController.handleGetBidHistory nhận key "productId"
             client.send(new Message("GET_BID_HISTORY",
                     gson.toJson(Map.of("productId", itemId))));
         } else {
             addLog("Không tìm thấy thông tin sản phẩm!");
         }
+
+        // Tooltip cho nút auto-bid
+        if (btnAutoBid != null) {
+            Tooltip tip = new Tooltip(
+                    "Nhập giá tối đa rồi nhấn Kích hoạt.\n" +
+                            "Khi có người trả cao hơn, hệ thống tự đặt = giá hiện tại + bước nhảy,\n" +
+                            "cho đến khi đạt giá tối đa bạn đã đặt."
+            );
+            tip.setStyle("-fx-background-color:#1a1f2e; -fx-text-fill:white;" +
+                    "-fx-font-size:12px; -fx-padding:8 12;");
+            Tooltip.install(btnAutoBid, tip);
+        }
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    //  AUTO-BID TOGGLE — gắn vào onAction="#onAutoBidToggle" trong FXML
+    // ═════════════════════════════════════════════════════════════════════
+    @FXML
+    public void onAutoBidToggle(ActionEvent event) {
+        if (autoBidActive) {
+            // ── Tắt auto-bid ──────────────────────────────────────────────
+            deactivateAutoBid();
+            addLog("⚡ Auto-bid đã tắt.");
+        } else {
+            // ── Bật auto-bid ──────────────────────────────────────────────
+            if (!validateAndActivateAutoBid()) return; // validation failed → dừng
+            addLog(String.format("⚡ Auto-bid đã BẬT — tối đa %,.0f VNĐ", autoBidMaxPrice));
+        }
+    }
+
+    /**
+     * Validate input txtMaxBid và kích hoạt auto-bid nếu hợp lệ.
+     * @return true nếu kích hoạt thành công
+     */
+    private boolean validateAndActivateAutoBid() {
+        String raw = txtMaxBid.getText().trim().replaceAll(",", "");
+        if (raw.isEmpty()) {
+            addLog("❌ Vui lòng nhập giá tối đa trước khi kích hoạt Auto-bid.");
+            flashInputError(txtMaxBid);
+            return false;
+        }
+
+        double maxPrice;
+        try {
+            maxPrice = Double.parseDouble(raw);
+        } catch (NumberFormatException e) {
+            addLog("❌ Giá tối đa không hợp lệ. Vui lòng nhập số.");
+            flashInputError(txtMaxBid);
+            return false;
+        }
+
+        if (maxPrice <= 0) {
+            addLog("❌ Giá tối đa phải lớn hơn 0.");
+            flashInputError(txtMaxBid);
+            return false;
+        }
+
+        double currentBid = Math.max(latestBid,
+                currentItem != null ? currentItem.getCurrentBid() : 0);
+
+        if (maxPrice <= currentBid) {
+            addLog(String.format(
+                    "❌ Giá tối đa (%.0f) phải cao hơn giá hiện tại (%.0f).",
+                    maxPrice, currentBid));
+            flashInputError(txtMaxBid);
+            return false;
+        }
+
+        // ── Hợp lệ: kích hoạt ─────────────────────────────────────────────
+        autoBidMaxPrice = maxPrice;
+        autoBidActive   = true;
+
+        // Cập nhật UI
+        txtMaxBid.setDisable(true);
+        btnAutoBid.setText("⏹ Dừng Auto-bid");
+        btnAutoBid.setStyle(
+                "-fx-background-color: #e53e3e; -fx-text-fill: white;" +
+                        "-fx-font-size: 13; -fx-font-weight: bold;" +
+                        "-fx-background-radius: 6; -fx-cursor: hand;");
+
+        setAutoBidStatusBadge(true);
+
+        if (hboxAutoBidInfo != null) {
+            hboxAutoBidInfo.setVisible(true);
+            hboxAutoBidInfo.setManaged(true);
+        }
+        if (lblAutoBidInfo != null) {
+            lblAutoBidInfo.setText(String.format(
+                    "Tối đa: %,.0f VNĐ  —  Đang chờ bid đối thủ...", autoBidMaxPrice));
+        }
+        return true;
+    }
+
+    /** Tắt auto-bid và reset UI về trạng thái ban đầu */
+    private void deactivateAutoBid() {
+        autoBidActive   = false;
+        autoBidMaxPrice = 0;
+
+        txtMaxBid.setDisable(false);
+        btnAutoBid.setText("⚡ Kích hoạt");
+        btnAutoBid.setStyle(
+                "-fx-background-color: #d69e2e; -fx-text-fill: white;" +
+                        "-fx-font-size: 13; -fx-font-weight: bold;" +
+                        "-fx-background-radius: 6; -fx-cursor: hand;");
+
+        setAutoBidStatusBadge(false);
+
+        if (hboxAutoBidInfo != null) {
+            hboxAutoBidInfo.setVisible(false);
+            hboxAutoBidInfo.setManaged(false);
+        }
+    }
+
+    /** Đặt màu/text badge trạng thái (BẬT / TẮT) */
+    private void setAutoBidStatusBadge(boolean active) {
+        if (lblAutoBidStatus == null) return;
+        if (active) {
+            lblAutoBidStatus.setText("● BẬT");
+            lblAutoBidStatus.setStyle(
+                    "-fx-text-fill: #68d391; -fx-font-size: 11; -fx-font-weight: bold;" +
+                            "-fx-background-color: #1c4532; -fx-background-radius: 20;" +
+                            "-fx-padding: 3 10;");
+        } else {
+            lblAutoBidStatus.setText("● TẮT");
+            lblAutoBidStatus.setStyle(
+                    "-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" +
+                            "-fx-background-color: #2d3748; -fx-background-radius: 20;" +
+                            "-fx-padding: 3 10;");
+        }
+    }
+
+    /** Flash viền đỏ cho TextField khi input lỗi */
+    private void flashInputError(TextField field) {
+        String original = field.getStyle();
+        field.setStyle(original + "; -fx-border-color: #e53e3e; -fx-border-width: 2;");
+        Timeline reset = new Timeline(
+                new KeyFrame(Duration.seconds(1.5), e -> field.setStyle(original)));
+        reset.setCycleCount(1);
+        reset.play();
+    }
+
+    /**
+     * Xử lý logic auto-bid sau mỗi BID_UPDATE.
+     * Gọi trên FX thread (từ trong Platform.runLater).
+     *
+     * Quy tắc:
+     *  - Chỉ chạy khi autoBidActive = true
+     *  - Không tự đấu giá nếu chính mình vừa thắng (bidderName == myUsername)
+     *  - Giá đặt = latestBid + bidIncrement
+     *  - Nếu giá đó > autoBidMaxPrice → dừng auto-bid và thông báo
+     */
+    private void handleAutoBidIfNeeded(String lastBidderName) {
+        if (!autoBidActive) return;
+        if (currentItem == null) return;
+        if (secondsRemaining <= 0) return;
+
+        String myUsername = UserSession.getInstance().getUsername();
+
+        // Nếu chính mình vừa thắng thì không cần bid thêm
+        if (myUsername != null && myUsername.equals(lastBidderName)) {
+            if (lblAutoBidInfo != null) {
+                lblAutoBidInfo.setText(String.format(
+                        "Tối đa: %,.0f VNĐ  —  Bạn đang dẫn đầu!", autoBidMaxPrice));
+            }
+            return;
+        }
+
+        double increment   = currentItem.getBidIncrement() > 0 ? currentItem.getBidIncrement() : 1000;
+        double nextBidAmt  = latestBid + increment;
+
+        if (nextBidAmt > autoBidMaxPrice) {
+            // Vượt giới hạn → dừng auto-bid
+            addLog(String.format(
+                    "⚡ Auto-bid dừng: giá tiếp theo (%.0f) vượt giá tối đa (%.0f).",
+                    nextBidAmt, autoBidMaxPrice));
+            deactivateAutoBid();
+            try {
+                Stage stage = (Stage) lblCountdown.getScene().getWindow();
+                ToastNotification.warn(stage,
+                        "⚡ Auto-bid đã dừng",
+                        String.format("Giá vượt mức tối đa %.0f VNĐ bạn đã đặt.", autoBidMaxPrice));
+            } catch (Exception ignored) {}
+            return;
+        }
+
+        // ── Gửi bid tự động ───────────────────────────────────────────────
+        addLog(String.format("🤖 Auto-bid: đang đặt %,.0f VNĐ...", nextBidAmt));
+        if (lblAutoBidInfo != null) {
+            lblAutoBidInfo.setText(String.format(
+                    "Tối đa: %,.0f VNĐ  —  Vừa đặt tự động %,.0f VNĐ",
+                    autoBidMaxPrice, nextBidAmt));
+        }
+
+        final double bidToSend = nextBidAmt;
+        client.send(new Message("PLACE_BID", gson.toJson(Map.of(
+                "productId", currentItem.getId(),
+                "bidderId",  UserSession.getInstance().getUserId(),
+                "amount",    bidToSend
+        ))));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    //  handleServerMessage — giữ nguyên toàn bộ, thêm gọi handleAutoBidIfNeeded
+    // ═════════════════════════════════════════════════════════════════════
     private void handleServerMessage(Message msg) {
         switch (msg.getType()) {
 
@@ -137,7 +353,6 @@ public class LiveBiddingController implements Initializable {
                         itemId = item.getId();
                         if (lblProductName != null) lblProductName.setText(item.getName());
 
-                        // Chỉ dùng giá từ PRODUCT_DETAIL nếu lịch sử chưa đến
                         if (!historyLoaded) {
                             latestBid = item.getCurrentBid();
                             updateCurrentBidLabel(latestBid);
@@ -154,27 +369,11 @@ public class LiveBiddingController implements Initializable {
                 }
             }
 
-            // ─────────────────────────────────────────────────────────────
-            // BID_HISTORY_RESPONSE
-            //
-            // Server trả JsonArray trực tiếp (List<BidRecord> được Gson serialize):
-            //   [{"bidderId":"...","username":"...","amount":101000.0,"createdAt":"2026-05-24 10:37:10"}, ...]
-            //
-            // Thứ tự: ORDER BY bid_time DESC → index 0 = mới nhất
-            //
-            // FIX TIMEZONE:
-            //   - DB Railway chạy UTC, connection string có serverTimezone=Asia/Ho_Chi_Minh
-            //   - getString("bid_time") trả chuỗi theo giờ server DB (UTC)
-            //   - Cần cộng +7 để ra giờ VN
-            //   - BID_UPDATE realtime dùng LocalTime.now() của máy client → đã đúng giờ VN
-            //     → KHÔNG cộng +7 cho BID_UPDATE
-            // ─────────────────────────────────────────────────────────────
             case "BID_HISTORY_RESPONSE" -> {
                 try {
                     String payload = msg.getPayload();
                     if (payload == null || payload.isBlank()) return;
 
-                    // Parse payload: có thể là JsonArray trực tiếp hoặc JsonObject bọc ngoài
                     JsonArray arr = null;
                     try {
                         arr = gson.fromJson(payload, JsonArray.class);
@@ -193,7 +392,6 @@ public class LiveBiddingController implements Initializable {
 
                     if (arr == null || arr.size() == 0) return;
 
-                    // Dùng record để giữ time + price + user cùng nhau — tránh index mismatch
                     record HistoryEntry(String timeLabel, String username,
                                         String priceStr, double price) {}
 
@@ -202,25 +400,15 @@ public class LiveBiddingController implements Initializable {
 
                     for (JsonElement el : arr) {
                         JsonObject row = el.getAsJsonObject();
-
-                        // Key "createdAt" từ BidRecord (doc 71), fallback "bidTime" từ Map cũ
                         String rawTime = safeStr(row, "createdAt",
-                                         safeStr(row, "bidTime", ""));
-
+                                safeStr(row, "bidTime", ""));
                         String username = safeStr(row, "username", "?");
-
-                        // Key "amount" từ BidRecord (doc 71), fallback "bidPrice" từ Map cũ
                         double price = safeDouble(row, "amount") > 0
-                                       ? safeDouble(row, "amount")
-                                       : safeDouble(row, "bidPrice");
-
-                        // FIX TIMEZONE: DB lưu UTC → cộng +7 để ra giờ VN
-                        // (chỉ áp dụng cho lịch sử DB, KHÔNG áp dụng cho BID_UPDATE realtime)
+                                ? safeDouble(row, "amount")
+                                : safeDouble(row, "bidPrice");
                         String displayTime = convertUtcToVnTime(rawTime);
-
                         entries.add(new HistoryEntry(displayTime, username,
                                 String.format("%,.0f VNĐ", price), price));
-
                         if (price > maxBid) maxBid = price;
                     }
 
@@ -229,24 +417,18 @@ public class LiveBiddingController implements Initializable {
 
                     Platform.runLater(() -> {
                         historyLoaded = true;
-
-                        // Điền bảng: arr ORDER BY bid_time DESC → entries[0] = mới nhất → đặt ở đầu bảng ✓
                         List<BidItem> rows = new ArrayList<>();
                         for (HistoryEntry e : finalEntries) {
                             rows.add(new BidItem(e.timeLabel(), e.username(), e.priceStr()));
                         }
                         bidHistory.setAll(rows);
 
-                        // Cập nhật giá hiện tại theo giá cao nhất trong lịch sử
                         if (finalMaxBid > 0) {
                             latestBid = finalMaxBid;
                             updateCurrentBidLabel(latestBid);
                             if (currentItem != null) currentItem.setCurrentBid(latestBid);
                         }
 
-                        // Vẽ chart theo thứ tự CŨ → MỚI:
-                        // entries[0]=mới nhất → loop từ cuối về đầu (size-1 → 0)
-                        // Mỗi entry giữ cả timeLabel lẫn price → luôn khớp nhau
                         priceSeries.getData().clear();
                         for (int i = finalEntries.size() - 1; i >= 0; i--) {
                             HistoryEntry e = finalEntries.get(i);
@@ -263,12 +445,10 @@ public class LiveBiddingController implements Initializable {
                 }
             }
 
-            // BID_UPDATE: nhận từ server khi có người đặt giá mới
-            // Thời gian dùng LocalTime.now() của máy client → đã đúng giờ VN → KHÔNG cộng +7
             case "BID_UPDATE" -> {
                 try {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
-                    String productId = dto.get("productId").getAsString();
+                    String productId  = dto.get("productId").getAsString();
                     if (itemId == null || !itemId.equals(productId)) return;
 
                     double newBid     = dto.get("newBid").getAsDouble();
@@ -280,23 +460,23 @@ public class LiveBiddingController implements Initializable {
                         if (currentItem != null) currentItem.setCurrentBid(newBid);
                         updateCurrentBidLabel(newBid);
 
-                        // Dùng LocalTime.now() — giờ local của máy client, đã đúng VN, KHÔNG +7
                         String time = LocalTime.now().format(timeFmt);
                         bidHistory.add(0, new BidItem(time, bidderName,
                                 String.format("%,.0f VNĐ", newBid)));
                         addChartPoint(time, newBid);
                         addLog(String.format("%s vừa đặt %,.0f VNĐ", bidderName, newBid));
 
-                        // Toast bid mới — hiển cho tất cả mọi người
+                        // Toast
                         try {
                             Stage stage = (Stage) lblCountdown.getScene().getWindow();
                             String itemName = currentItem != null ? currentItem.getName() : "";
                             ToastNotification.bid(stage, bidderName, itemName, newBid);
-
                         } catch (Exception ex) {
                             System.err.println("[LiveBidding] Toast loi: " + ex.getMessage());
                         }
-                        
+
+                        // ── Kích hoạt auto-bid nếu đang bật ─────────────
+                        handleAutoBidIfNeeded(bidderName);
                     });
                 } catch (Exception e) {
                     System.err.println("[LiveBidding] BID_UPDATE lỗi: " + e.getMessage());
@@ -342,6 +522,11 @@ public class LiveBiddingController implements Initializable {
             case "AUCTION_ENDED" -> {
                 Platform.runLater(() -> {
                     if (countdownTimeline != null) countdownTimeline.stop();
+                    // Tắt auto-bid khi phiên kết thúc
+                    if (autoBidActive) {
+                        deactivateAutoBid();
+                        addLog("⚡ Auto-bid đã tắt vì phiên kết thúc.");
+                    }
                     onAuctionEnded();
                     try {
                         JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
@@ -358,18 +543,15 @@ public class LiveBiddingController implements Initializable {
                                     winnerName, finalPrice));
                         else addLog("Phiên đấu giá đã kết thúc — không có người đặt giá.");
 
-                        // Toast thông báo winner cho tất cả người trong phòng
                         try {
                             Stage stage = (Stage) lblCountdown.getScene().getWindow();
-                            String myName = UserSession.getInstance().getUsername();
+                            String myName   = UserSession.getInstance().getUsername();
                             String itemName = currentItem != null ? currentItem.getName() : "";
                             if (winnerName != null && !winnerName.isEmpty()) {
-                                // Hiện toast winner chung cho tất cả
                                 ToastNotification.info(stage,
                                         "🏆 Kết quả đấu giá",
                                         String.format("%s thắng \"%s\"\nvới giá %,.0f VNĐ",
                                                 winnerName, itemName, finalPrice));
-                                // Thêm toast riêng cho chính mình
                                 if (winnerName.equals(myName))
                                     ToastNotification.win(stage, itemName, finalPrice);
                                 else
@@ -381,7 +563,7 @@ public class LiveBiddingController implements Initializable {
                             }
                         } catch (Exception ex) {
                             System.err.println("[LiveBidding] Toast winner loi: " + ex.getMessage());
-                        }                
+                        }
                     } catch (Exception e) {
                         addLog("Phiên đấu giá đã kết thúc!");
                     }
@@ -390,7 +572,7 @@ public class LiveBiddingController implements Initializable {
         }
     }
 
-    // ── UI helpers ────────────────────────────────────────────────────────
+    // ── UI helpers (giữ nguyên) ───────────────────────────────────────────
 
     private void updateCurrentBidLabel(double bid) {
         if (lblCurrentBid != null)
@@ -446,6 +628,8 @@ public class LiveBiddingController implements Initializable {
             lblCountdown.setStyle("-fx-text-fill:#a0aec0;");
         }
         if (txtBidAmount != null) txtBidAmount.setDisable(true);
+        if (txtMaxBid    != null) txtMaxBid.setDisable(true);
+        if (btnAutoBid   != null) btnAutoBid.setDisable(true);
     }
 
     // ── FXML Handlers ─────────────────────────────────────────────────────
@@ -497,7 +681,7 @@ public class LiveBiddingController implements Initializable {
         SceneEngine.changeScene(event, "detail-view.fxml", "Chi tiết sản phẩm");
     }
 
-    // ── Setup ─────────────────────────────────────────────────────────────
+    // ── Setup (giữ nguyên) ────────────────────────────────────────────────
 
     private void setupTable() {
         colTime.setCellValueFactory(c -> c.getValue().timeProperty());
@@ -550,46 +734,26 @@ public class LiveBiddingController implements Initializable {
         return fallback != null ? fallback : LocalTime.now().format(timeFmt);
     }
 
-    /**
-     * Convert thời gian từ DB (UTC) sang giờ Việt Nam (UTC+7).
-     *
-     * DB Railway chạy UTC. getString("bid_time") trả UTC string.
-     * serverTimezone=Asia/Ho_Chi_Minh trong connection string chỉ ảnh hưởng
-     * getTimestamp(), KHÔNG ảnh hưởng getString() → phải convert thủ công.
-     *
-     * QUAN TRỌNG: Chỉ gọi hàm này cho lịch sử từ DB (BID_HISTORY_RESPONSE).
-     * KHÔNG gọi cho BID_UPDATE realtime (đã dùng LocalTime.now() của máy client).
-     *
-     * Input:  "2026-05-24 10:37:10" hoặc "2026-05-24T10:37:10"
-     * Output: "17:37:10"
-     */
+    /** Convert DB UTC time → giờ Việt Nam (UTC+7) */
     private String convertUtcToVnTime(String raw) {
         if (raw == null || raw.isBlank()) return "--:--:--";
         try {
             String normalized = raw.replace("T", " ").trim();
             String[] parts = normalized.split(" ");
             if (parts.length < 2) return raw;
-
             String[] timeParts = parts[1].split(":");
             if (timeParts.length < 2) return parts[1];
-
             int hour   = Integer.parseInt(timeParts[0].trim());
             int minute = Integer.parseInt(timeParts[1].trim());
             int second = timeParts.length >= 3
                     ? Integer.parseInt(timeParts[2].trim().substring(0, Math.min(2, timeParts[2].trim().length())))
                     : 0;
-
-            // UTC+7 (Asia/Ho_Chi_Minh)
             hour = (hour + 7) % 24;
-
             return String.format("%02d:%02d:%02d", hour, minute, second);
         } catch (Exception e) {
-            // Fallback: lấy 8 ký tự cuối (phần giờ:phút:giây)
             return raw.length() >= 8 ? raw.substring(raw.length() - 8) : raw;
         }
     }
-
-    // ── JSON helpers ──────────────────────────────────────────────────────
 
     private String safeStr(JsonObject obj, String key, String def) {
         try {
