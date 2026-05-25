@@ -358,14 +358,30 @@ public class LiveBiddingController implements Initializable {
                                     winnerName, finalPrice));
                         else addLog("Phiên đấu giá đã kết thúc — không có người đặt giá.");
 
-                        // Toast thắng/thua
-                        Stage stage = (Stage) lblCountdown.getScene().getWindow();
-                        String myName = UserSession.getInstance().getUsername();
-                        String itemName = currentItem != null ? currentItem.getName() : "";
-                        if (winnerName != null && winnerName.equals(myName))
-                            ToastNotification.win(stage, itemName, finalPrice);
-                        else if (finalPrice > 0)
-                            ToastNotification.lose(stage, itemName);
+                        // Toast thông báo winner cho tất cả người trong phòng
+                        try {
+                            Stage stage = (Stage) lblCountdown.getScene().getWindow();
+                            String myName = UserSession.getInstance().getUsername();
+                            String itemName = currentItem != null ? currentItem.getName() : "";
+                            if (winnerName != null && !winnerName.isEmpty()) {
+                                // Hiện toast winner chung cho tất cả
+                                ToastNotification.info(stage,
+                                        "🏆 Kết quả đấu giá",
+                                        String.format("%s thắng \"%s\"\nvới giá %,.0f VNĐ",
+                                                winnerName, itemName, finalPrice));
+                                // Thêm toast riêng cho chính mình
+                                if (winnerName.equals(myName))
+                                    ToastNotification.win(stage, itemName, finalPrice);
+                                else
+                                    ToastNotification.lose(stage, itemName);
+                            } else {
+                                ToastNotification.info(stage,
+                                        "Phiên kết thúc",
+                                        "Không có người tham gia đặt giá.");
+                            }
+                        } catch (Exception ex) {
+                            System.err.println("[LiveBidding] Toast winner loi: " + ex.getMessage());
+                        }                
                     } catch (Exception e) {
                         addLog("Phiên đấu giá đã kết thúc!");
                     }
