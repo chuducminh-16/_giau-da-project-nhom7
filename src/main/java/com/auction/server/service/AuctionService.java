@@ -251,7 +251,21 @@ public class AuctionService {
     public List<Item> getActiveAuctions() {
         List<Map<String, Object>> rows = auctionDAO.findAllOpen();
         List<Item> items = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+
         for (Map<String, Object> row : rows) {
+            // FIX: bỏ qua phiên đã hết giờ dù DB chưa cập nhật status
+            String endTimeStr = (String) row.get("endTime");
+            if (endTimeStr == null) endTimeStr = (String) row.get("end_time");
+            if (endTimeStr != null) {
+                try {
+                    LocalDateTime endTime = LocalDateTime.parse(
+                            endTimeStr.replace(" ", "T").substring(0, 19));
+                    if (now.isAfter(endTime)) continue; // đã hết giờ → bỏ qua
+                    
+                } catch (Exception ignored) {}
+            }
+            
             Item item = mapToItem(row);
             if (item != null) items.add(item);
         }
