@@ -1,6 +1,5 @@
 package com.auction.client.controller;
 
-import java.io.File;
 import java.net.URL;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -10,6 +9,7 @@ import com.auction.client.SceneEngine;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
+import com.auction.client.utils.ImageUploadHandler;
 import com.auction.shared.model.Entity.Item.Art;
 import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
@@ -24,7 +24,6 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 
@@ -47,8 +46,9 @@ public class DetailController implements Initializable {
     private Item   currentItem;
     private String watchingItemId;
 
-    // FIX: giữ danh sách ảnh đã load để thumbnail click đúng ảnh
-    private final Image[] loadedImages = new Image[4];
+    // ── ẢNH: handler riêng ────────────────────────────────────────────────
+    private ImageUploadHandler imageHandler;
+    // ─────────────────────────────────────────────────────────────────────
 
     private final Gson          gson   = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
@@ -78,6 +78,10 @@ public class DetailController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        // ── ẢNH: dùng mainImageView làm preview chính ────────────────────
+        imageHandler = new ImageUploadHandler(client, mainImageView);
+        // ─────────────────────────────────────────────────────────────────
+
         client.addListener(listener);
         watchingItemId = SelectedProductSession.getInstance().getProductId();
 
@@ -135,8 +139,8 @@ public class DetailController implements Initializable {
 
             case "BID_UPDATE" -> {
                 try {
-                    JsonObject dto     = gson.fromJson(msg.getPayload(), JsonObject.class);
-                    String  productId  = dto.get("productId").getAsString();
+                    JsonObject dto    = gson.fromJson(msg.getPayload(), JsonObject.class);
+                    String productId  = dto.get("productId").getAsString();
                     if (watchingItemId == null || !watchingItemId.equals(productId)) return;
 
                     double newBid = dto.get("newBid").getAsDouble();
@@ -163,6 +167,10 @@ public class DetailController implements Initializable {
                     System.err.println("[Detail] Lỗi parse AUCTION_ENDED: " + e.getMessage());
                 }
             }
+
+            // ── ẢNH: delegate sang handler ────────────────────────────────
+            case "GET_IMAGE_RESPONSE" -> imageHandler.onGetImageResponse(msg.getPayload());
+            // ─────────────────────────────────────────────────────────────
         }
     }
 
@@ -183,82 +191,21 @@ public class DetailController implements Initializable {
         String desc = item.getDescription();
         setText(lblDescription, desc != null && !desc.isBlank() ? desc : item.showDetails());
 
-        // FIX: load tối đa 3 ảnh từ "path1|path2|path3"
-        loadImages(item.getImagePath());
+        // ── ẢNH: load ảnh từ server ───────────────────────────────────────
+        // thumb1 cũng hiển thị ảnh chính (thumbnail của ảnh duy nhất)
+        String path = item.getImagePath() != null ? item.getImagePath() : "";
+        imageHandler.loadFromServer(path);
+        if (thumb1 != null) new ImageUploadHandler(client, thumb1).loadFromServer(path);
+        // ─────────────────────────────────────────────────────────────────
     }
 
-    // ── Load tối đa 3 ảnh từ "path1|path2|path3" ─────────────────────────
-    private void loadImages(String rawPath) {
-        loadedImages[0] = null;
-        loadedImages[1] = null;
-        loadedImages[2] = null;
-
-        if (rawPath == null || rawPath.isBlank()) {
-            clearThumbs();
-            return;
-        }
-
-        String[] paths = rawPath.split("\\|", -1);
-
-        for (int i = 0; i < 4 && i < paths.length; i++) {
-            String p = paths[i];
-            if (p == null || p.isBlank()) continue;
-            try {
-                File f = new File(p);
-                if (!f.exists()) continue;
-                String lower = p.toLowerCase();
-                if (lower.endsWith(".webp") || lower.endsWith(".jfif")) {
-                    java.awt.image.BufferedImage bi = javax.imageio.ImageIO.read(f);
-                    if (bi == null) continue;
-                    javafx.scene.image.WritableImage wi =
-                            new javafx.scene.image.WritableImage(bi.getWidth(), bi.getHeight());
-                    javafx.embed.swing.SwingFXUtils.toFXImage(bi, wi);
-                    loadedImages[i] = wi;
-                } else {
-                    loadedImages[i] = new Image(f.toURI().toString(), true);
-                }
-            } catch (Exception e) {
-                System.err.println("[Detail] Lỗi load ảnh " + (i+1) + ": " + e.getMessage());
-            }
-        }
-
-        // loadedImages[0] = ảnh to, [1][2][3] = 3 thumbnail
-
-        if (mainImageView != null) mainImageView.setImage(loadedImages[0]);
-
-        // Thumbnails
-        ImageView[] thumbs = {thumb1, thumb2, thumb3};
-        for (int i = 0; i < 3; i++) {
-            if (thumbs[i] != null) thumbs[i].setImage(loadedImages[i + 1]);
-        }
-
-        resetBorders();
-        // Highlight thumb1 nếu có ảnh [0] (ảnh to) — không highlight thumbnail
-        // Mặc định hiển thị ảnh [0] ở main, không cần highlight thumbnail
-    
-    }
-
-    private void clearThumbs() {
-        if (mainImageView != null) mainImageView.setImage(null);
-        if (thumb1 != null) { thumb1.setImage(null); }
-        if (thumb2 != null) { thumb2.setImage(null); }
-        if (thumb3 != null) { thumb3.setImage(null); }
-    }
-
-    // ── Thumbnail click: hiển thị ảnh tương ứng lên main ─────────────────
+    // ── Thumbnail click: chỉ 1 ảnh nên click thumb1 = hiện ảnh chính ─────
     @FXML
     public void onThumbnailClick(MouseEvent event) {
-        ImageView clicked = (ImageView) event.getSource();
+        // Với 1 slot ảnh duy nhất, click thumbnail không cần làm gì thêm
+        // mainImageView đã hiển thị ảnh đó rồi
         resetBorders();
-        clicked.setStyle("-fx-border-color:#ffaa00; -fx-border-width:2px;");
-
-        // Tìm index của thumbnail được click
-        int idx = 1;
-        if (clicked == thumb2) idx = 2;
-        else if (clicked == thumb3) idx = 3;
-
-        Image img = loadedImages[idx];
-        if (img != null && mainImageView != null) mainImageView.setImage(img);
+        ((ImageView) event.getSource()).setStyle("-fx-border-color:#ffaa00; -fx-border-width:2px;");
     }
 
     private void resetBorders() {
