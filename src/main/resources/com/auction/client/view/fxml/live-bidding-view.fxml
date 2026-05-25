@@ -67,7 +67,7 @@
                         <HBox alignment="CENTER_LEFT" spacing="8">
                            <children>
 
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 11;                                       -fx-wrap-text: true; -fx-padding: 4 0 10 0;" text="Hệ thống tự đặt giá = giá cao nhất + bước nhảy khi có người trả cao hơn." />
+                              <Label style="-fx-text-fill: #718096; -fx-font-size: 11;                                       -fx-wrap-text: true; -fx-padding: 4 0 10 0;" text="Hệ thống tự đặt giá = giá cao nhất + bước nhảy (khi có người trả cao hơn)." />
                               <Label style="-fx-text-fill: white; -fx-font-size: 13;                                             -fx-font-weight: bold;" text="TỰ ĐỘNG ĐẤU GIÁ" />
                               <Region HBox.hgrow="ALWAYS" />
                               <!-- Dynamic status badge -->
