@@ -31,6 +31,7 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
@@ -68,6 +69,11 @@ public class ManageProductController implements Initializable {
     @FXML private TextField txtEndMinute;
     @FXML private TextField txtEndSecond;
 
+    // ── Nút chọn loại sản phẩm (MỚI THÊM) ─────────────────────────────
+    @FXML private Button btnTypeArt;
+    @FXML private Button btnTypeElectronics;
+    @FXML private Button btnTypeVehicle;
+
     @FXML private TableView<Item>               tableProducts;
     @FXML private TableColumn<Item, String>     colName;
     @FXML private TableColumn<Item, Double>     colPrice;
@@ -85,13 +91,26 @@ public class ManageProductController implements Initializable {
     private String imagePath3 = "";
     private String imagePath4 = "";
 
+    // ── Loại sản phẩm đang chọn (MỚI THÊM) ────────────────────────────
+    private String selectedType = "ART"; // mặc định ART
+
+    // Style cho nút đang active và không active
+    private static final String BTN_ACTIVE_STYLE =
+            "-fx-background-color: #4299e1; -fx-text-fill: white;" +
+                    "-fx-background-radius: 8; -fx-cursor: hand;" +
+                    "-fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
+    private static final String BTN_INACTIVE_STYLE =
+            "-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;" +
+                    "-fx-background-radius: 8; -fx-cursor: hand;" +
+                    "-fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
+
     private final Gson gson = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
 
     // ── Tách đường dẫn ảnh từ chuỗi "path1|path2|path3" ─────────────────
     private static String[] splitImagePaths(String raw) {
-        if (raw == null || raw.isBlank()) return new String[]{"", "", ""};
+        if (raw == null || raw.isBlank()) return new String[]{"", "", "", ""};
         String[] parts = raw.split("\\|", -1);
         String p1 = parts.length > 0 ? parts[0] : "";
         String p2 = parts.length > 1 ? parts[1] : "";
@@ -102,12 +121,10 @@ public class ManageProductController implements Initializable {
 
     // ── Ghép 3 đường dẫn thành "path1|path2|path3" ───────────────────────
     private static String joinImagePaths(String p1, String p2, String p3, String p4) {
-        // Loại bỏ dấu | thừa ở cuối nếu ảnh 2,3 trống
         StringBuilder sb = new StringBuilder(p1 != null ? p1 : "");
         sb.append("|").append(p2 != null ? p2 : "");
         sb.append("|").append(p3 != null ? p3 : "");
         sb.append("|").append(p4 != null ? p4 : "");
-        // Trim trailing pipes
         String result = sb.toString();
         while (result.endsWith("|")) result = result.substring(0, result.length() - 1);
         return result;
@@ -145,7 +162,42 @@ public class ManageProductController implements Initializable {
         setupTable();
         setupRowClickListener();
         setupTimeFieldListeners();
+        // Mặc định chọn ART khi khởi động
+        updateTypeButtons("ART");
         loadMyProducts();
+    }
+
+    // ── Xử lý click nút loại sản phẩm (MỚI THÊM) ──────────────────────
+
+    @FXML
+    private void onTypeArtClick(ActionEvent event) {
+        selectedType = "ART";
+        updateTypeButtons("ART");
+    }
+
+    @FXML
+    private void onTypeElectronicsClick(ActionEvent event) {
+        selectedType = "ELECTRONICS";
+        updateTypeButtons("ELECTRONICS");
+    }
+
+    @FXML
+    private void onTypeVehicleClick(ActionEvent event) {
+        selectedType = "VEHICLE";
+        updateTypeButtons("VEHICLE");
+    }
+
+    /** Cập nhật style các nút type — nút active màu xanh, còn lại màu xám. */
+    private void updateTypeButtons(String activeType) {
+        if (btnTypeArt        != null) btnTypeArt.setStyle(BTN_INACTIVE_STYLE);
+        if (btnTypeElectronics != null) btnTypeElectronics.setStyle(BTN_INACTIVE_STYLE);
+        if (btnTypeVehicle    != null) btnTypeVehicle.setStyle(BTN_INACTIVE_STYLE);
+
+        switch (activeType) {
+            case "ART"         -> { if (btnTypeArt        != null) btnTypeArt.setStyle(BTN_ACTIVE_STYLE); }
+            case "ELECTRONICS" -> { if (btnTypeElectronics != null) btnTypeElectronics.setStyle(BTN_ACTIVE_STYLE); }
+            case "VEHICLE"     -> { if (btnTypeVehicle    != null) btnTypeVehicle.setStyle(BTN_ACTIVE_STYLE); }
+        }
     }
 
     private void setupTimeFieldListeners() {
@@ -214,6 +266,11 @@ public class ManageProductController implements Initializable {
             String desc = newVal.getDescription();
             txtDescription.setText(desc != null ? desc : "");
 
+            // Cập nhật nút type theo loại sản phẩm đang chọn (MỚI THÊM)
+            String itemType = newVal.getType() != null ? newVal.getType().toUpperCase() : "ART";
+            selectedType = itemType;
+            updateTypeButtons(itemType);
+
             if (newVal.getStartTime() != null) {
                 dpStartDate.setValue(newVal.getStartTime().toLocalDate());
                 txtStartHour.setText(String.format("%02d", newVal.getStartTime().getHour()));
@@ -249,9 +306,6 @@ public class ManageProductController implements Initializable {
             if (!f.exists()) { iv.setImage(null); return; }
 
             String lower = path.toLowerCase();
-            // JavaFX Image hỗ trợ trực tiếp: jpg, jpeg, png, bmp, gif
-            // jfif thực chất là JPEG — đổi extension rồi đọc qua ImageIO
-            // webp cần ImageIO đọc rồi convert sang WritableImage
             if (lower.endsWith(".webp") || lower.endsWith(".jfif")) {
                 java.awt.image.BufferedImage bi =
                         javax.imageio.ImageIO.read(f);
@@ -278,7 +332,6 @@ public class ManageProductController implements Initializable {
     private void pickImage(int slot) {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Chọn ảnh " + slot);
-        // Tất cả định dạng ảnh phổ biến
         chooser.getExtensionFilters().addAll(
                 new FileChooser.ExtensionFilter("Tất cả ảnh",
                         "*.png", "*.jpg", "*.jpeg", "*.jfif",
@@ -290,7 +343,6 @@ public class ManageProductController implements Initializable {
                 new FileChooser.ExtensionFilter("BMP / GIF / TIFF",
                         "*.bmp", "*.gif", "*.tif", "*.tiff")
         );
-        // Lấy window từ một ImageView bất kỳ
         File file = chooser.showOpenDialog(imgPreview1.getScene().getWindow());
         if (file == null) return;
         String path = file.getAbsolutePath();
@@ -303,11 +355,10 @@ public class ManageProductController implements Initializable {
     }
 
     // ── Tạo imagePath cuối cùng để gửi server ───────────────────────────
-    // Nếu slot nào trống ("") → giữ giá trị cũ từ item đang chọn (nếu có)
     private String buildFinalImagePath(Item selected) {
         String[] existing = selected != null
                 ? splitImagePaths(selected.getImagePath())
-                : new String[]{"", "", ""};
+                : new String[]{"", "", "", ""};
 
         String p1 = imagePath1.isBlank() ? existing[0] : imagePath1;
         String p2 = imagePath2.isBlank() ? existing[1] : imagePath2;
@@ -331,9 +382,9 @@ public class ManageProductController implements Initializable {
             showStatus("⚠ Lỗi: Phiên người dùng không hợp lệ!", true); return;
         }
 
-        // Khi thêm mới, ghép 3 đường dẫn
         String imagePath = joinImagePaths(imagePath1, imagePath2, imagePath3, imagePath4);
 
+        // Gửi kèm type đã chọn (MỚI THÊM: thêm "type" vào payload)
         String payload = gson.toJson(Map.of(
                 "sellerId",     session.getUserId(),
                 "name",         txtName.getText().trim(),
@@ -343,6 +394,7 @@ public class ManageProductController implements Initializable {
                 "startTime",    startDT.toString(),
                 "endTime",      endDT.toString(),
                 "imagePath",    imagePath,
+                "type",         selectedType,
                 "status",       "PENDING"
         ));
         client.send(new Message("ADD_PRODUCT", payload));
@@ -356,9 +408,9 @@ public class ManageProductController implements Initializable {
 
         LocalDateTime endDT = buildDateTime(dateEnd, txtEndHour, txtEndMinute, txtEndSecond, selected.getEndTime());
 
-        // Giữ ảnh cũ ở slot nào chưa chọn mới
         String imagePath = buildFinalImagePath(selected);
 
+        // Gửi kèm type đã chọn (MỚI THÊM: thêm "type" vào payload)
         String payload = gson.toJson(Map.of(
                 "productId",    selected.getId(),
                 "name",         txtName.getText().trim(),
@@ -366,7 +418,8 @@ public class ManageProductController implements Initializable {
                 "bidIncrement", txtBidIncrement.getText().trim(),
                 "description",  txtDescription.getText().trim(),
                 "endTime",      endDT.toString(),
-                "imagePath",    imagePath
+                "imagePath",    imagePath,
+                "type",         selectedType
         ));
         client.send(new Message("UPDATE_PRODUCT", payload));
         showStatus("Đang cập nhật...", false);
@@ -524,6 +577,9 @@ public class ManageProductController implements Initializable {
         if (imgPreview3 != null) imgPreview3.setImage(null);
         if (imgPreview4 != null) imgPreview4.setImage(null);
         imagePath1 = ""; imagePath2 = ""; imagePath3 = ""; imagePath4 = "";
+        // Reset type về ART mặc định (MỚI THÊM)
+        selectedType = "ART";
+        updateTypeButtons("ART");
         tableProducts.getSelectionModel().clearSelection();
     }
 

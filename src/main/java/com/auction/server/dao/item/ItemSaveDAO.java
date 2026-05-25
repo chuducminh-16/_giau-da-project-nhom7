@@ -50,8 +50,8 @@ public class ItemSaveDAO {
     // Bản gốc thiếu image_path → ảnh mới không bao giờ được lưu khi Update
     public boolean updateItem(String productId, String name, String description,
                               double startPrice, double bidIncrement,
-                              LocalDateTime endTime, String imagePath) {
-        String sql = "UPDATE items SET name=?, current_price=?, end_time=?, description=?, bid_increment=?, image_path=? WHERE id=?";
+                              LocalDateTime endTime, String imagePath, String type) { // Thêm tham số type
+        String sql = "UPDATE items SET name=?, current_price=?, end_time=?, description=?, bid_increment=?, image_path=?, type=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, name);
@@ -60,7 +60,8 @@ public class ItemSaveDAO {
             ps.setString(4, description != null ? description : "");
             ps.setDouble(5, bidIncrement);
             ps.setString(6, imagePath != null ? imagePath : "");
-            ps.setString(7, productId);
+            ps.setString(7, type); // Gán loại hàng mới vào đây
+            ps.setString(8, productId);
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -71,8 +72,8 @@ public class ItemSaveDAO {
     // Overload không có imagePath — giữ ảnh cũ (dùng khi không chọn ảnh mới)
     public boolean updateItem(String productId, String name, String description,
                               double startPrice, double bidIncrement,
-                              LocalDateTime endTime) {
-        String sql = "UPDATE items SET name=?, current_price=?, end_time=?, description=?, bid_increment=? WHERE id=?";
+                              LocalDateTime endTime, String type) {
+        String sql = "UPDATE items SET name=?, current_price=?, end_time=?, description=?, bid_increment=?, type=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, name);
@@ -80,7 +81,8 @@ public class ItemSaveDAO {
             ps.setString(3, endTime != null ? endTime.toString() : null);
             ps.setString(4, description != null ? description : "");
             ps.setDouble(5, bidIncrement);
-            ps.setString(6, productId);
+            ps.setString(6, type); // Gán loại hàng mới
+            ps.setString(7, productId);
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();

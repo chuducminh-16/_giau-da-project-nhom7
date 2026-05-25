@@ -71,13 +71,15 @@ public class AuctionController {
                     ? LocalDateTime.parse(dto.startTime().replace(" ", "T"))
                     : LocalDateTime.now();
 
+            // ── DUY NHẤT thay đổi so với bản gốc: thêm dto.type() ──────
             Item item = auctionService.addProduct(
                     dto.sellerId(), dto.name(),
                     dto.description() != null ? dto.description() : "",
                     dto.startPrice(),
                     dto.bidIncrement() > 0 ? dto.bidIncrement() : 1000.0,
                     dto.imagePath() != null ? dto.imagePath() : "",
-                    startTime, endTime
+                    startTime, endTime,
+                    dto.type() != null ? dto.type() : "ART"
             );
 
             if (item == null) return error("Khong the them san pham. Vui long thu lai.");
@@ -97,22 +99,19 @@ public class AuctionController {
         }
         try {
             UpdateProductDto dto = gson.fromJson(payload, UpdateProductDto.class);
-            if (dto.productId() == null || dto.productId().isBlank())
-                return error("productId khong duoc rong.");
 
-            LocalDateTime endTime = LocalDateTime.parse(dto.endTime().replace(" ", "T"));
-
-            // Truyền imagePath vào — nếu rỗng thì AuctionService giữ ảnh cũ
+            // Lấy type từ dto (đảm bảo UpdateProductDto record đã có trường String type)
             boolean ok = auctionService.updateProduct(
                     dto.productId(), dto.name(), dto.description(),
-                    dto.startPrice(), dto.bidIncrement(), endTime,
-                    dto.imagePath());
+                    dto.startPrice(), dto.bidIncrement(),
+                    LocalDateTime.parse(dto.endTime().replace(" ", "T")),
+                    dto.imagePath(),
+                    dto.type());
 
             return new Message("UPDATE_PRODUCT_RESPONSE",
-                    gson.toJson(Map.of("success", ok,
-                            "message", ok ? "Cap nhat thanh cong." : "Cap nhat that bai.")));
+                    gson.toJson(Map.of("success", ok, "message", ok ? "Thành công" : "Thất bại")));
         } catch (Exception e) {
-            return error("Loi cap nhat san pham: " + e.getMessage());
+            return error("Lỗi: " + e.getMessage());
         }
     }
 
@@ -274,14 +273,19 @@ public class AuctionController {
     public Message handleGetProductDetail(String payload) {
         try {
             GetProductDetailDto dto = gson.fromJson(payload, GetProductDetailDto.class);
-            com.auction.server.dao.item.ItemFindDAO itemFindDAO =
-                    new com.auction.server.dao.item.ItemFindDAO();
+            com.auction.server.dao.item.ItemFindDAO itemFindDAO = new com.auction.server.dao.item.ItemFindDAO();
             Item item = itemFindDAO.findById(dto.itemId());
-            if (item == null)
-                return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
-                        "success", false, "message", "Không tìm thấy sản phẩm")));
+
+            if (item == null) return error("Không tìm thấy sản phẩm");
+
+            // QUAN TRỌNG: Đảm bảo type được đưa vào JSON payload
+            JsonObject itemJson = gson.toJsonTree(item).getAsJsonObject();
+            itemJson.addProperty("type", item.getType()); // Ép thêm trường type vào JSON
+
             return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
-                    "success", true, "item", item)));
+                    "success", true,
+                    "item", itemJson
+            )));
         } catch (Exception e) {
             return error("Lỗi tải sản phẩm: " + e.getMessage());
         }
@@ -303,12 +307,14 @@ public class AuctionController {
     private record AddProductDto(
             String sellerId, String name, String description,
             double startPrice, double bidIncrement,
-            String imagePath, String startTime, String endTime) {}
+            String imagePath, String startTime, String endTime,
+            String type) {}
     // FIX: thêm imagePath vào UpdateProductDto
     private record UpdateProductDto(
             String productId, String name, String description,
             double startPrice, double bidIncrement,
-            String endTime, String imagePath) {}
+            String endTime, String imagePath,
+            String type) {}
     private record DeleteProductDto(String productId) {}
     private record BidderDto(String bidderId) {}
     private record GetProductDetailDto(String itemId) {}
