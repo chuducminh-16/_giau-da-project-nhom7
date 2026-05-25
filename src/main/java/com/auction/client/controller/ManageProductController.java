@@ -1,6 +1,5 @@
 package com.auction.client.controller;
 
-import java.io.File;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -13,6 +12,7 @@ import com.auction.client.SceneEngine;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.UserSession;
+import com.auction.client.utils.ImageUploadHandler;
 import com.auction.shared.model.Entity.Item.Art;
 import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
@@ -31,6 +31,7 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
@@ -40,9 +41,7 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.stage.FileChooser;
 
 public class ManageProductController implements Initializable {
 
@@ -51,8 +50,9 @@ public class ManageProductController implements Initializable {
     @FXML private TextField txtBidIncrement;
     @FXML private TextArea  txtDescription;
 
-    // FIX: 1 ảnh chính và 3 ảnh phụ
+    // ── ẢNH: slot preview chính (upload qua server) ───────────────────────
     @FXML private ImageView imgPreview1;
+    // Giữ các field cũ để FXML không bị lỗi inject – không dùng trực tiếp
     @FXML private ImageView imgPreview2;
     @FXML private ImageView imgPreview3;
     @FXML private ImageView imgPreview4;
@@ -68,57 +68,51 @@ public class ManageProductController implements Initializable {
     @FXML private TextField txtEndMinute;
     @FXML private TextField txtEndSecond;
 
-    @FXML private TableView<Item>               tableProducts;
-    @FXML private TableColumn<Item, String>     colName;
-    @FXML private TableColumn<Item, Double>     colPrice;
+    // ── Nút chọn loại sản phẩm (giữ nguyên để FXML không lỗi) ───────────
+    @FXML private Button btnTypeArt;
+    @FXML private Button btnTypeElectronics;
+    @FXML private Button btnTypeVehicle;
+
+    @FXML private TableView<Item>                  tableProducts;
+    @FXML private TableColumn<Item, String>        colName;
+    @FXML private TableColumn<Item, Double>        colPrice;
     @FXML private TableColumn<Item, LocalDateTime> colTime;
-    @FXML private TableColumn<Item, String>     colStatus;
-    @FXML private TableColumn<Item, Double>     colCurrentBid;
+    @FXML private TableColumn<Item, String>        colStatus;
+    @FXML private TableColumn<Item, Double>        colCurrentBid;
 
     @FXML private Label statusLabel;
 
     private final ObservableList<Item> productData = FXCollections.observableArrayList();
 
-    // FIX: 3 đường dẫn ảnh, "" = không thay đổi
-    private String imagePath1 = "";
-    private String imagePath2 = "";
-    private String imagePath3 = "";
-    private String imagePath4 = "";
+    // ── ẢNH ──────────────────────────────────────────────────────────────
+    // Thêm vào sau dòng: private String currentImagePath = "";
+    private volatile boolean isUploading = false;
+    private ImageUploadHandler imageHandler;
+    private String currentImagePath = "";   // server path sau khi upload
+    // ─────────────────────────────────────────────────────────────────────
+
+    // ── Loại sản phẩm ─────────────────────────────────────────────────────
+    private String selectedType = "ART";
+
+    private static final String BTN_ACTIVE_STYLE =
+            "-fx-background-color: #4299e1; -fx-text-fill: white;" +
+            "-fx-background-radius: 8; -fx-cursor: hand;" +
+            "-fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
+    private static final String BTN_INACTIVE_STYLE =
+            "-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;" +
+            "-fx-background-radius: 8; -fx-cursor: hand;" +
+            "-fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
 
     private final Gson gson = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
 
-    // ── Tách đường dẫn ảnh từ chuỗi "path1|path2|path3" ─────────────────
-    private static String[] splitImagePaths(String raw) {
-        if (raw == null || raw.isBlank()) return new String[]{"", "", ""};
-        String[] parts = raw.split("\\|", -1);
-        String p1 = parts.length > 0 ? parts[0] : "";
-        String p2 = parts.length > 1 ? parts[1] : "";
-        String p3 = parts.length > 2 ? parts[2] : "";
-        String p4 = parts.length > 3 ? parts[3] : "";
-        return new String[]{p1, p2, p3, p4};
-    }
-
-    // ── Ghép 3 đường dẫn thành "path1|path2|path3" ───────────────────────
-    private static String joinImagePaths(String p1, String p2, String p3, String p4) {
-        // Loại bỏ dấu | thừa ở cuối nếu ảnh 2,3 trống
-        StringBuilder sb = new StringBuilder(p1 != null ? p1 : "");
-        sb.append("|").append(p2 != null ? p2 : "");
-        sb.append("|").append(p3 != null ? p3 : "");
-        sb.append("|").append(p4 != null ? p4 : "");
-        // Trim trailing pipes
-        String result = sb.toString();
-        while (result.endsWith("|")) result = result.substring(0, result.length() - 1);
-        return result;
-    }
+    // ─────────────────────────────────────────────────────────────────────
 
     private static Gson buildGson() {
         return new GsonBuilder()
-                .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
-                    JsonObject obj = json.getAsJsonObject();
-                    return deserializeItem(obj);
-                })
+                .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) ->
+                        deserializeItem(json.getAsJsonObject()))
                 .create();
     }
 
@@ -133,31 +127,91 @@ public class ManageProductController implements Initializable {
                 case "VEHICLE"     -> plain.fromJson(obj, Vehicle.class);
                 default            -> plain.fromJson(obj, Art.class);
             };
-        } catch (Exception e) {
-            return null;
-        }
+        } catch (Exception e) { return null; }
     }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         client.removeListener(listener);
         client.addListener(listener);
+
+        // Khởi tạo imageHandler — dùng imgPreview1 làm preview chính
+        imageHandler = new ImageUploadHandler(client, imgPreview1)
+            .onSuccess(path -> {
+                currentImagePath = path;
+                isUploading = false;
+                showStatus("✓ Upload ảnh thành công!", false);
+            })
+            .onError(err -> {
+                isUploading = false;
+                showStatus("⚠ " + err, true);
+            });
+
         setupTable();
         setupRowClickListener();
         setupTimeFieldListeners();
+        updateTypeButtons("ART");
         loadMyProducts();
     }
 
+    // ── Loại sản phẩm ─────────────────────────────────────────────────────
+    @FXML private void onTypeArtClick(ActionEvent event) {
+        selectedType = "ART";
+        updateTypeButtons("ART");
+    }
+
+    @FXML private void onTypeElectronicsClick(ActionEvent event) {
+        selectedType = "ELECTRONICS";
+        updateTypeButtons("ELECTRONICS");
+    }
+
+    @FXML private void onTypeVehicleClick(ActionEvent event) {
+        selectedType = "VEHICLE";
+        updateTypeButtons("VEHICLE");
+    }
+
+    private void updateTypeButtons(String activeType) {
+        if (btnTypeArt         != null) btnTypeArt.setStyle(BTN_INACTIVE_STYLE);
+        if (btnTypeElectronics != null) btnTypeElectronics.setStyle(BTN_INACTIVE_STYLE);
+        if (btnTypeVehicle     != null) btnTypeVehicle.setStyle(BTN_INACTIVE_STYLE);
+        switch (activeType) {
+            case "ART"         -> { if (btnTypeArt         != null) btnTypeArt.setStyle(BTN_ACTIVE_STYLE); }
+            case "ELECTRONICS" -> { if (btnTypeElectronics != null) btnTypeElectronics.setStyle(BTN_ACTIVE_STYLE); }
+            case "VEHICLE"     -> { if (btnTypeVehicle     != null) btnTypeVehicle.setStyle(BTN_ACTIVE_STYLE); }
+        }
+    }
+
+    // ── Nút chọn ảnh ─────────────────────────────────────────────────────
+    // Hỗ trợ cả 2 tên handler: onSelectImageClick (mới) và onSelectImage1Click (cũ)
+    @FXML private void onSelectImageClick() {
+        javafx.stage.Window window = imgPreview1.getScene().getWindow();
+        isUploading = true;
+        currentImagePath = "";           // xóa path cũ khi chọn ảnh mới
+        showStatus("Đang upload ảnh...", false);
+        imageHandler.pickAndUpload(window);
+    }
+
+    @FXML private void onSelectImage1Click() {
+        onSelectImageClick();
+    }
+
+    // Giữ handler cũ để FXML không lỗi nếu còn nút ảnh 2-4
+    @FXML private void onSelectImage2Click() { /* không dùng nữa */ }
+    @FXML private void onSelectImage3Click() { /* không dùng nữa */ }
+    @FXML private void onSelectImage4Click() { /* không dùng nữa */ }
+    // ─────────────────────────────────────────────────────────────────────
+
     private void setupTimeFieldListeners() {
-        limitTimeField(txtStartHour, 23);
+        limitTimeField(txtStartHour,   23);
         limitTimeField(txtStartMinute, 59);
         limitTimeField(txtStartSecond, 59);
-        limitTimeField(txtEndHour, 23);
-        limitTimeField(txtEndMinute, 59);
-        limitTimeField(txtEndSecond, 59);
+        limitTimeField(txtEndHour,     23);
+        limitTimeField(txtEndMinute,   59);
+        limitTimeField(txtEndSecond,   59);
     }
 
     private void limitTimeField(TextField field, int maxValue) {
+        if (field == null) return;
         field.textProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal.matches("\\d*")) {
                 field.setText(newVal.replaceAll("[^\\d]", ""));
@@ -181,7 +235,8 @@ public class ManageProductController implements Initializable {
 
         colTime.setCellValueFactory(new PropertyValueFactory<>("endTime"));
         colTime.setCellFactory(col -> new TableCell<>() {
-            private final DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            private final DateTimeFormatter fmt =
+                    DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
             @Override
             protected void updateItem(LocalDateTime item, boolean empty) {
                 super.updateItem(item, empty);
@@ -197,8 +252,8 @@ public class ManageProductController implements Initializable {
                 setText(item);
                 setStyle(switch (item) {
                     case "ACTIVE", "RUNNING" -> "-fx-text-fill:#2ecc71; -fx-font-weight:bold;";
-                    case "SOLD", "FINISHED"  -> "-fx-text-fill:#e74c3c; -fx-font-weight:bold;";
-                    default                  -> "-fx-text-fill:#f1c40f; -fx-font-weight:bold;";
+                    case "SOLD",   "FINISHED" -> "-fx-text-fill:#e74c3c; -fx-font-weight:bold;";
+                    default                   -> "-fx-text-fill:#f1c40f; -fx-font-weight:bold;";
                 });
             }
         });
@@ -214,6 +269,11 @@ public class ManageProductController implements Initializable {
             String desc = newVal.getDescription();
             txtDescription.setText(desc != null ? desc : "");
 
+            // Cập nhật nút type theo loại sản phẩm
+            String itemType = newVal.getType() != null ? newVal.getType().toUpperCase() : "ART";
+            selectedType = itemType;
+            updateTypeButtons(itemType);
+
             if (newVal.getStartTime() != null) {
                 dpStartDate.setValue(newVal.getStartTime().toLocalDate());
                 txtStartHour.setText(String.format("%02d", newVal.getStartTime().getHour()));
@@ -227,150 +287,82 @@ public class ManageProductController implements Initializable {
                 txtEndSecond.setText(String.format("%02d", newVal.getEndTime().getSecond()));
             }
 
-            // Load ảnh hiện tại vào 4 preview, reset đường dẫn mới về ""
-            imagePath1 = "";
-            imagePath2 = "";
-            imagePath3 = "";
-            imagePath4 = "";
-            String[] paths = splitImagePaths(newVal.getImagePath());
-            loadPreview(imgPreview1, paths[0]);
-            loadPreview(imgPreview2, paths[1]);
-            loadPreview(imgPreview3, paths[2]);
-            loadPreview(imgPreview4, paths.length > 3 ? paths[3] : "");
+            // ── ẢNH: load ảnh đầu tiên từ server ─────────────────────────
+            currentImagePath = "";
+            String rawPath = newVal.getImagePath() != null ? newVal.getImagePath() : "";
+            // Lấy ảnh đầu tiên nếu lưu dạng "p1|p2|p3"
+            String firstPath = rawPath.contains("|") ? rawPath.split("\\|")[0] : rawPath;
+            imageHandler.loadFromServer(firstPath);
+            // ─────────────────────────────────────────────────────────────
         });
     }
 
-    // ── Load ảnh vào ImageView, hỗ trợ jpg/png/jfif/webp/bmp/gif ────────
-    private void loadPreview(ImageView iv, String path) {
-        if (iv == null) return;
-        if (path == null || path.isBlank()) { iv.setImage(null); return; }
-        try {
-            File f = new File(path);
-            if (!f.exists()) { iv.setImage(null); return; }
-
-            String lower = path.toLowerCase();
-            // JavaFX Image hỗ trợ trực tiếp: jpg, jpeg, png, bmp, gif
-            // jfif thực chất là JPEG — đổi extension rồi đọc qua ImageIO
-            // webp cần ImageIO đọc rồi convert sang WritableImage
-            if (lower.endsWith(".webp") || lower.endsWith(".jfif")) {
-                java.awt.image.BufferedImage bi =
-                        javax.imageio.ImageIO.read(f);
-                if (bi == null) { iv.setImage(null); return; }
-                javafx.scene.image.WritableImage wi =
-                        new javafx.scene.image.WritableImage(bi.getWidth(), bi.getHeight());
-                javafx.embed.swing.SwingFXUtils.toFXImage(bi, wi);
-                iv.setImage(wi);
-            } else {
-                iv.setImage(new Image(f.toURI().toString(), true));
-            }
-        } catch (Exception e) {
-            System.err.println("[ManageProduct] Lỗi load ảnh: " + e.getMessage());
-            iv.setImage(null);
-        }
-    }
-
-    // ── Nút chọn ảnh 1 / 2 / 3 / 4 ──────────────────────────────────────────
-    @FXML private void onSelectImage1Click() { pickImage(1); }
-    @FXML private void onSelectImage2Click() { pickImage(2); }
-    @FXML private void onSelectImage3Click() { pickImage(3); }
-    @FXML private void onSelectImage4Click() { pickImage(4); }
-
-    private void pickImage(int slot) {
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Chọn ảnh " + slot);
-        // Tất cả định dạng ảnh phổ biến
-        chooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Tất cả ảnh",
-                        "*.png", "*.jpg", "*.jpeg", "*.jfif",
-                        "*.webp", "*.bmp", "*.gif", "*.tif", "*.tiff"),
-                new FileChooser.ExtensionFilter("JPG / JPEG / JFIF",
-                        "*.jpg", "*.jpeg", "*.jfif"),
-                new FileChooser.ExtensionFilter("PNG", "*.png"),
-                new FileChooser.ExtensionFilter("WebP", "*.webp"),
-                new FileChooser.ExtensionFilter("BMP / GIF / TIFF",
-                        "*.bmp", "*.gif", "*.tif", "*.tiff")
-        );
-        // Lấy window từ một ImageView bất kỳ
-        File file = chooser.showOpenDialog(imgPreview1.getScene().getWindow());
-        if (file == null) return;
-        String path = file.getAbsolutePath();
-        switch (slot) {
-            case 1 -> { imagePath1 = path; loadPreview(imgPreview1, path); }
-            case 2 -> { imagePath2 = path; loadPreview(imgPreview2, path); }
-            case 3 -> { imagePath3 = path; loadPreview(imgPreview3, path); }
-            case 4 -> { imagePath4 = path; loadPreview(imgPreview4, path); }
-        }
-    }
-
-    // ── Tạo imagePath cuối cùng để gửi server ───────────────────────────
-    // Nếu slot nào trống ("") → giữ giá trị cũ từ item đang chọn (nếu có)
-    private String buildFinalImagePath(Item selected) {
-        String[] existing = selected != null
-                ? splitImagePaths(selected.getImagePath())
-                : new String[]{"", "", ""};
-
-        String p1 = imagePath1.isBlank() ? existing[0] : imagePath1;
-        String p2 = imagePath2.isBlank() ? existing[1] : imagePath2;
-        String p3 = imagePath3.isBlank() ? existing[2] : imagePath3;
-        String p4 = imagePath4.isBlank() ? existing[3] : imagePath4;
-
-        return joinImagePaths(p1, p2, p3, p4);
-    }
-
     @FXML
-    private void onAddProductClick() {
-        if (!validateForm()) return;
-        showStatus("Đang gửi...", false);
+private void onAddProductClick() {
+    if (isUploading) {
+        showStatus("⏳ Vui lòng chờ upload ảnh xong...", false);
+        return;
+    }
+    if (!validateForm()) return;
+    showStatus("Đang gửi...", false);
 
-        LocalDateTime startDT = buildDateTime(dpStartDate, txtStartHour, txtStartMinute, txtStartSecond, LocalDateTime.now());
-        LocalDateTime endDT   = buildDateTime(dateEnd, txtEndHour, txtEndMinute, txtEndSecond, null);
-        if (endDT == null) { showStatus("⚠ Vui lòng chọn ngày kết thúc.", true); return; }
+    LocalDateTime startDT = buildDateTime(
+            dpStartDate, txtStartHour, txtStartMinute, txtStartSecond,
+            LocalDateTime.now());
+    LocalDateTime endDT = buildDateTime(
+            dateEnd, txtEndHour, txtEndMinute, txtEndSecond, null);
+    if (endDT == null) { showStatus("⚠ Vui lòng chọn ngày kết thúc.", true); return; }
 
-        UserSession session = UserSession.getInstance();
-        if (session == null || session.getUserId() == null) {
-            showStatus("⚠ Lỗi: Phiên người dùng không hợp lệ!", true); return;
-        }
-
-        // Khi thêm mới, ghép 3 đường dẫn
-        String imagePath = joinImagePaths(imagePath1, imagePath2, imagePath3, imagePath4);
-
-        String payload = gson.toJson(Map.of(
-                "sellerId",     session.getUserId(),
-                "name",         txtName.getText().trim(),
-                "startPrice",   txtStartingPrice.getText().trim(),
-                "bidIncrement", txtBidIncrement.getText().trim(),
-                "description",  txtDescription.getText().trim(),
-                "startTime",    startDT.toString(),
-                "endTime",      endDT.toString(),
-                "imagePath",    imagePath,
-                "status",       "PENDING"
-        ));
-        client.send(new Message("ADD_PRODUCT", payload));
+    UserSession session = UserSession.getInstance();
+    if (session == null || session.getUserId() == null) {
+        showStatus("⚠ Lỗi: Phiên người dùng không hợp lệ!", true); return;
     }
 
-    @FXML
-    public void handleUpdateProduct(ActionEvent event) {
-        Item selected = tableProducts.getSelectionModel().getSelectedItem();
-        if (selected == null) { showStatus("Vui lòng chọn sản phẩm cần sửa!", true); return; }
-        if (!validateForm()) return;
-
-        LocalDateTime endDT = buildDateTime(dateEnd, txtEndHour, txtEndMinute, txtEndSecond, selected.getEndTime());
-
-        // Giữ ảnh cũ ở slot nào chưa chọn mới
-        String imagePath = buildFinalImagePath(selected);
-
-        String payload = gson.toJson(Map.of(
-                "productId",    selected.getId(),
-                "name",         txtName.getText().trim(),
-                "startPrice",   txtStartingPrice.getText().trim(),
-                "bidIncrement", txtBidIncrement.getText().trim(),
-                "description",  txtDescription.getText().trim(),
-                "endTime",      endDT.toString(),
-                "imagePath",    imagePath
-        ));
-        client.send(new Message("UPDATE_PRODUCT", payload));
-        showStatus("Đang cập nhật...", false);
+    String payload = gson.toJson(Map.of(
+            "sellerId",     session.getUserId(),
+            "name",         txtName.getText().trim(),
+            "startPrice",   txtStartingPrice.getText().trim(),
+            "bidIncrement", txtBidIncrement.getText().trim(),
+            "description",  txtDescription.getText().trim(),
+            "startTime",    startDT.toString(),
+            "endTime",      endDT.toString(),
+            "imagePath",    currentImagePath,   // rỗng nếu không chọn ảnh — OK
+            "type",         selectedType,
+            "status",       "PENDING"
+    ));
+    client.send(new Message("ADD_PRODUCT", payload));
+}
+@FXML
+public void handleUpdateProduct(ActionEvent event) {
+    if (isUploading) {
+        showStatus("⏳ Vui lòng chờ upload ảnh xong...", false);
+        return;
     }
+    Item selected = tableProducts.getSelectionModel().getSelectedItem();
+    if (selected == null) { showStatus("Vui lòng chọn sản phẩm cần sửa!", true); return; }
+    if (!validateForm()) return;
+
+    LocalDateTime endDT = buildDateTime(
+            dateEnd, txtEndHour, txtEndMinute, txtEndSecond,
+            selected.getEndTime());
+
+    String imagePath = currentImagePath.isBlank()
+            ? (selected.getImagePath() != null ? selected.getImagePath() : "")
+            : currentImagePath;
+
+    String payload = gson.toJson(Map.of(
+            "productId",    selected.getId(),
+            "name",         txtName.getText().trim(),
+            "startPrice",   txtStartingPrice.getText().trim(),
+            "bidIncrement", txtBidIncrement.getText().trim(),
+            "description",  txtDescription.getText().trim(),
+            "endTime",      endDT.toString(),
+            "imagePath",    imagePath,
+            "type",         selectedType
+    ));
+    client.send(new Message("UPDATE_PRODUCT", payload));
+    showStatus("Đang cập nhật...", false);
+}
 
     private void handleServerResponse(Message msg) {
         Platform.runLater(() -> {
@@ -396,10 +388,9 @@ public class ManageProductController implements Initializable {
                             productData.setAll(items);
                             showStatus("Tải " + items.size() + " sản phẩm thành công.", false);
                         } else {
-                            String errorMsg = root.has("message")
+                            showStatus("⚠ " + (root.has("message")
                                     ? root.get("message").getAsString()
-                                    : "Không tìm thấy danh sách sản phẩm.";
-                            showStatus("⚠ " + errorMsg, true);
+                                    : "Không tìm thấy danh sách sản phẩm."), true);
                         }
                     } catch (Exception e) {
                         showStatus("⚠ Lỗi xử lý dữ liệu từ Server!", true);
@@ -409,8 +400,7 @@ public class ManageProductController implements Initializable {
                 case "ADD_PRODUCT_RESPONSE" -> {
                     try {
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                        boolean success = root.has("success") && root.get("success").getAsBoolean();
-                        if (success) {
+                        if (root.has("success") && root.get("success").getAsBoolean()) {
                             clearForm();
                             showStatus("✓ Thêm sản phẩm thành công!", false);
                             loadMyProducts();
@@ -425,8 +415,7 @@ public class ManageProductController implements Initializable {
                 case "UPDATE_PRODUCT_RESPONSE" -> {
                     try {
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                        boolean success = root.has("success") && root.get("success").getAsBoolean();
-                        if (success) {
+                        if (root.has("success") && root.get("success").getAsBoolean()) {
                             loadMyProducts();
                             showStatus("✓ Cập nhật thành công!", false);
                         } else {
@@ -440,8 +429,7 @@ public class ManageProductController implements Initializable {
                 case "DELETE_PRODUCT_RESPONSE" -> {
                     try {
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                        boolean success = root.has("success") && root.get("success").getAsBoolean();
-                        if (success) {
+                        if (root.has("success") && root.get("success").getAsBoolean()) {
                             Item selected = tableProducts.getSelectionModel().getSelectedItem();
                             if (selected != null) productData.remove(selected);
                             clearForm();
@@ -453,6 +441,11 @@ public class ManageProductController implements Initializable {
                         showStatus("⚠ Lỗi: " + e.getMessage(), true);
                     }
                 }
+
+                // ── ẢNH: delegate sang ImageUploadHandler ─────────────────
+                case "UPLOAD_IMAGE_RESPONSE" -> imageHandler.onUploadResponse(msg.getPayload());
+                case "GET_IMAGE_RESPONSE"    -> imageHandler.onGetImageResponse(msg.getPayload());
+                // ─────────────────────────────────────────────────────────
             }
         });
     }
@@ -488,13 +481,18 @@ public class ManageProductController implements Initializable {
             int hour   = h.getText().isEmpty() ? 0 : Integer.parseInt(h.getText());
             int minute = m.getText().isEmpty() ? 0 : Integer.parseInt(m.getText());
             int second = s.getText().isEmpty() ? 0 : Integer.parseInt(s.getText());
-            return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 && second >= 0 && second <= 59;
+            return hour >= 0 && hour <= 23
+                    && minute >= 0 && minute <= 59
+                    && second >= 0 && second <= 59;
         } catch (NumberFormatException e) { return false; }
     }
 
-    private LocalDateTime buildDateTime(DatePicker dp, TextField h, TextField m, TextField s, LocalDateTime fallback) {
+    private LocalDateTime buildDateTime(DatePicker dp,
+                                         TextField h, TextField m, TextField s,
+                                         LocalDateTime fallback) {
         if (dp.getValue() == null) return fallback;
-        return dp.getValue().atTime(parseTimeField(h, 0), parseTimeField(m, 0), parseTimeField(s, 0));
+        return dp.getValue().atTime(
+                parseTimeField(h, 0), parseTimeField(m, 0), parseTimeField(s, 0));
     }
 
     private int parseTimeField(TextField field, int def) {
@@ -506,24 +504,28 @@ public class ManageProductController implements Initializable {
 
     private void loadMyProducts() {
         UserSession session = UserSession.getInstance();
-        if (session != null && session.getUserId() != null) {
+        if (session != null && session.getUserId() != null)
             client.send(new Message("GET_MY_PRODUCTS",
                     gson.toJson(Map.of("sellerId", session.getUserId()))));
-        }
     }
 
     private void clearForm() {
-        txtName.clear(); txtStartingPrice.clear();
-        txtBidIncrement.clear(); txtDescription.clear();
+        txtName.clear();
+        txtStartingPrice.clear();
+        txtBidIncrement.clear();
+        txtDescription.clear();
         dpStartDate.setValue(null);
         txtStartHour.clear(); txtStartMinute.clear(); txtStartSecond.clear();
         dateEnd.setValue(null);
         txtEndHour.clear(); txtEndMinute.clear(); txtEndSecond.clear();
-        if (imgPreview1 != null) imgPreview1.setImage(null);
-        if (imgPreview2 != null) imgPreview2.setImage(null);
-        if (imgPreview3 != null) imgPreview3.setImage(null);
-        if (imgPreview4 != null) imgPreview4.setImage(null);
-        imagePath1 = ""; imagePath2 = ""; imagePath3 = ""; imagePath4 = "";
+        // ── ẢNH ──
+        currentImagePath = "";
+        isUploading = false;
+        if (imageHandler != null) imageHandler.clearPreview();
+        // ─────────
+        // Reset type về mặc định
+        selectedType = "ART";
+        updateTypeButtons("ART");
         tableProducts.getSelectionModel().clearSelection();
     }
 
@@ -532,12 +534,12 @@ public class ManageProductController implements Initializable {
         SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 
-    @FXML
-    private void onDeleteClick(ActionEvent event) {
+    @FXML private void onDeleteClick(ActionEvent event) {
         Item selected = tableProducts.getSelectionModel().getSelectedItem();
         if (selected == null) { showStatus("Vui lòng chọn sản phẩm cần xoá!", true); return; }
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                "Xoá sản phẩm: " + selected.getName() + "?", ButtonType.YES, ButtonType.NO);
+                "Xoá sản phẩm: " + selected.getName() + "?",
+                ButtonType.YES, ButtonType.NO);
         confirm.setTitle("Xác nhận xoá");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.YES) {
@@ -549,7 +551,8 @@ public class ManageProductController implements Initializable {
     }
 
     private String safeMsg(JsonObject root) {
-        return root.has("message") ? root.get("message").getAsString() : "Lỗi không xác định";
+        return root.has("message")
+                ? root.get("message").getAsString() : "Lỗi không xác định";
     }
 
     private void showStatus(String msg, boolean isError) {

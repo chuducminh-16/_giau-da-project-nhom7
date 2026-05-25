@@ -117,6 +117,12 @@ public class ClientHandler implements Runnable {
                 if (!isAuthenticated()) return;
                 send(auctionController.handleGetUserBidHistory(p));
             }
+            // ++++ Thêm UPLOAD hình ảnh-------------------------------
+            case "UPLOAD_IMAGE" -> {
+                if (!isAuthenticated()) return;
+                send(handleUploadImage(p));
+            }
+            case "GET_IMAGE" -> send(handleGetImage(p));
 
             // ── FIX: Auto-Bid routes (ban goc THIEU 2 case nay) ──────────
             case "REGISTER_AUTO_BID" -> {
@@ -192,4 +198,66 @@ public class ClientHandler implements Runnable {
     }
 
     private record WatchDto(String auctionId) {}
+    private Message handleUploadImage(String payload) {
+    try {
+        com.google.gson.JsonObject obj = gson.fromJson(payload, com.google.gson.JsonObject.class);
+        String fileName = obj.get("fileName").getAsString()
+                            .replaceAll("[^a-zA-Z0-9._-]", "_"); // sanitize
+        String base64   = obj.get("data").getAsString();
+
+        java.io.File dir = new java.io.File("uploads/images");
+        dir.mkdirs();
+
+        // Tên file unique
+        String uniqueName = System.currentTimeMillis() + "_" + fileName;
+        java.io.File outFile = new java.io.File(dir, uniqueName);
+
+        byte[] bytes = java.util.Base64.getDecoder().decode(base64);
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile)) {
+            fos.write(bytes);
+        }
+
+        return new Message("UPLOAD_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
+                "success",   true,
+                "imagePath", "uploads/images/" + uniqueName
+        )));
+
+    } catch (Exception e) {
+        e.printStackTrace();
+        return new Message("UPLOAD_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
+                "success", false,
+                "message", "Lỗi upload: " + e.getMessage()
+        )));
+    }
+}
+
+
+//________Lay hinh anh__________________________________________________________________________________________
+private Message handleGetImage(String payload) {
+    try {
+        com.google.gson.JsonObject obj = gson.fromJson(payload, com.google.gson.JsonObject.class);
+        String imagePath = obj.get("imagePath").getAsString();
+
+        // Chặn path traversal attack
+        java.io.File file = new java.io.File(imagePath).getCanonicalFile();
+        java.io.File base = new java.io.File("uploads").getCanonicalFile();
+        if (!file.toPath().startsWith(base.toPath()) || !file.exists()) {
+            return new Message("GET_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
+                    "success", false, "message", "Không tìm thấy ảnh.")));
+        }
+
+        byte[] bytes  = java.nio.file.Files.readAllBytes(file.toPath());
+        String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
+
+        return new Message("GET_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
+                "success",   true,
+                "imagePath", imagePath,
+                "data",      base64
+        )));
+
+    } catch (Exception e) {
+        return new Message("GET_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
+                "success", false, "message", "Lỗi: " + e.getMessage())));
+    }
+}
 }
