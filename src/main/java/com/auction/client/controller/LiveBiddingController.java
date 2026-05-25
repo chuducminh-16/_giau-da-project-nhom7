@@ -66,7 +66,7 @@ public class LiveBiddingController implements Initializable {
 
     @FXML private ListView<String> listNotifications;
 
-    // ── Auto-Bid ───
+    // ── FXML mới: Auto-Bid ────────────────────────────────────────────────
     @FXML private TextField txtMaxBid;
     @FXML private Button    btnAutoBid;
     @FXML private Label     lblAutoBidStatus;
