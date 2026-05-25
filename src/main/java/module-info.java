@@ -13,6 +13,7 @@ module com.auction.client {
     opens com.auction.client.controller to javafx.fxml, com.google.gson;
     opens com.auction.client.network    to com.google.gson;
     opens com.auction.client.session    to com.google.gson;
+    opens com.auction.client.handler to com.google.gson;
  
     // ── Mở cho Gson (server) ──────────────────────────────────────────────
     opens com.auction.server.network     to com.google.gson;

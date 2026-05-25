@@ -71,7 +71,6 @@ public class AuctionController {
                     ? LocalDateTime.parse(dto.startTime().replace(" ", "T"))
                     : LocalDateTime.now();
 
-            // ── DUY NHẤT thay đổi so với bản gốc: thêm dto.type() ──────
             Item item = auctionService.addProduct(
                     dto.sellerId(), dto.name(),
                     dto.description() != null ? dto.description() : "",
@@ -92,7 +91,6 @@ public class AuctionController {
         }
     }
 
-    // FIX: nhận thêm imagePath từ payload và truyền vào updateProduct()
     public Message handleUpdateProduct(String payload, String role) {
         if (!"SELLER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
             return error("Khong co quyen cap nhat san pham.");
@@ -100,7 +98,6 @@ public class AuctionController {
         try {
             UpdateProductDto dto = gson.fromJson(payload, UpdateProductDto.class);
 
-            // Lấy type từ dto (đảm bảo UpdateProductDto record đã có trường String type)
             boolean ok = auctionService.updateProduct(
                     dto.productId(), dto.name(), dto.description(),
                     dto.startPrice(), dto.bidIncrement(),
@@ -165,6 +162,7 @@ public class AuctionController {
 
         if (!success) return;
 
+        // ── Broadcast BID_UPDATE cho tất cả client ────────────────────────
         String bidUpdatePayload = gson.toJson(Map.of(
                 "productId",  dto.productId(),
                 "newBid",     outcome.newBid(),
@@ -172,6 +170,7 @@ public class AuctionController {
         ));
         server.broadcastToAll(new Message("BID_UPDATE", bidUpdatePayload));
 
+        // ── Anti-sniping: broadcast TIME_EXTENDED nếu có gia hạn ─────────
         if (outcome.newEndTime() != null) {
             String extPayload = gson.toJson(Map.of(
                     "productId",  dto.productId(),
@@ -181,25 +180,33 @@ public class AuctionController {
                     new Message("TIME_EXTENDED", extPayload));
         }
 
-        AutoBidService.AutoBidResult autoBid =
-                autoBidService.triggerAutoBid(dto.productId(), outcome.newBid(), bidderId);
+        // ── Auto-bid: bọc try-catch riêng để KHÔNG crash luồng chính ─────
+        // Nếu bảng auto_bids chưa tồn tại hoặc lỗi DB, chỉ log ra console
+        // mà không ảnh hưởng đến bid vừa thành công và các broadcast trên.
+        try {
+            AutoBidService.AutoBidResult autoBid =
+                    autoBidService.triggerAutoBid(dto.productId(), outcome.newBid(), bidderId);
 
-        if (autoBid != null) {
-            String autoBidPayload = gson.toJson(Map.of(
-                    "productId",  dto.productId(),
-                    "newBid",     autoBid.newBid(),
-                    "bidderName", autoBid.bidderId() + " (auto)"
-            ));
-            server.broadcastToAll(new Message("BID_UPDATE", autoBidPayload));
-
-            if (autoBid.newEndTime() != null) {
-                String extPayload = gson.toJson(Map.of(
+            if (autoBid != null) {
+                String autoBidPayload = gson.toJson(Map.of(
                         "productId",  dto.productId(),
-                        "newEndTime", autoBid.newEndTime()
+                        "newBid",     autoBid.newBid(),
+                        "bidderName", autoBid.bidderId() + " (auto)"
                 ));
-                server.broadcastToAuction(dto.productId(),
-                        new Message("TIME_EXTENDED", extPayload));
+                server.broadcastToAll(new Message("BID_UPDATE", autoBidPayload));
+
+                if (autoBid.newEndTime() != null) {
+                    String extPayload = gson.toJson(Map.of(
+                            "productId",  dto.productId(),
+                            "newEndTime", autoBid.newEndTime()
+                    ));
+                    server.broadcastToAuction(dto.productId(),
+                            new Message("TIME_EXTENDED", extPayload));
+                }
             }
+        } catch (Exception e) {
+            // Chỉ log cảnh báo, không throw — bid đã thành công rồi
+            System.err.println("[AuctionController] Auto-bid lỗi (bỏ qua): " + e.getMessage());
         }
     }
 
@@ -273,14 +280,14 @@ public class AuctionController {
     public Message handleGetProductDetail(String payload) {
         try {
             GetProductDetailDto dto = gson.fromJson(payload, GetProductDetailDto.class);
-            com.auction.server.dao.item.ItemFindDAO itemFindDAO = new com.auction.server.dao.item.ItemFindDAO();
+            com.auction.server.dao.item.ItemFindDAO itemFindDAO =
+                    new com.auction.server.dao.item.ItemFindDAO();
             Item item = itemFindDAO.findById(dto.itemId());
 
             if (item == null) return error("Không tìm thấy sản phẩm");
 
-            // QUAN TRỌNG: Đảm bảo type được đưa vào JSON payload
             JsonObject itemJson = gson.toJsonTree(item).getAsJsonObject();
-            itemJson.addProperty("type", item.getType()); // Ép thêm trường type vào JSON
+            itemJson.addProperty("type", item.getType());
 
             return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
                     "success", true,
@@ -309,7 +316,6 @@ public class AuctionController {
             double startPrice, double bidIncrement,
             String imagePath, String startTime, String endTime,
             String type) {}
-    // FIX: thêm imagePath vào UpdateProductDto
     private record UpdateProductDto(
             String productId, String name, String description,
             double startPrice, double bidIncrement,

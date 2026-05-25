@@ -98,6 +98,7 @@ public class ClientHandler implements Runnable {
             case "WATCH_AUCTION" -> {
                 WatchDto dto = gson.fromJson(p, WatchDto.class);
                 this.watchingAuctionId = dto.auctionId();
+                System.out.println("[ClientHandler] watchingAuctionId = " + watchingAuctionId);
             }
             case "PLACE_BID" -> {
                 if (!isAuthenticated()) return;

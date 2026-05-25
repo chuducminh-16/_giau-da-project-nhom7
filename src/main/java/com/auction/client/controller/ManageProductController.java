@@ -91,18 +91,10 @@ public class ManageProductController implements Initializable {
     private String currentImagePath = "";   // server path sau khi upload
     // ─────────────────────────────────────────────────────────────────────
 
-    // ── Loại sản phẩm ─────────────────────────────────────────────────────
-    private String selectedType = "ART";
 
-    private static final String BTN_ACTIVE_STYLE =
-            "-fx-background-color: #4299e1; -fx-text-fill: white;" +
-            "-fx-background-radius: 8; -fx-cursor: hand;" +
-            "-fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
-    private static final String BTN_INACTIVE_STYLE =
-            "-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;" +
-            "-fx-background-radius: 8; -fx-cursor: hand;" +
-            "-fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
 
+
+    
     // ── Loại sản phẩm đang chọn (MỚI THÊM) ────────────────────────────
     private String selectedType = "ART"; // mặc định ART
 
