@@ -29,7 +29,6 @@ public class ItemSaveDAO {
                 pstmt.setString(11, item.getImagePath() != null ? item.getImagePath() : "");
                 return pstmt.executeUpdate() > 0;
             } catch (Exception e) {
-                // Fallback: DB không có các cột mở rộng
                 try (PreparedStatement pstmt = conn.prepareStatement(sqlNoDesc)) {
                     pstmt.setString(1, item.getId());
                     pstmt.setString(2, item.getName());
@@ -47,6 +46,29 @@ public class ItemSaveDAO {
         }
     }
 
+    // FIX: thêm image_path vào UPDATE
+    // Bản gốc thiếu image_path → ảnh mới không bao giờ được lưu khi Update
+    public boolean updateItem(String productId, String name, String description,
+                              double startPrice, double bidIncrement,
+                              LocalDateTime endTime, String imagePath) {
+        String sql = "UPDATE items SET name=?, current_price=?, end_time=?, description=?, bid_increment=?, image_path=? WHERE id=?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setDouble(2, startPrice);
+            ps.setString(3, endTime != null ? endTime.toString() : null);
+            ps.setString(4, description != null ? description : "");
+            ps.setDouble(5, bidIncrement);
+            ps.setString(6, imagePath != null ? imagePath : "");
+            ps.setString(7, productId);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Overload không có imagePath — giữ ảnh cũ (dùng khi không chọn ảnh mới)
     public boolean updateItem(String productId, String name, String description,
                               double startPrice, double bidIncrement,
                               LocalDateTime endTime) {
@@ -66,45 +88,26 @@ public class ItemSaveDAO {
         }
     }
 
-    // ── FIX: xóa đúng thứ tự để tránh foreign key constraint ─────────────
-    // Thứ tự bắt buộc:
-    //   1. bids           (FK -> items)
-    //   2. auto_bids      (FK -> items)
-    //   3. transactions   (FK -> items) ← FIX: bản gốc thiếu dòng này
-    //   4. auctions       (FK -> items)
-    //   5. items          (xóa cuối cùng)
     public boolean deleteItem(String productId) {
         try (Connection conn = DatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             try {
-                // 1. Xóa bids
                 try (PreparedStatement ps = conn.prepareStatement(
                         "DELETE FROM bids WHERE item_id=?")) {
-                    ps.setString(1, productId);
-                    ps.executeUpdate();
+                    ps.setString(1, productId); ps.executeUpdate();
                 }
-                // 2. Xóa auto_bids (nếu bảng tồn tại — bỏ qua nếu không có)
                 try (PreparedStatement ps = conn.prepareStatement(
                         "DELETE FROM auto_bids WHERE item_id=?")) {
-                    ps.setString(1, productId);
-                    ps.executeUpdate();
-                } catch (Exception ignored) {
-                    // Bảng auto_bids chưa tạo thì bỏ qua
-                }
-                // 3. FIX: Xóa transactions trước khi xóa items
-                // Bản gốc thiếu bước này → foreign key constraint khi item đã có giao dịch
+                    ps.setString(1, productId); ps.executeUpdate();
+                } catch (Exception ignored) {}
                 try (PreparedStatement ps = conn.prepareStatement(
                         "DELETE FROM transactions WHERE item_id=?")) {
-                    ps.setString(1, productId);
-                    ps.executeUpdate();
+                    ps.setString(1, productId); ps.executeUpdate();
                 }
-                // 4. Xóa auctions
                 try (PreparedStatement ps = conn.prepareStatement(
                         "DELETE FROM auctions WHERE item_id=?")) {
-                    ps.setString(1, productId);
-                    ps.executeUpdate();
+                    ps.setString(1, productId); ps.executeUpdate();
                 }
-                // 5. Xóa item — lúc này đã không còn FK nào trỏ vào
                 try (PreparedStatement ps = conn.prepareStatement(
                         "DELETE FROM items WHERE id=?")) {
                     ps.setString(1, productId);

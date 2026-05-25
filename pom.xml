@@ -45,6 +45,13 @@
             <version>21.0.2</version>
         </dependency>
 
+        <!--thêm javafx.swing để thêm ảnh-->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
+            <version>21.0.2</version>
+        </dependency>
+
         <!-- MySQL Driver -->
         <dependency>
             <groupId>com.mysql</groupId>

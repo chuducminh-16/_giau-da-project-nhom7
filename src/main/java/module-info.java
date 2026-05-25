@@ -3,6 +3,8 @@ module com.auction.client {
     requires javafx.fxml;
     requires javafx.graphics;
     requires javafx.base;
+    requires javafx.swing;          // FIX: thêm để dùng SwingFXUtils cho webp/jfif
+    requires java.desktop;          // FIX: thêm để dùng javax.imageio.ImageIO
     requires mysql.connector.j;
     requires com.google.gson;
     requires java.sql;

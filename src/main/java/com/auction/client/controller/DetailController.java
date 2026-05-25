@@ -44,15 +44,14 @@ public class DetailController implements Initializable {
     @FXML private Label lblEndTime;
     @FXML private Label lblDescription;
 
-    private Item currentItem;
-
-    // FIX: lưu itemId riêng để filter BID_UPDATE ngay từ đầu,
-    // không phụ thuộc vào currentItem (có thể chưa load xong khi BID_UPDATE đến)
+    private Item   currentItem;
     private String watchingItemId;
+
+    // FIX: giữ danh sách ảnh đã load để thumbnail click đúng ảnh
+    private final Image[] loadedImages = new Image[4];
 
     private final Gson          gson   = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
-
     private final NetworkClient.MessageListener listener = this::handleServerMessage;
 
     private static Gson buildGson() {
@@ -73,17 +72,11 @@ public class DetailController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         client.addListener(listener);
-
         watchingItemId = SelectedProductSession.getInstance().getProductId();
 
         if (watchingItemId != null) {
-            // FIX: gửi WATCH_AUCTION NGAY từ đầu để nhận BID_UPDATE realtime
-            // ngay cả khi PRODUCT_DETAIL_RESPONSE chưa về
-            // Server ClientHandler lưu watchingAuctionId = itemId,
-            // broadcastToAuction(productId, msg) filter theo itemId → khớp
             client.send(new Message("WATCH_AUCTION",
                     gson.toJson(Map.of("auctionId", watchingItemId))));
-
             client.send(new Message("GET_PRODUCT_DETAIL",
                     gson.toJson(Map.of("itemId", watchingItemId))));
             setText(productNameLabel, "Đang tải...");
@@ -106,10 +99,9 @@ public class DetailController implements Initializable {
                     if (item == null) return;
 
                     Platform.runLater(() -> {
-                        currentItem = item;
-                        watchingItemId = item.getId(); // đảm bảo khớp với server
+                        currentItem    = item;
+                        watchingItemId = item.getId();
                         populateUI(item);
-                        // KHÔNG gửi WATCH_AUCTION lại ở đây — đã gửi trong initialize()
                     });
                 } catch (Exception e) {
                     System.err.println("[Detail] Lỗi parse PRODUCT_DETAIL_RESPONSE: " + e.getMessage());
@@ -118,26 +110,15 @@ public class DetailController implements Initializable {
 
             case "BID_UPDATE" -> {
                 try {
-                    JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
-                    String productId = dto.get("productId").getAsString();
-
-                    // FIX: dùng watchingItemId (set ngay trong initialize) thay vì currentItem.getId()
-                    // để xử lý BID_UPDATE ngay cả khi currentItem chưa được load từ server
+                    JsonObject dto     = gson.fromJson(msg.getPayload(), JsonObject.class);
+                    String  productId  = dto.get("productId").getAsString();
                     if (watchingItemId == null || !watchingItemId.equals(productId)) return;
 
                     double newBid = dto.get("newBid").getAsDouble();
-
                     Platform.runLater(() -> {
-                        // Cập nhật label giá hiện tại
-                        if (currentPriceLabel != null) {
-                            currentPriceLabel.setText(
-                                    String.format("Current Bid: %,.0f VNĐ", newBid));
-                        }
-                        // Cập nhật object nếu đã có
-                        if (currentItem != null) {
-                            currentItem.setCurrentBid(newBid);
-                        }
-                        System.out.println("[Detail] BID_UPDATE nhận: " + newBid);
+                        if (currentPriceLabel != null)
+                            currentPriceLabel.setText(String.format("Current Bid: %,.0f VNĐ", newBid));
+                        if (currentItem != null) currentItem.setCurrentBid(newBid);
                     });
                 } catch (Exception e) {
                     System.err.println("[Detail] Lỗi parse BID_UPDATE: " + e.getMessage());
@@ -149,12 +130,9 @@ public class DetailController implements Initializable {
                     JsonObject dto = gson.fromJson(msg.getPayload(), JsonObject.class);
                     String endedItemId = dto.has("itemId") && !dto.get("itemId").isJsonNull()
                             ? dto.get("itemId").getAsString() : null;
-                    // Chỉ xử lý nếu đúng phiên mình đang xem
                     if (endedItemId != null && !endedItemId.equals(watchingItemId)) return;
-
                     Platform.runLater(() -> {
                         if (lblStatus != null) lblStatus.setText("FINISHED");
-                        System.out.println("[Detail] Phiên đấu giá kết thúc.");
                     });
                 } catch (Exception e) {
                     System.err.println("[Detail] Lỗi parse AUCTION_ENDED: " + e.getMessage());
@@ -167,8 +145,7 @@ public class DetailController implements Initializable {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
         productNameLabel.setText(item.getName());
-        currentPriceLabel.setText(
-                String.format("Current Bid: %,.0f VNĐ", item.getCurrentBid()));
+        currentPriceLabel.setText(String.format("Current Bid: %,.0f VNĐ", item.getCurrentBid()));
 
         setText(lblStartingPrice, String.format("%,.0f VNĐ", item.getStartingPrice()));
         setText(lblBidIncrement,  String.format("%,.0f VNĐ", item.getBidIncrement()));
@@ -176,13 +153,93 @@ public class DetailController implements Initializable {
         setText(lblCategory,      item.getType());
         setText(lblOrigin,        item.getSellerId() != null ? item.getSellerId() : "—");
         setText(lblSeller,        item.getSellerName() != null ? item.getSellerName() : "—");
-        setText(lblEndTime,       item.getEndTime() != null
-                ? item.getEndTime().format(fmt) : "—");
+        setText(lblEndTime,       item.getEndTime() != null ? item.getEndTime().format(fmt) : "—");
 
         String desc = item.getDescription();
         setText(lblDescription, desc != null && !desc.isBlank() ? desc : item.showDetails());
 
-        loadImage(item.getImagePath());
+        // FIX: load tối đa 3 ảnh từ "path1|path2|path3"
+        loadImages(item.getImagePath());
+    }
+
+    // ── Load tối đa 3 ảnh từ "path1|path2|path3" ─────────────────────────
+    private void loadImages(String rawPath) {
+        loadedImages[0] = null;
+        loadedImages[1] = null;
+        loadedImages[2] = null;
+
+        if (rawPath == null || rawPath.isBlank()) {
+            clearThumbs();
+            return;
+        }
+
+        String[] paths = rawPath.split("\\|", -1);
+
+        for (int i = 0; i < 4 && i < paths.length; i++) {
+            String p = paths[i];
+            if (p == null || p.isBlank()) continue;
+            try {
+                File f = new File(p);
+                if (!f.exists()) continue;
+                String lower = p.toLowerCase();
+                if (lower.endsWith(".webp") || lower.endsWith(".jfif")) {
+                    java.awt.image.BufferedImage bi = javax.imageio.ImageIO.read(f);
+                    if (bi == null) continue;
+                    javafx.scene.image.WritableImage wi =
+                            new javafx.scene.image.WritableImage(bi.getWidth(), bi.getHeight());
+                    javafx.embed.swing.SwingFXUtils.toFXImage(bi, wi);
+                    loadedImages[i] = wi;
+                } else {
+                    loadedImages[i] = new Image(f.toURI().toString(), true);
+                }
+            } catch (Exception e) {
+                System.err.println("[Detail] Lỗi load ảnh " + (i+1) + ": " + e.getMessage());
+            }
+        }
+
+        // loadedImages[0] = ảnh to, [1][2][3] = 3 thumbnail
+
+        if (mainImageView != null) mainImageView.setImage(loadedImages[0]);
+
+        // Thumbnails
+        ImageView[] thumbs = {thumb1, thumb2, thumb3};
+        for (int i = 0; i < 3; i++) {
+            if (thumbs[i] != null) thumbs[i].setImage(loadedImages[i + 1]);
+        }
+
+        resetBorders();
+        // Highlight thumb1 nếu có ảnh [0] (ảnh to) — không highlight thumbnail
+        // Mặc định hiển thị ảnh [0] ở main, không cần highlight thumbnail
+    
+    }
+
+    private void clearThumbs() {
+        if (mainImageView != null) mainImageView.setImage(null);
+        if (thumb1 != null) { thumb1.setImage(null); }
+        if (thumb2 != null) { thumb2.setImage(null); }
+        if (thumb3 != null) { thumb3.setImage(null); }
+    }
+
+    // ── Thumbnail click: hiển thị ảnh tương ứng lên main ─────────────────
+    @FXML
+    public void onThumbnailClick(MouseEvent event) {
+        ImageView clicked = (ImageView) event.getSource();
+        resetBorders();
+        clicked.setStyle("-fx-border-color:#ffaa00; -fx-border-width:2px;");
+
+        // Tìm index của thumbnail được click
+        int idx = 1;
+        if (clicked == thumb2) idx = 2;
+        else if (clicked == thumb3) idx = 3;
+
+        Image img = loadedImages[idx];
+        if (img != null && mainImageView != null) mainImageView.setImage(img);
+    }
+
+    private void resetBorders() {
+        if (thumb1 != null) thumb1.setStyle("-fx-border-color:transparent;");
+        if (thumb2 != null) thumb2.setStyle("-fx-border-color:transparent;");
+        if (thumb3 != null) thumb3.setStyle("-fx-border-color:transparent;");
     }
 
     @FXML public void onJoinRoomClick(ActionEvent event) {
@@ -196,41 +253,7 @@ public class DetailController implements Initializable {
         SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 
-    @FXML public void onThumbnailClick(MouseEvent event) {
-        ImageView clicked = (ImageView) event.getSource();
-        if (clicked.getImage() != null) mainImageView.setImage(clicked.getImage());
-        resetBorders();
-        clicked.setStyle("-fx-border-color:#ffaa00; -fx-border-width:2px;");
-    }
-
-    private void resetBorders() {
-        if (thumb1 != null) thumb1.setStyle("-fx-border-color:transparent;");
-        if (thumb2 != null) thumb2.setStyle("-fx-border-color:transparent;");
-        if (thumb3 != null) thumb3.setStyle("-fx-border-color:transparent;");
-    }
-
     private void setText(Label label, String value) {
         if (label != null) label.setText(value != null ? value : "—");
-    }
-
-    /**
-     * Load ảnh từ đường dẫn tuyệt đối.
-     * Dùng File.toURI().toString() để tránh lỗi trên Windows (drive letter, khoảng trắng).
-     */
-    private void loadImage(String imagePath) {
-        if (imagePath == null || imagePath.isBlank()) return;
-        try {
-            File imgFile = new File(imagePath);
-            if (!imgFile.exists()) {
-                System.err.println("[Detail] Không tìm thấy file ảnh: " + imagePath);
-                return;
-            }
-            Image img = new Image(imgFile.toURI().toString(), true);
-            mainImageView.setImage(img);
-            if (thumb1 != null) thumb1.setImage(img);
-            if (thumb2 != null) thumb2.setImage(img);
-        } catch (Exception e) {
-            System.err.println("[Detail] Lỗi load ảnh: " + e.getMessage());
-        }
     }
 }

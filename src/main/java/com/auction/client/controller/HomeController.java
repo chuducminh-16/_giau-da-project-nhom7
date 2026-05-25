@@ -37,6 +37,8 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import com.auction.client.utils.ToastNotification;
+import javafx.stage.Stage;
 
 public class HomeController implements Initializable {
 
@@ -226,6 +228,13 @@ public class HomeController implements Initializable {
                                 auctionList.set(i, item); // trigger re-render
                                 if (heroItem != null && heroItem.getId().equals(productId))
                                     updateHeroCard(item);
+
+                                // Toast thông báo bid mới
+                                Stage stage = (Stage) auctionTable.getScene().getWindow();
+                                String name = item.getName();
+                                String bidder = dto.has("bidderName")
+                                        ? dto.get("bidderName").getAsString() : "Ai đó";
+                                ToastNotification.bid(stage, bidder, name, newBid);
                                 break;
                             }
                         }
@@ -248,7 +257,11 @@ public class HomeController implements Initializable {
                     (item.getSellerName() != null ? item.getSellerName() : ""));
         }
         if (heroImage != null) {
-            String path = item.getImagePath();
+            String rawPath = item.getImagePath();
+            // Lấy ảnh đầu tiên (ảnh chính) từ "main|thumb1|thumb2|thumb3"
+            String path = (rawPath != null && rawPath.contains("|"))
+                    ? rawPath.split("\\|")[0]
+                    : rawPath;
             if (path != null && !path.isBlank()) {
                 try {
                     java.io.File imgFile = new java.io.File(path);

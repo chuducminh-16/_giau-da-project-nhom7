@@ -25,6 +25,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.auction.client.utils.ToastNotification;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -43,7 +44,9 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.stage.Stage;
 
 public class LiveBiddingController implements Initializable {
 
@@ -343,6 +346,15 @@ public class LiveBiddingController implements Initializable {
                             addLog(String.format("🏆 Người thắng: %s — Giá: %,.0f VNĐ",
                                     winnerName, finalPrice));
                         else addLog("Phiên đấu giá đã kết thúc — không có người đặt giá.");
+
+                        // Toast thắng/thua
+                        Stage stage = (Stage) lblCountdown.getScene().getWindow();
+                        String myName = UserSession.getInstance().getUsername();
+                        String itemName = currentItem != null ? currentItem.getName() : "";
+                        if (winnerName != null && winnerName.equals(myName))
+                            ToastNotification.win(stage, itemName, finalPrice);
+                        else if (finalPrice > 0)
+                            ToastNotification.lose(stage, itemName);
                     } catch (Exception e) {
                         addLog("Phiên đấu giá đã kết thúc!");
                     }
