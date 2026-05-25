@@ -35,31 +35,14 @@
                   <VBox prefHeight="632.0" prefWidth="663.0" spacing="12">
                      <children>
                         <!-- Ảnh chính -->
-                        <StackPane prefHeight="432.0" prefWidth="512.0" style="-fx-background-color: #2d3748;                                           -fx-background-radius: 12;                                           -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.18),12,0,0,4);">
+                        <StackPane prefHeight="743.0" prefWidth="663.0" style="-fx-background-color: #2d3748;                                           -fx-background-radius: 12;                                           -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.18),12,0,0,4);">
                            <children>
-                              <ImageView fx:id="mainImageView" fitHeight="434.0" fitWidth="662.0" pickOnBounds="true" preserveRatio="true" />
+                              <ImageView fx:id="mainImageView" fitHeight="562.0" fitWidth="653.0" pickOnBounds="true" preserveRatio="true" />
                            </children>
                         </StackPane>
 
                         <!-- Thumbnails — giữ nguyên fx:id và onMouseClicked -->
                         <HBox alignment="CENTER" prefHeight="186.0" prefWidth="663.0" spacing="30.0">
-                           <children>
-                              <StackPane prefHeight="100" prefWidth="130" style="-fx-background-color: #2d3748;                                                 -fx-background-radius: 8; -fx-cursor: hand;">
-                                 <children>
-                                    <ImageView fx:id="thumb1" fitHeight="139.0" fitWidth="183.0" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
-                                 </children>
-                              </StackPane>
-                              <StackPane prefHeight="100" prefWidth="130" style="-fx-background-color: #2d3748;                                                 -fx-background-radius: 8; -fx-cursor: hand;">
-                                 <children>
-                                    <ImageView fx:id="thumb2" fitHeight="141.0" fitWidth="175.0" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
-                                 </children>
-                              </StackPane>
-                              <StackPane prefHeight="139.0" prefWidth="180.0" style="-fx-background-color: #2d3748;                                                 -fx-background-radius: 8; -fx-cursor: hand;">
-                                 <children>
-                                    <ImageView fx:id="thumb3" fitHeight="141.0" fitWidth="180.0" onMouseClicked="#onThumbnailClick" pickOnBounds="true" preserveRatio="true" />
-                                 </children>
-                              </StackPane>
-                           </children>
                            <padding>
                               <Insets top="40.0" />
                            </padding>

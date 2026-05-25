@@ -115,55 +115,28 @@
                         </HBox>
 
                         <!-- ══ 3 ô preview ảnh ══ -->
-                        <Label style="-fx-text-fill: #2d3748; -fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 8 0 4 0;" text="🖼 Ảnh chính + 3 ảnh phụ" />
-                        <HBox alignment="CENTER_LEFT" prefHeight="100" spacing="10">
+                        <Label prefHeight="29.0" prefWidth="141.0" style="-fx-text-fill: #2d3748; -fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 8 0 4 0;" text="Upload hình ảnh:" />
+                        <HBox alignment="CENTER_LEFT" prefHeight="122.0" prefWidth="450.0" spacing="10">
                            <VBox.margin><Insets bottom="4" /></VBox.margin>
                            <children>
                               <!-- Ảnh 1 -->
-                              <VBox alignment="CENTER" spacing="4">
+                              <VBox alignment="CENTER" prefHeight="122.0" prefWidth="84.0" spacing="4">
                                  <children>
                                     <StackPane prefHeight="80" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-background-radius: 6; -fx-border-color: #cbd5e0; -fx-border-radius: 6;">
                                        <children>
-                                          <ImageView fx:id="imgPreview1" fitHeight="93.0" fitWidth="114.0" pickOnBounds="true" preserveRatio="true" />
+                                          <ImageView fx:id="imgPreview1" fitHeight="93.0" fitWidth="176.0" pickOnBounds="true" preserveRatio="true" />
                                        </children>
                                     </StackPane>
-                                    <Button mnemonicParsing="false" onAction="#onSelectImage1Click" prefHeight="26" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568; -fx-background-radius: 5; -fx-cursor: hand; -fx-font-size: 11;" text="Ảnh 1" />
+                                    <Button mnemonicParsing="false" onAction="#onSelectImage1Click" prefHeight="26" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568; -fx-background-radius: 5; -fx-cursor: hand; -fx-font-size: 11;" text="Up" />
                                  </children>
                               </VBox>
                               <!-- Ảnh 2 -->
-                              <VBox alignment="CENTER" spacing="4">
-                                 <children>
-                                    <StackPane prefHeight="80" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-background-radius: 6; -fx-border-color: #cbd5e0; -fx-border-radius: 6;">
-                                       <children>
-                                          <ImageView fx:id="imgPreview2" fitHeight="93.0" fitWidth="114.0" pickOnBounds="true" preserveRatio="true" />
-                                       </children>
-                                    </StackPane>
-                                    <Button mnemonicParsing="false" onAction="#onSelectImage2Click" prefHeight="26" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568; -fx-background-radius: 5; -fx-cursor: hand; -fx-font-size: 11;" text="Ảnh 2" />
-                                 </children>
-                              </VBox>
+                              <VBox alignment="CENTER" spacing="4" />
                               <!-- Ảnh 3 -->
-                              <VBox alignment="CENTER" spacing="4">
-                                 <children>
-                                    <StackPane prefHeight="80" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-background-radius: 6; -fx-border-color: #cbd5e0; -fx-border-radius: 6;">
-                                       <children>
-                                          <ImageView fx:id="imgPreview3" fitHeight="83.0" fitWidth="114.0" pickOnBounds="true" preserveRatio="true" />
-                                       </children>
-                                    </StackPane>
-                                    <Button mnemonicParsing="false" onAction="#onSelectImage3Click" prefHeight="26" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568; -fx-background-radius: 5; -fx-cursor: hand; -fx-font-size: 11;" text="Ảnh 3" />
-                                 </children>
-                              </VBox>
+                              <VBox alignment="CENTER" spacing="4" />
 
                               <!--ảnh 4-->
-                              <VBox alignment="CENTER" spacing="4">
-                                 <children>
-                                    <StackPane prefHeight="80" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-background-radius: 6; -fx-border-color: #cbd5e0; -fx-border-radius: 6;">
-                                       <children>
-                                          <ImageView fx:id="imgPreview4" fitHeight="93.0" fitWidth="114.0" pickOnBounds="true" preserveRatio="true" />
-                                       </children>
-                                    </StackPane>
-                                    <Button mnemonicParsing="false" onAction="#onSelectImage4Click" prefHeight="26" prefWidth="110" style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568; -fx-background-radius: 5; -fx-cursor: hand; -fx-font-size: 11;" text="Ảnh 4" />
-                                 </children>
-                              </VBox>
+                              <VBox alignment="CENTER" spacing="4" />
 
                            </children>
                         </HBox>
