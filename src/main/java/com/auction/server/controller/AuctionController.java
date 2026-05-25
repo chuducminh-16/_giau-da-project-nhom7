@@ -71,7 +71,6 @@ public class AuctionController {
                     ? LocalDateTime.parse(dto.startTime().replace(" ", "T"))
                     : LocalDateTime.now();
 
-            // ── DUY NHẤT thay đổi so với bản gốc: thêm dto.type() ──────
             Item item = auctionService.addProduct(
                     dto.sellerId(), dto.name(),
                     dto.description() != null ? dto.description() : "",
@@ -92,15 +91,12 @@ public class AuctionController {
         }
     }
 
-    // FIX: nhận thêm imagePath từ payload và truyền vào updateProduct()
     public Message handleUpdateProduct(String payload, String role) {
         if (!"SELLER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
             return error("Khong co quyen cap nhat san pham.");
         }
         try {
             UpdateProductDto dto = gson.fromJson(payload, UpdateProductDto.class);
-
-            // Lấy type từ dto (đảm bảo UpdateProductDto record đã có trường String type)
             boolean ok = auctionService.updateProduct(
                     dto.productId(), dto.name(), dto.description(),
                     dto.startPrice(), dto.bidIncrement(),
@@ -168,9 +164,15 @@ public class AuctionController {
         String bidUpdatePayload = gson.toJson(Map.of(
                 "productId",  dto.productId(),
                 "newBid",     outcome.newBid(),
+                "bidderId",   bidderId,
                 "bidderName", bidderName
         ));
-        server.broadcastToAll(new Message("BID_UPDATE", bidUpdatePayload));
+
+        // ── FIX: dùng broadcastToAuction thay vì broadcastToAll ──────────
+        // broadcastToAll gửi đến mọi client kể cả những người không xem
+        // phiên này → gây toast notification rác ở màn hình khác.
+        // broadcastToAuction chỉ gửi đến client đang WATCH_AUCTION phiên này.
+        server.broadcastToAuction(dto.productId(), new Message("BID_UPDATE", bidUpdatePayload));
 
         if (outcome.newEndTime() != null) {
             String extPayload = gson.toJson(Map.of(
@@ -181,6 +183,7 @@ public class AuctionController {
                     new Message("TIME_EXTENDED", extPayload));
         }
 
+        // Trigger auto-bid phía server cho các đối thủ đã đăng ký REGISTER_AUTO_BID
         AutoBidService.AutoBidResult autoBid =
                 autoBidService.triggerAutoBid(dto.productId(), outcome.newBid(), bidderId);
 
@@ -188,9 +191,11 @@ public class AuctionController {
             String autoBidPayload = gson.toJson(Map.of(
                     "productId",  dto.productId(),
                     "newBid",     autoBid.newBid(),
+                    "bidderId",   autoBid.bidderId(),
                     "bidderName", autoBid.bidderId() + " (auto)"
             ));
-            server.broadcastToAll(new Message("BID_UPDATE", autoBidPayload));
+            // ── FIX: dùng broadcastToAuction cho auto-bid cũng vậy ────────
+            server.broadcastToAuction(dto.productId(), new Message("BID_UPDATE", autoBidPayload));
 
             if (autoBid.newEndTime() != null) {
                 String extPayload = gson.toJson(Map.of(
@@ -273,14 +278,14 @@ public class AuctionController {
     public Message handleGetProductDetail(String payload) {
         try {
             GetProductDetailDto dto = gson.fromJson(payload, GetProductDetailDto.class);
-            com.auction.server.dao.item.ItemFindDAO itemFindDAO = new com.auction.server.dao.item.ItemFindDAO();
+            com.auction.server.dao.item.ItemFindDAO itemFindDAO =
+                    new com.auction.server.dao.item.ItemFindDAO();
             Item item = itemFindDAO.findById(dto.itemId());
 
             if (item == null) return error("Không tìm thấy sản phẩm");
 
-            // QUAN TRỌNG: Đảm bảo type được đưa vào JSON payload
             JsonObject itemJson = gson.toJsonTree(item).getAsJsonObject();
-            itemJson.addProperty("type", item.getType()); // Ép thêm trường type vào JSON
+            itemJson.addProperty("type", item.getType());
 
             return new Message("PRODUCT_DETAIL_RESPONSE", gson.toJson(Map.of(
                     "success", true,
@@ -309,7 +314,6 @@ public class AuctionController {
             double startPrice, double bidIncrement,
             String imagePath, String startTime, String endTime,
             String type) {}
-    // FIX: thêm imagePath vào UpdateProductDto
     private record UpdateProductDto(
             String productId, String name, String description,
             double startPrice, double bidIncrement,
