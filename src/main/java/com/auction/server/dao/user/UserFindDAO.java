@@ -10,16 +10,11 @@ import com.auction.shared.model.Entity.User.Bidder;
 import com.auction.shared.model.Entity.User.Seller;
 import com.auction.shared.model.Entity.User.User;
 
-/**
- * DAO tìm kiếm user.
- * FIX: trả đúng subclass (Bidder / Seller / Admin) dựa theo cột role trong DB.
- * Trước đây luôn trả Bidder → Seller/Admin bị phân quyền sai.
- */
 public class UserFindDAO {
 
     /**
      * Tìm user theo username — dùng cho login.
-     * Trả về đúng subclass tương ứng với role trong DB.
+     * Map đúng role: BIDDER → Bidder, SELLER → Seller, ADMIN → Admin.
      */
     public User findByUsername(String username) {
         String sql = "SELECT * FROM users WHERE username = ?";
@@ -34,37 +29,17 @@ public class UserFindDAO {
             }
 
         } catch (Exception e) {
+            System.err.println("[UserFindDAO] findByUsername ERROR: " + e.getMessage());
             e.printStackTrace();
         }
         return null;
     }
 
     /**
-     * Tìm user theo ID — dùng cho các service cần resolve userId.
-     */
-    public User findById(String userId) {
-        String sql = "SELECT * FROM users WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setString(1, userId);
-            ResultSet rs = pstmt.executeQuery();
-
-            if (rs.next()) {
-                return mapRow(rs);
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    /**
-     * Kiểm tra login nhanh (chỉ dùng khi không cần User object).
+     * Kiểm tra login (username + password).
      */
     public boolean checkLogin(String username, String password) {
-        String sql = "SELECT 1 FROM users WHERE username = ? AND password = ?";
+        String sql = "SELECT id FROM users WHERE username = ? AND password = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -74,13 +49,15 @@ public class UserFindDAO {
             return rs.next();
 
         } catch (Exception e) {
+            System.err.println("[UserFindDAO] checkLogin ERROR: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
 
-    // ── Map ResultSet → đúng subclass theo role ──────────────────────────
-
+    /**
+     * Map ResultSet → đúng subclass User theo cột role trong DB.
+     */
     private User mapRow(ResultSet rs) throws Exception {
         String id       = rs.getString("id");
         String username = rs.getString("username");
@@ -89,11 +66,11 @@ public class UserFindDAO {
         String role     = rs.getString("role");
         double balance  = rs.getDouble("balance");
         double rating   = rs.getDouble("rating");
-        int    adminLvl = rs.getInt("admin_level");
+        int adminLevel  = rs.getInt("admin_level");
 
-        return switch (role == null ? "BIDDER" : role.toUpperCase()) {
+        return switch (role != null ? role.toUpperCase() : "BIDDER") {
             case "SELLER" -> new Seller(id, username, email, password, rating);
-            case "ADMIN"  -> new Admin(id, username, email, password, adminLvl);
+            case "ADMIN"  -> new Admin(id, username, email, password, adminLevel);
             default       -> new Bidder(id, username, email, password, balance);
         };
     }
