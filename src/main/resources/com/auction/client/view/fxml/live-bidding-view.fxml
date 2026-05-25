@@ -121,7 +121,7 @@
                                     -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);">
                      <VBox.margin><Insets top="16" /></VBox.margin>
                      <xAxis>
-                        <CategoryAxis fx:id="xAxis" side="BOTTOM" label="Thời gian" />
+                        <CategoryAxis fx:id="xAxis" side="BOTTOM" label="Thời gian"  />
                      </xAxis>
                      <yAxis>
                         <NumberAxis fx:id="yAxis" side="LEFT"

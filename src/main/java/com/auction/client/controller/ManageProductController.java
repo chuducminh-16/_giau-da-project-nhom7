@@ -46,12 +46,16 @@ import javafx.stage.FileChooser;
 
 public class ManageProductController implements Initializable {
 
-    // ── FXML Fields ──
     @FXML private TextField txtName;
     @FXML private TextField txtStartingPrice;
     @FXML private TextField txtBidIncrement;
-    @FXML private TextArea txtDescription;
-    @FXML private ImageView imgPreview;
+    @FXML private TextArea  txtDescription;
+
+    // FIX: 1 ảnh chính và 3 ảnh phụ
+    @FXML private ImageView imgPreview1;
+    @FXML private ImageView imgPreview2;
+    @FXML private ImageView imgPreview3;
+    @FXML private ImageView imgPreview4;
 
     @FXML private DatePicker dpStartDate;
     @FXML private DatePicker dateEnd;
@@ -64,24 +68,51 @@ public class ManageProductController implements Initializable {
     @FXML private TextField txtEndMinute;
     @FXML private TextField txtEndSecond;
 
-    @FXML private TableView<Item> tableProducts;
-    @FXML private TableColumn<Item, String> colName;
-    @FXML private TableColumn<Item, Double> colPrice;
+    @FXML private TableView<Item>               tableProducts;
+    @FXML private TableColumn<Item, String>     colName;
+    @FXML private TableColumn<Item, Double>     colPrice;
     @FXML private TableColumn<Item, LocalDateTime> colTime;
-    @FXML private TableColumn<Item, String> colStatus;
-    @FXML private TableColumn<Item, Double> colCurrentBid;
+    @FXML private TableColumn<Item, String>     colStatus;
+    @FXML private TableColumn<Item, Double>     colCurrentBid;
 
     @FXML private Label statusLabel;
 
-    // ── State & Network ──
     private final ObservableList<Item> productData = FXCollections.observableArrayList();
-    private String currentImagePath = "";
+
+    // FIX: 3 đường dẫn ảnh, "" = không thay đổi
+    private String imagePath1 = "";
+    private String imagePath2 = "";
+    private String imagePath3 = "";
+    private String imagePath4 = "";
 
     private final Gson gson = buildGson();
     private final NetworkClient client = NetworkClient.getInstance();
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
 
-    // ── Logic Gson ──
+    // ── Tách đường dẫn ảnh từ chuỗi "path1|path2|path3" ─────────────────
+    private static String[] splitImagePaths(String raw) {
+        if (raw == null || raw.isBlank()) return new String[]{"", "", ""};
+        String[] parts = raw.split("\\|", -1);
+        String p1 = parts.length > 0 ? parts[0] : "";
+        String p2 = parts.length > 1 ? parts[1] : "";
+        String p3 = parts.length > 2 ? parts[2] : "";
+        String p4 = parts.length > 3 ? parts[3] : "";
+        return new String[]{p1, p2, p3, p4};
+    }
+
+    // ── Ghép 3 đường dẫn thành "path1|path2|path3" ───────────────────────
+    private static String joinImagePaths(String p1, String p2, String p3, String p4) {
+        // Loại bỏ dấu | thừa ở cuối nếu ảnh 2,3 trống
+        StringBuilder sb = new StringBuilder(p1 != null ? p1 : "");
+        sb.append("|").append(p2 != null ? p2 : "");
+        sb.append("|").append(p3 != null ? p3 : "");
+        sb.append("|").append(p4 != null ? p4 : "");
+        // Trim trailing pipes
+        String result = sb.toString();
+        while (result.endsWith("|")) result = result.substring(0, result.length() - 1);
+        return result;
+    }
+
     private static Gson buildGson() {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
@@ -96,7 +127,6 @@ public class ManageProductController implements Initializable {
             String type = "ART";
             if (obj.has("type") && !obj.get("type").isJsonNull())
                 type = obj.get("type").getAsString().toUpperCase();
-
             Gson plain = new Gson();
             return switch (type) {
                 case "ELECTRONICS" -> plain.fromJson(obj, Electronics.class);
@@ -104,24 +134,20 @@ public class ManageProductController implements Initializable {
                 default            -> plain.fromJson(obj, Art.class);
             };
         } catch (Exception e) {
-            System.err.println("[ManageProduct] deserializeItem lỗi: " + e.getMessage());
             return null;
         }
     }
 
-    // ── Khởi tạo ──
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         client.removeListener(listener);
         client.addListener(listener);
-
         setupTable();
         setupRowClickListener();
         setupTimeFieldListeners();
         loadMyProducts();
     }
 
-    // ── UI Logic: Giới hạn số nhập vào ô thời gian ──
     private void setupTimeFieldListeners() {
         limitTimeField(txtStartHour, 23);
         limitTimeField(txtStartMinute, 59);
@@ -147,7 +173,6 @@ public class ManageProductController implements Initializable {
         });
     }
 
-    // ── Table Setup ──
     private void setupTable() {
         colName.setCellValueFactory(new PropertyValueFactory<>("name"));
         colPrice.setCellValueFactory(new PropertyValueFactory<>("startingPrice"));
@@ -195,42 +220,129 @@ public class ManageProductController implements Initializable {
                 txtStartMinute.setText(String.format("%02d", newVal.getStartTime().getMinute()));
                 txtStartSecond.setText(String.format("%02d", newVal.getStartTime().getSecond()));
             }
-
             if (newVal.getEndTime() != null) {
                 dateEnd.setValue(newVal.getEndTime().toLocalDate());
                 txtEndHour.setText(String.format("%02d", newVal.getEndTime().getHour()));
                 txtEndMinute.setText(String.format("%02d", newVal.getEndTime().getMinute()));
                 txtEndSecond.setText(String.format("%02d", newVal.getEndTime().getSecond()));
             }
+
+            // Load ảnh hiện tại vào 4 preview, reset đường dẫn mới về ""
+            imagePath1 = "";
+            imagePath2 = "";
+            imagePath3 = "";
+            imagePath4 = "";
+            String[] paths = splitImagePaths(newVal.getImagePath());
+            loadPreview(imgPreview1, paths[0]);
+            loadPreview(imgPreview2, paths[1]);
+            loadPreview(imgPreview3, paths[2]);
+            loadPreview(imgPreview4, paths.length > 3 ? paths[3] : "");
         });
     }
 
-    // ── Action Handlers ──
+    // ── Load ảnh vào ImageView, hỗ trợ jpg/png/jfif/webp/bmp/gif ────────
+    private void loadPreview(ImageView iv, String path) {
+        if (iv == null) return;
+        if (path == null || path.isBlank()) { iv.setImage(null); return; }
+        try {
+            File f = new File(path);
+            if (!f.exists()) { iv.setImage(null); return; }
+
+            String lower = path.toLowerCase();
+            // JavaFX Image hỗ trợ trực tiếp: jpg, jpeg, png, bmp, gif
+            // jfif thực chất là JPEG — đổi extension rồi đọc qua ImageIO
+            // webp cần ImageIO đọc rồi convert sang WritableImage
+            if (lower.endsWith(".webp") || lower.endsWith(".jfif")) {
+                java.awt.image.BufferedImage bi =
+                        javax.imageio.ImageIO.read(f);
+                if (bi == null) { iv.setImage(null); return; }
+                javafx.scene.image.WritableImage wi =
+                        new javafx.scene.image.WritableImage(bi.getWidth(), bi.getHeight());
+                javafx.embed.swing.SwingFXUtils.toFXImage(bi, wi);
+                iv.setImage(wi);
+            } else {
+                iv.setImage(new Image(f.toURI().toString(), true));
+            }
+        } catch (Exception e) {
+            System.err.println("[ManageProduct] Lỗi load ảnh: " + e.getMessage());
+            iv.setImage(null);
+        }
+    }
+
+    // ── Nút chọn ảnh 1 / 2 / 3 / 4 ──────────────────────────────────────────
+    @FXML private void onSelectImage1Click() { pickImage(1); }
+    @FXML private void onSelectImage2Click() { pickImage(2); }
+    @FXML private void onSelectImage3Click() { pickImage(3); }
+    @FXML private void onSelectImage4Click() { pickImage(4); }
+
+    private void pickImage(int slot) {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Chọn ảnh " + slot);
+        // Tất cả định dạng ảnh phổ biến
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Tất cả ảnh",
+                        "*.png", "*.jpg", "*.jpeg", "*.jfif",
+                        "*.webp", "*.bmp", "*.gif", "*.tif", "*.tiff"),
+                new FileChooser.ExtensionFilter("JPG / JPEG / JFIF",
+                        "*.jpg", "*.jpeg", "*.jfif"),
+                new FileChooser.ExtensionFilter("PNG", "*.png"),
+                new FileChooser.ExtensionFilter("WebP", "*.webp"),
+                new FileChooser.ExtensionFilter("BMP / GIF / TIFF",
+                        "*.bmp", "*.gif", "*.tif", "*.tiff")
+        );
+        // Lấy window từ một ImageView bất kỳ
+        File file = chooser.showOpenDialog(imgPreview1.getScene().getWindow());
+        if (file == null) return;
+        String path = file.getAbsolutePath();
+        switch (slot) {
+            case 1 -> { imagePath1 = path; loadPreview(imgPreview1, path); }
+            case 2 -> { imagePath2 = path; loadPreview(imgPreview2, path); }
+            case 3 -> { imagePath3 = path; loadPreview(imgPreview3, path); }
+            case 4 -> { imagePath4 = path; loadPreview(imgPreview4, path); }
+        }
+    }
+
+    // ── Tạo imagePath cuối cùng để gửi server ───────────────────────────
+    // Nếu slot nào trống ("") → giữ giá trị cũ từ item đang chọn (nếu có)
+    private String buildFinalImagePath(Item selected) {
+        String[] existing = selected != null
+                ? splitImagePaths(selected.getImagePath())
+                : new String[]{"", "", ""};
+
+        String p1 = imagePath1.isBlank() ? existing[0] : imagePath1;
+        String p2 = imagePath2.isBlank() ? existing[1] : imagePath2;
+        String p3 = imagePath3.isBlank() ? existing[2] : imagePath3;
+        String p4 = imagePath4.isBlank() ? existing[3] : imagePath4;
+
+        return joinImagePaths(p1, p2, p3, p4);
+    }
+
     @FXML
     private void onAddProductClick() {
         if (!validateForm()) return;
         showStatus("Đang gửi...", false);
 
         LocalDateTime startDT = buildDateTime(dpStartDate, txtStartHour, txtStartMinute, txtStartSecond, LocalDateTime.now());
-        LocalDateTime endDT = buildDateTime(dateEnd, txtEndHour, txtEndMinute, txtEndSecond, null);
-
+        LocalDateTime endDT   = buildDateTime(dateEnd, txtEndHour, txtEndMinute, txtEndSecond, null);
         if (endDT == null) { showStatus("⚠ Vui lòng chọn ngày kết thúc.", true); return; }
 
         UserSession session = UserSession.getInstance();
         if (session == null || session.getUserId() == null) {
-            showStatus("⚠ Lỗi: Phiên người dùng không hợp lệ!", true);
-            return;
+            showStatus("⚠ Lỗi: Phiên người dùng không hợp lệ!", true); return;
         }
 
+        // Khi thêm mới, ghép 3 đường dẫn
+        String imagePath = joinImagePaths(imagePath1, imagePath2, imagePath3, imagePath4);
+
         String payload = gson.toJson(Map.of(
-                "sellerId",     UserSession.getInstance().getUserId(),
+                "sellerId",     session.getUserId(),
                 "name",         txtName.getText().trim(),
                 "startPrice",   txtStartingPrice.getText().trim(),
                 "bidIncrement", txtBidIncrement.getText().trim(),
                 "description",  txtDescription.getText().trim(),
                 "startTime",    startDT.toString(),
                 "endTime",      endDT.toString(),
-                "imagePath",    currentImagePath,
+                "imagePath",    imagePath,
                 "status",       "PENDING"
         ));
         client.send(new Message("ADD_PRODUCT", payload));
@@ -244,38 +356,53 @@ public class ManageProductController implements Initializable {
 
         LocalDateTime endDT = buildDateTime(dateEnd, txtEndHour, txtEndMinute, txtEndSecond, selected.getEndTime());
 
+        // Giữ ảnh cũ ở slot nào chưa chọn mới
+        String imagePath = buildFinalImagePath(selected);
+
         String payload = gson.toJson(Map.of(
                 "productId",    selected.getId(),
                 "name",         txtName.getText().trim(),
                 "startPrice",   txtStartingPrice.getText().trim(),
                 "bidIncrement", txtBidIncrement.getText().trim(),
                 "description",  txtDescription.getText().trim(),
-                "endTime",      endDT.toString()
+                "endTime",      endDT.toString(),
+                "imagePath",    imagePath
         ));
         client.send(new Message("UPDATE_PRODUCT", payload));
         showStatus("Đang cập nhật...", false);
     }
 
-    // ── [FIX] Parse JSON đúng kiểu ──────────────────────────────────────
     private void handleServerResponse(Message msg) {
         Platform.runLater(() -> {
             switch (msg.getType()) {
 
-                // ✅ FIX: Server trả về JsonArray trực tiếp, KHÔNG phải JsonObject bọc ngoài
                 case "MY_PRODUCTS_RESPONSE" -> {
                     try {
-                        JsonArray arr = gson.fromJson(msg.getPayload(), JsonArray.class);
-                        List<Item> items = new ArrayList<>();
-                        for (JsonElement el : arr) {
-                            Item item = deserializeItem(el.getAsJsonObject());
-                            if (item != null) items.add(item);
+                        JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
+                        JsonArray arr = null;
+                        if (root.has("products") && !root.get("products").isJsonNull())
+                            arr = root.getAsJsonArray("products");
+                        else if (root.has("items") && !root.get("items").isJsonNull())
+                            arr = root.getAsJsonArray("items");
+                        else if (root.has("data") && !root.get("data").isJsonNull())
+                            arr = root.getAsJsonArray("data");
+
+                        if (arr != null) {
+                            List<Item> items = new ArrayList<>();
+                            for (JsonElement el : arr) {
+                                Item item = deserializeItem(el.getAsJsonObject());
+                                if (item != null) items.add(item);
+                            }
+                            productData.setAll(items);
+                            showStatus("Tải " + items.size() + " sản phẩm thành công.", false);
+                        } else {
+                            String errorMsg = root.has("message")
+                                    ? root.get("message").getAsString()
+                                    : "Không tìm thấy danh sách sản phẩm.";
+                            showStatus("⚠ " + errorMsg, true);
                         }
-                        productData.setAll(items);
-                        showStatus("Tải " + items.size() + " sản phẩm thành công.", false);
                     } catch (Exception e) {
-                        System.err.println("[ManageProduct] parse MY_PRODUCTS_RESPONSE lỗi: " + e.getMessage());
-                        e.printStackTrace();
-                        showStatus("⚠ Lỗi tải danh sách sản phẩm: " + e.getMessage(), true);
+                        showStatus("⚠ Lỗi xử lý dữ liệu từ Server!", true);
                     }
                 }
 
@@ -284,10 +411,6 @@ public class ManageProductController implements Initializable {
                         JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
                         boolean success = root.has("success") && root.get("success").getAsBoolean();
                         if (success) {
-                            if (root.has("item") && !root.get("item").isJsonNull()) {
-                                Item item = deserializeItem(root.getAsJsonObject("item"));
-                                if (item != null) productData.add(0, item);
-                            }
                             clearForm();
                             showStatus("✓ Thêm sản phẩm thành công!", false);
                             loadMyProducts();
@@ -334,7 +457,6 @@ public class ManageProductController implements Initializable {
         });
     }
 
-    // ── Validate ──
     private boolean validateForm() {
         if (txtName.getText().trim().isEmpty()) {
             showStatus("⚠ Tên sản phẩm không được để trống.", true); return false;
@@ -366,20 +488,13 @@ public class ManageProductController implements Initializable {
             int hour   = h.getText().isEmpty() ? 0 : Integer.parseInt(h.getText());
             int minute = m.getText().isEmpty() ? 0 : Integer.parseInt(m.getText());
             int second = s.getText().isEmpty() ? 0 : Integer.parseInt(s.getText());
-            return hour >= 0 && hour <= 23
-                    && minute >= 0 && minute <= 59
-                    && second >= 0 && second <= 59;
+            return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 && second >= 0 && second <= 59;
         } catch (NumberFormatException e) { return false; }
     }
 
-    private LocalDateTime buildDateTime(DatePicker dp,
-                                        TextField h, TextField m, TextField s,
-                                        LocalDateTime fallback) {
+    private LocalDateTime buildDateTime(DatePicker dp, TextField h, TextField m, TextField s, LocalDateTime fallback) {
         if (dp.getValue() == null) return fallback;
-        return dp.getValue().atTime(
-                parseTimeField(h, 0),
-                parseTimeField(m, 0),
-                parseTimeField(s, 0));
+        return dp.getValue().atTime(parseTimeField(h, 0), parseTimeField(m, 0), parseTimeField(s, 0));
     }
 
     private int parseTimeField(TextField field, int def) {
@@ -392,12 +507,11 @@ public class ManageProductController implements Initializable {
     private void loadMyProducts() {
         UserSession session = UserSession.getInstance();
         if (session != null && session.getUserId() != null) {
-            String sellerId = session.getUserId();
-            client.send(new Message("GET_MY_PRODUCTS", gson.toJson(Map.of("sellerId", sellerId))));
+            client.send(new Message("GET_MY_PRODUCTS",
+                    gson.toJson(Map.of("sellerId", session.getUserId()))));
         }
     }
 
-    // ── Clear form ──
     private void clearForm() {
         txtName.clear(); txtStartingPrice.clear();
         txtBidIncrement.clear(); txtDescription.clear();
@@ -405,30 +519,25 @@ public class ManageProductController implements Initializable {
         txtStartHour.clear(); txtStartMinute.clear(); txtStartSecond.clear();
         dateEnd.setValue(null);
         txtEndHour.clear(); txtEndMinute.clear(); txtEndSecond.clear();
-        imgPreview.setImage(null);
-        currentImagePath = "";
+        if (imgPreview1 != null) imgPreview1.setImage(null);
+        if (imgPreview2 != null) imgPreview2.setImage(null);
+        if (imgPreview3 != null) imgPreview3.setImage(null);
+        if (imgPreview4 != null) imgPreview4.setImage(null);
+        imagePath1 = ""; imagePath2 = ""; imagePath3 = ""; imagePath4 = "";
         tableProducts.getSelectionModel().clearSelection();
     }
 
     @FXML private void onBackHomeClick(ActionEvent event) {
-        try {
-            client.removeListener(listener);
-        } catch (Exception e) {
-            System.err.println("Lỗi khi xóa listener: " + e.getMessage());
-        }
+        try { client.removeListener(listener); } catch (Exception ignored) {}
         SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 
-    // ── DELETE ──
     @FXML
     private void onDeleteClick(ActionEvent event) {
         Item selected = tableProducts.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showStatus("Vui lòng chọn sản phẩm cần xoá!", true); return;
-        }
+        if (selected == null) { showStatus("Vui lòng chọn sản phẩm cần xoá!", true); return; }
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                "Xoá sản phẩm: " + selected.getName() + "?",
-                ButtonType.YES, ButtonType.NO);
+                "Xoá sản phẩm: " + selected.getName() + "?", ButtonType.YES, ButtonType.NO);
         confirm.setTitle("Xác nhận xoá");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.YES) {
@@ -439,20 +548,6 @@ public class ManageProductController implements Initializable {
         });
     }
 
-    @FXML
-    private void onSelectImageClick() {
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Chọn ảnh sản phẩm");
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
-        File file = chooser.showOpenDialog(imgPreview.getScene().getWindow());
-        if (file != null) {
-            imgPreview.setImage(new Image(file.toURI().toString()));
-            currentImagePath = file.getAbsolutePath();
-        }
-    }
-
-    // ── Helpers ──
     private String safeMsg(JsonObject root) {
         return root.has("message") ? root.get("message").getAsString() : "Lỗi không xác định";
     }

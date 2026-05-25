@@ -160,25 +160,20 @@ public class BidHistoryController implements Initializable {
     // ── Load từ server ────────────────────────────────────────────────────
     private void loadHistory() {
         String bidderId = UserSession.getInstance().getUserId();
-        client.send(new Message("GET_BID_HISTORY",
+        // SỬA: Đổi tên lệnh để phân biệt rõ ràng với lịch sử của 1 sản phẩm cụ thể
+        client.send(new Message("GET_USER_BID_HISTORY",
                 gson.toJson(java.util.Map.of("bidderId", bidderId))));
     }
 
     // ── Xử lý message từ server ───────────────────────────────────────────
     private void handleServerMessage(Message msg) {
-        if (!"BID_HISTORY_RESPONSE".equals(msg.getType())) return;
+        // SỬA: Lắng nghe đúng phản hồi lịch sử cá nhân của User
+        if (!"USER_BID_HISTORY_RESPONSE".equals(msg.getType())) return;
 
         Platform.runLater(() -> {
             try {
-                JsonObject root = gson.fromJson(msg.getPayload(), JsonObject.class);
-                boolean success = root.has("success") && root.get("success").getAsBoolean();
-
-                if (!success) {
-                    showError("⚠ " + safeStr(root, "message", "Lỗi tải lịch sử."));
-                    return;
-                }
-
-                if (!root.has("records") || !root.get("records").isJsonArray()) {
+                String payload = msg.getPayload();
+                if (payload == null || payload.isBlank()) {
                     allRecords.clear();
                     displayData.clear();
                     updateStats();
@@ -186,7 +181,7 @@ public class BidHistoryController implements Initializable {
                     return;
                 }
 
-                JsonArray arr = root.getAsJsonArray("records");
+                JsonArray arr = gson.fromJson(payload, JsonArray.class);
                 List<BidRecord> records = new ArrayList<>();
                 for (JsonElement el : arr) {
                     JsonObject obj = el.getAsJsonObject();
@@ -256,9 +251,29 @@ public class BidHistoryController implements Initializable {
 
     private void applySearch() {
         String kw = txtSearch.getText().trim().toLowerCase();
-        if (kw.isEmpty()) return; // giữ nguyên filter hiện tại
-        ObservableList<BidRecord> current = FXCollections.observableArrayList(displayData);
-        displayData.setAll(current.filtered(r ->
+
+        // 1. Xác định danh sách nền dựa theo filter đang chọn ở sidebar
+        ObservableList<BidRecord> baseList = FXCollections.observableArrayList();
+        String myId = UserSession.getInstance().getUserId();
+
+        if (btnFilterAll.getStyle().contains("#4299e1")) { // Đang active nút "Tất cả"
+            baseList.setAll(allRecords);
+        } else if (btnFilterActive.getStyle().contains("#4299e1")) {
+            baseList.setAll(allRecords.filtered(r -> "RUNNING".equals(r.status()) || "OPEN".equals(r.status())));
+        } else if (btnFilterWon.getStyle().contains("#4299e1")) {
+            baseList.setAll(allRecords.filtered(r -> myId.equals(r.winnerId())));
+        } else if (btnFilterLost.getStyle().contains("#4299e1")) {
+            baseList.setAll(allRecords.filtered(r -> ("FINISHED".equals(r.status()) || "CANCELED".equals(r.status())) && !myId.equals(r.winnerId())));
+        }
+
+        // 2. Nếu từ khóa trống, trả về toàn bộ danh sách của filter đó
+        if (kw.isEmpty()) {
+            displayData.setAll(baseList);
+            return;
+        }
+
+        // 3. Tiến hành lọc theo từ khóa tìm kiếm
+        displayData.setAll(baseList.filtered(r ->
                 r.itemName().toLowerCase().contains(kw) ||
                         r.sellerName().toLowerCase().contains(kw)));
     }
@@ -379,4 +394,3 @@ public class BidHistoryController implements Initializable {
             String sellerName
     ) {}
 }
-

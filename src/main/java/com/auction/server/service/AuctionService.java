@@ -9,6 +9,9 @@ import com.auction.shared.model.Entity.Item.Electronics;
 import com.auction.shared.model.Entity.Item.Item;
 import com.auction.shared.model.Entity.Item.Vehicle;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,14 +20,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * AuctionService — xu ly toan bo nghiep vu dau gia.
- *
- * FIX so voi ban goc:
- *   1. placeBid(): kiem tra Seller khong duoc tu bid vao phien cua minh
- *   2. placeBid(): su dung ReentrantLock(true) — fair lock, tranh starvation
- *   3. endAuction(): tra ve Map co "itemId" de AdminController broadcast duoc
- */
 public class AuctionService {
 
     private static final int SNIPE_WINDOW_SECONDS = 60;
@@ -35,16 +30,12 @@ public class AuctionService {
     private final ItemSaveDAO    itemSaveDAO    = new ItemSaveDAO();
     private final TransactionDAO transactionDAO = new TransactionDAO();
 
-    // Fair ReentrantLock per productId — tranh lost update va race condition
     private final ConcurrentHashMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(String productId) {
         return lockMap.computeIfAbsent(productId, id -> new ReentrantLock(true));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // PLACE BID (thread-safe voi ReentrantLock per product)
-    // ─────────────────────────────────────────────────────────────────────
     public BidOutcome placeBid(String productId, String bidderId, double amount) {
         ReentrantLock lock = getLock(productId);
         lock.lock();
@@ -73,7 +64,6 @@ public class AuctionService {
                             "Phien dau gia da het gio.", null);
             }
 
-            // FIX: Seller khong duoc tu dat gia vao phien cua minh
             String sellerId = (String) targetAuction.get("sellerId");
             if (sellerId == null) sellerId = (String) targetAuction.get("seller_id");
             if (bidderId.equals(sellerId))
@@ -87,13 +77,14 @@ public class AuctionService {
                         String.format("Gia phai cao hon %.0f VND.", currentPrice), null);
 
             long auctionId = ((Number) targetAuction.get("id")).longValue();
+
             boolean bidSaved = bidDAO.placeBid(productId, bidderId, amount);
             if (!bidSaved)
                 return new BidOutcome(BidResult.ERROR, currentPrice, "Loi luu bid.", null);
 
             auctionDAO.updateCurrentPrice(auctionId, amount);
+            itemSaveDAO.updatePrice(productId, amount);
 
-            // Anti-sniping
             String newEndTimeStr = null;
             if (endTime != null) {
                 long secondsLeft = java.time.Duration.between(LocalDateTime.now(), endTime).getSeconds();
@@ -114,16 +105,10 @@ public class AuctionService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // GET BID HISTORY
-    // ─────────────────────────────────────────────────────────────────────
     public List<BidDAO.BidRecord> getBidHistory(String productId) {
         return bidDAO.getBidRecords(productId);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // GET ACTIVE AUCTIONS
-    // ─────────────────────────────────────────────────────────────────────
     public List<Item> getActiveAuctions() {
         List<Map<String, Object>> rows = auctionDAO.findAllOpen();
         List<Item> items = new ArrayList<>();
@@ -134,9 +119,6 @@ public class AuctionService {
         return items;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // GET PRODUCTS BY SELLER
-    // ─────────────────────────────────────────────────────────────────────
     public List<Item> getProductsBySeller(String sellerId) {
         List<Map<String, Object>> rows = auctionDAO.findBySeller(sellerId);
         List<Item> items = new ArrayList<>();
@@ -147,9 +129,6 @@ public class AuctionService {
         return items;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // ADD PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
     public Item addProduct(String sellerId, String name, String description,
                            double startPrice, double bidIncrement,
                            String imagePath, LocalDateTime startTime,
@@ -182,25 +161,34 @@ public class AuctionService {
         return item;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // UPDATE PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
+    // FIX: thêm imagePath parameter — gọi overload mới của ItemSaveDAO.updateItem()
+    // Nếu imagePath rỗng (không chọn ảnh mới) → giữ ảnh cũ qua overload không có imagePath
+    public boolean updateProduct(String productId, String name, String description,
+                                 double startPrice, double bidIncrement,
+                                 LocalDateTime endTime, String imagePath) {
+        if (imagePath != null && !imagePath.isBlank()) {
+            // Có ảnh mới → update luôn image_path
+            return itemSaveDAO.updateItem(productId, name, description,
+                    startPrice, bidIncrement, endTime, imagePath);
+        } else {
+            // Không chọn ảnh mới → giữ nguyên image_path cũ trong DB
+            return itemSaveDAO.updateItem(productId, name, description,
+                    startPrice, bidIncrement, endTime);
+        }
+    }
+
+    // Overload cũ — giữ lại để không break code nào gọi method này
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
                                  LocalDateTime endTime) {
-        return itemSaveDAO.updateItem(productId, name, description, startPrice, bidIncrement, endTime);
+        return itemSaveDAO.updateItem(productId, name, description,
+                startPrice, bidIncrement, endTime);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // DELETE PRODUCT
-    // ─────────────────────────────────────────────────────────────────────
     public boolean deleteProduct(String productId) {
         return itemSaveDAO.deleteItem(productId);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // END AUCTION (FIX: tra ve Map co "itemId" de controller broadcast duoc)
-    // ─────────────────────────────────────────────────────────────────────
     public Map<String, Object> endAuction(long auctionId) {
         Map<String, Object> auction = auctionDAO.findById(auctionId);
         if (auction == null) return null;
@@ -229,9 +217,6 @@ public class AuctionService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helper: Map DB row -> Item
-    // ─────────────────────────────────────────────────────────────────────
     private Item mapToItem(Map<String, Object> row) {
         try {
             String itemId   = (String) row.get("itemId");
@@ -293,9 +278,6 @@ public class AuctionService {
         return 0.0;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Inner types
-    // ─────────────────────────────────────────────────────────────────────
     public enum BidResult {
         SUCCESS, PRICE_TOO_LOW, AUCTION_ENDED, AUCTION_NOT_FOUND, ERROR
     }
@@ -307,57 +289,83 @@ public class AuctionService {
             String    newEndTime
     ) {}
 
-    /**
-     * Lấy lịch sử đấu giá của 1 bidder.
-     * Trả về list các phiên bidder đã tham gia kèm:
-     *   - itemName, myBid (giá cao nhất bidder đã đặt)
-     *   - finalPrice, winnerId (từ bảng auctions/transactions)
-     *   - status, endTime, sellerName
-     */
     public List<Map<String, Object>> getBidHistoryForBidder(String bidderId) {
-        String sql =
-                "SELECT " +
-                        "  i.id           AS itemId, " +
-                        "  i.name         AS itemName, " +
-                        "  MAX(b.bid_price) AS myBid, " +        // giá cao nhất bidder đặt
-                        "  a.current_price AS finalPrice, " +
-                        "  a.status, " +
-                        "  a.end_time     AS endTime, " +
-                        "  u.username     AS sellerName, " +
-                        "  t.winner_id    AS winnerId " +
-                        "FROM bids b " +
-                        "JOIN items i      ON b.item_id   = i.id " +
-                        "JOIN auctions a   ON a.item_id   = i.id " +
-                        "LEFT JOIN users u ON i.seller_id = u.id " +
-                        "LEFT JOIN transactions t ON t.item_id = i.id " +
-                        "WHERE b.bidder_id = ? " +
-                        "GROUP BY i.id, i.name, a.current_price, a.status, " +
-                        "         a.end_time, u.username, t.winner_id " +
-                        "ORDER BY a.end_time DESC";
-
-        List<Map<String, Object>> result = new java.util.ArrayList<>();
-        try (java.sql.Connection conn =
-                     com.auction.server.database.DatabaseConnection.getConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-
+        List<Map<String, Object>> list = new ArrayList<>();
+        String sql = "SELECT i.id AS itemId, i.name AS itemName, MAX(b.bid_price) AS myBid, " +
+                "a.current_price AS finalPrice, a.status, a.end_time AS endTime, " +
+                "u.username AS sellerName, t.winner_id AS winnerId " +
+                "FROM bids b " +
+                "JOIN items i      ON b.item_id   = i.id " +
+                "JOIN auctions a   ON a.item_id   = i.id " +
+                "LEFT JOIN users u ON i.seller_id = u.id " +
+                "LEFT JOIN transactions t ON t.item_id = i.id " +
+                "WHERE b.bidder_id = ? " +
+                "GROUP BY i.id, i.name, a.current_price, a.status, a.end_time, u.username, t.winner_id";
+        try (Connection conn = com.auction.server.database.DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, bidderId);
-            java.sql.ResultSet rs = ps.executeQuery();
-            while (rs.next()) {
-                Map<String, Object> row = new java.util.HashMap<>();
-                row.put("itemId",     rs.getString("itemId"));
-                row.put("itemName",   rs.getString("itemName"));
-                row.put("myBid",      rs.getDouble("myBid"));
-                row.put("finalPrice", rs.getDouble("finalPrice"));
-                row.put("status",     rs.getString("status"));
-                row.put("endTime",    rs.getString("endTime"));
-                row.put("sellerName", rs.getString("sellerName"));
-                row.put("winnerId",   rs.getString("winnerId")); // null nếu chưa kết thúc
-                result.add(row);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(Map.of(
+                            "itemId",   rs.getString("itemId"),
+                            "itemName", rs.getString("itemName"),
+                            "status",   rs.getString("status")
+                    ));
+                }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return result;
+        } catch (Exception e) { e.printStackTrace(); }
+        return list;
     }
 
+    public List<java.util.Map<String, Object>> getUserBidHistory(String bidderId) {
+        List<java.util.Map<String, Object>> list = new java.util.ArrayList<>();
+        String sql = "SELECT " +
+                "  i.id             AS itemId, " +
+                "  i.name           AS itemName, " +
+                "  MAX(b.bid_price) AS myBid, " +
+                "  a.current_price  AS finalPrice, " +
+                "  a.status         AS status, " +
+                "  a.end_time       AS endTime, " +
+                "  u.username       AS sellerName, " +
+                "  t.winner_id      AS winnerId " +
+                "FROM bids b " +
+                "JOIN items i        ON b.item_id   = i.id " +
+                "JOIN auctions a     ON a.item_id   = i.id " +
+                "LEFT JOIN users u   ON i.seller_id = u.id " +
+                "LEFT JOIN transactions t ON t.item_id = i.id " +
+                "WHERE b.bidder_id = ? " +
+                "GROUP BY i.id, i.name, a.current_price, a.status, a.end_time, u.username, t.winner_id";
+        try {
+            java.sql.Connection conn = com.auction.server.database.DatabaseConnection.getConnection();
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+                try {
+                    ps.setLong(1, Long.parseLong(bidderId));
+                } catch (NumberFormatException e) {
+                    ps.setString(1, bidderId);
+                }
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        java.util.Map<String, Object> row = new java.util.HashMap<>();
+                        row.put("itemId",     rs.getString("itemId"));
+                        row.put("itemName",   rs.getString("itemName"));
+                        row.put("myBid",      rs.getDouble("myBid"));
+                        row.put("finalPrice", rs.getDouble("finalPrice"));
+                        String wId = rs.getString("winnerId");
+                        row.put("winnerId",   wId != null ? wId : "");
+                        String stat = rs.getString("status");
+                        row.put("status",     stat != null ? stat : "FINISHED");
+                        String eTime = rs.getString("endTime");
+                        row.put("endTime",    eTime != null ? eTime : "");
+                        String sName = rs.getString("sellerName");
+                        row.put("sellerName", sName != null ? sName : "Không rõ");
+                        list.add(row);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[AuctionService] Lỗi getUserBidHistory: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return list;
+    }
 }

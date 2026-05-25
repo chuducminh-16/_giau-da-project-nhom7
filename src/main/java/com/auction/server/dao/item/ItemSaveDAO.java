@@ -29,7 +29,6 @@ public class ItemSaveDAO {
                 pstmt.setString(11, item.getImagePath() != null ? item.getImagePath() : "");
                 return pstmt.executeUpdate() > 0;
             } catch (Exception e) {
-                // Fallback: DB không có các cột mở rộng
                 try (PreparedStatement pstmt = conn.prepareStatement(sqlNoDesc)) {
                     pstmt.setString(1, item.getId());
                     pstmt.setString(2, item.getName());
@@ -47,7 +46,29 @@ public class ItemSaveDAO {
         }
     }
 
-    // ── FIX: thêm method updateItem() mà AuctionService gọi tới ──────────
+    // FIX: thêm image_path vào UPDATE
+    // Bản gốc thiếu image_path → ảnh mới không bao giờ được lưu khi Update
+    public boolean updateItem(String productId, String name, String description,
+                              double startPrice, double bidIncrement,
+                              LocalDateTime endTime, String imagePath) {
+        String sql = "UPDATE items SET name=?, current_price=?, end_time=?, description=?, bid_increment=?, image_path=? WHERE id=?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setDouble(2, startPrice);
+            ps.setString(3, endTime != null ? endTime.toString() : null);
+            ps.setString(4, description != null ? description : "");
+            ps.setDouble(5, bidIncrement);
+            ps.setString(6, imagePath != null ? imagePath : "");
+            ps.setString(7, productId);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Overload không có imagePath — giữ ảnh cũ (dùng khi không chọn ảnh mới)
     public boolean updateItem(String productId, String name, String description,
                               double startPrice, double bidIncrement,
                               LocalDateTime endTime) {
@@ -67,21 +88,28 @@ public class ItemSaveDAO {
         }
     }
 
-    // ── FIX: thêm method deleteItem() mà AuctionService gọi tới ──────────
     public boolean deleteItem(String productId) {
-        String delBids    = "DELETE FROM bids WHERE item_id=?";
-        String delAuction = "DELETE FROM auctions WHERE item_id=?";
-        String delItem    = "DELETE FROM items WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             try {
-                try (PreparedStatement ps = conn.prepareStatement(delBids)) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM bids WHERE item_id=?")) {
                     ps.setString(1, productId); ps.executeUpdate();
                 }
-                try (PreparedStatement ps = conn.prepareStatement(delAuction)) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM auto_bids WHERE item_id=?")) {
+                    ps.setString(1, productId); ps.executeUpdate();
+                } catch (Exception ignored) {}
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM transactions WHERE item_id=?")) {
                     ps.setString(1, productId); ps.executeUpdate();
                 }
-                try (PreparedStatement ps = conn.prepareStatement(delItem)) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM auctions WHERE item_id=?")) {
+                    ps.setString(1, productId); ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM items WHERE id=?")) {
                     ps.setString(1, productId);
                     int rows = ps.executeUpdate();
                     conn.commit();
