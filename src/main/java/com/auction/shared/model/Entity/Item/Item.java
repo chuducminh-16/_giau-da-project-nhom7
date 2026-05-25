@@ -3,7 +3,6 @@ package com.auction.shared.model.Entity.Item;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-
 import com.auction.shared.model.Entity.Entity;
 
 /**
@@ -28,6 +27,7 @@ public abstract class Item extends Entity implements Serializable {
     private String        imagePath;       // đường dẫn ảnh
     private String        status;          // PENDING | OPEN | RUNNING | FINISHED | CANCELED | PAID
     private LocalDateTime startTime;       // thời gian bắt đầu phiên
+    private String        type;            // loại sản phẩm (Art, Electronics, Collectible...) — dùng để phân biệt khi deserialize
 
     // ── Constructor đầy đủ ────────────────────────────────────────────────
     public Item(String id, String name, double startingPrice,
@@ -45,7 +45,10 @@ public abstract class Item extends Entity implements Serializable {
 
     // ── Abstract methods ──────────────────────────────────────────────────
     public abstract String getType();
-    public abstract String showDetails();
+    public void setType(String type) {
+        this.type = type;
+    }
+    public abstract String showDetails() ;
 
     // ── Getters gốc ───────────────────────────────────────────────────────
     public double        getStartingPrice() { return startingPrice; }

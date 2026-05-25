@@ -58,8 +58,15 @@ public class DetailController implements Initializable {
         return new GsonBuilder()
                 .registerTypeAdapter(Item.class, (JsonDeserializer<Item>) (json, typeOfT, ctx) -> {
                     JsonObject obj = json.getAsJsonObject();
-                    String type = obj.has("type") && !obj.get("type").isJsonNull()
-                            ? obj.get("type").getAsString().toUpperCase() : "ART";
+
+                    // Log để kiểm tra dữ liệu server trả về có "type" không
+                    // System.out.println("Debug JSON: " + obj.toString());
+
+                    String type = "ART"; // Mặc định
+                    if (obj.has("type") && !obj.get("type").isJsonNull()) {
+                        type = obj.get("type").getAsString().toUpperCase();
+                    }
+
                     return switch (type) {
                         case "ELECTRONICS" -> ctx.deserialize(obj, Electronics.class);
                         case "VEHICLE"     -> ctx.deserialize(obj, Vehicle.class);
@@ -99,16 +106,34 @@ public class DetailController implements Initializable {
                         Platform.runLater(() -> setText(productNameLabel, "Không tìm thấy sản phẩm."));
                         return;
                     }
-                    Item item = gson.fromJson(root.get("item"), Item.class);
-                    if (item == null) return;
 
-                    Platform.runLater(() -> {
-                        currentItem    = item;
-                        watchingItemId = item.getId();
-                        populateUI(item);
-                    });
+                    JsonObject itemObj = root.getAsJsonObject("item");
+
+                    // 1. Xác định type từ JSON trước khi deserialize
+                    String type = "ART";
+                    if (itemObj.has("type") && !itemObj.get("type").isJsonNull()) {
+                        type = itemObj.get("type").getAsString().toUpperCase();
+                    }
+
+                    // 2. Deserialize dựa trên type đã xác định
+                    Item item;
+                    switch (type) {
+                        case "ELECTRONICS": item = gson.fromJson(itemObj, Electronics.class); break;
+                        case "VEHICLE":     item = gson.fromJson(itemObj, Vehicle.class); break;
+                        default:            item = gson.fromJson(itemObj, Art.class); break;
+                    }
+
+                    // 3. Gán thủ công type vào object để chắc chắn getType() trả về đúng
+                    if (item != null) {
+                        item.setType(type); // Đảm bảo bạn đã thêm setType() vào lớp Item.java
+                        Platform.runLater(() -> {
+                            currentItem = item;
+                            watchingItemId = item.getId();
+                            populateUI(item);
+                        });
+                    }
                 } catch (Exception e) {
-                    System.err.println("[Detail] Lỗi parse PRODUCT_DETAIL_RESPONSE: " + e.getMessage());
+                    e.printStackTrace();
                 }
             }
 
