@@ -132,10 +132,26 @@ public class AuctionService {
     public Item addProduct(String sellerId, String name, String description,
                            double startPrice, double bidIncrement,
                            String imagePath, LocalDateTime startTime,
-                           LocalDateTime endTime) {
-        String itemId = "I-" + UUID.randomUUID().toString().substring(0, 8);
+                           LocalDateTime endTime, String type) {
 
-        Art item = new Art(itemId, name, startPrice, endTime, sellerId, description);
+        String itemId   = "I-" + UUID.randomUUID().toString().substring(0, 8);
+        String itemType = (type != null && !type.isBlank()) ? type.toUpperCase() : "ART";
+
+        // Tạo đúng subclass theo type
+        Item item = switch (itemType) {
+            case "ELECTRONICS" -> {
+                Electronics e = new Electronics(itemId, name, startPrice, endTime, sellerId, 0);
+                e.setDescription(description);
+                yield e;
+            }
+            case "VEHICLE" -> {
+                Vehicle v = new Vehicle(itemId, name, startPrice, endTime, sellerId, 0);
+                v.setDescription(description);
+                yield v;
+            }
+            default -> new Art(itemId, name, startPrice, endTime, sellerId, description);
+        };
+
         item.setBidIncrement(bidIncrement);
         item.setImagePath(imagePath);
         item.setStartTime(startTime);
@@ -148,7 +164,7 @@ public class AuctionService {
             return null;
         }
 
-        long auctionId = System.currentTimeMillis();
+        long auctionId    = System.currentTimeMillis();
         boolean auctionSaved = auctionDAO.saveAuction(
                 auctionId, itemId, sellerId, startPrice, endTime.toString());
         if (!auctionSaved) {
@@ -156,33 +172,41 @@ public class AuctionService {
             return null;
         }
 
-        System.out.printf("[AuctionService] Them san pham OK: id=%s name=%s price=%.0f%n",
-                itemId, name, startPrice);
+        System.out.printf("[AuctionService] Them san pham OK: id=%s name=%s type=%s price=%.0f%n",
+                itemId, name, itemType, startPrice);
         return item;
+    }
+
+    // ── Overload CŨ (giữ nguyên để không break code gọi thiếu type) ──────
+    public Item addProduct(String sellerId, String name, String description,
+                           double startPrice, double bidIncrement,
+                           String imagePath, LocalDateTime startTime,
+                           LocalDateTime endTime) {
+        // Gọi qua overload mới, mặc định ART
+        return addProduct(sellerId, name, description, startPrice, bidIncrement,
+                imagePath, startTime, endTime, "ART");
     }
 
     // FIX: thêm imagePath parameter — gọi overload mới của ItemSaveDAO.updateItem()
     // Nếu imagePath rỗng (không chọn ảnh mới) → giữ ảnh cũ qua overload không có imagePath
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
-                                 LocalDateTime endTime, String imagePath) {
+                                 LocalDateTime endTime, String imagePath, String type) {
         if (imagePath != null && !imagePath.isBlank()) {
-            // Có ảnh mới → update luôn image_path
             return itemSaveDAO.updateItem(productId, name, description,
-                    startPrice, bidIncrement, endTime, imagePath);
+                    startPrice, bidIncrement, endTime, imagePath, type); // Truyền type xuống DAO
         } else {
-            // Không chọn ảnh mới → giữ nguyên image_path cũ trong DB
             return itemSaveDAO.updateItem(productId, name, description,
-                    startPrice, bidIncrement, endTime);
+                    startPrice, bidIncrement, endTime, type); // Overload không có image
         }
     }
 
     // Overload cũ — giữ lại để không break code nào gọi method này
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
-                                 LocalDateTime endTime) {
+                                 LocalDateTime endTime, String type) {
         return itemSaveDAO.updateItem(productId, name, description,
-                startPrice, bidIncrement, endTime);
+                startPrice, bidIncrement, endTime, type); // Gọi overload mới của DAO
     }
 
     public boolean deleteProduct(String productId) {
@@ -252,13 +276,15 @@ public class AuctionService {
             String imagePath   = (String) row.getOrDefault("imagePath",
                                  row.getOrDefault("image_path", ""));
 
-            String type = (String) row.getOrDefault("type", "ART");
-            Item item = switch (type.toUpperCase()) {
+            String typeFromDb = (String) row.getOrDefault("type", "ART");
+            if (typeFromDb == null) typeFromDb = "ART";
+            Item item = switch (typeFromDb.toUpperCase()) {
                 case "ELECTRONICS" -> new Electronics(itemId, itemName, startingPrice, endTime, sellerId, 0);
                 case "VEHICLE"     -> new Vehicle(itemId, itemName, startingPrice, endTime, sellerId, 0);
                 default            -> new Art(itemId, itemName, startingPrice, endTime, sellerId, description);
             };
 
+            item.setType(typeFromDb.toUpperCase());
             item.setCurrentBid(currentPrice);
             item.setStatus(status != null ? status : "OPEN");
             item.setBidIncrement(bidIncrement);
