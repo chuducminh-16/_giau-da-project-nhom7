@@ -8,94 +8,97 @@ import java.net.Socket;
 
 import com.auction.client.network.Message;
 import com.auction.server.controller.AdminController;
-import com.auction.server.controller.AuctionController;
+import com.auction.server.controller.AuctionRoomEngineController;
+import com.auction.server.controller.AutoBidController; // ➕ Thêm import Controller mới
+import com.auction.server.controller.ProductController; // ➕ Thêm import Controller mới
 import com.auction.server.controller.UserController;
 import com.auction.shared.model.Entity.User.User;
 import com.google.gson.Gson;
 
 /**
- * ClientHandler
- *
- * FIX so voi ban goc:
- *   1. Them case "GET_BID_HISTORY"      -> handleGetBidHistory()
- *   2. Them case "REGISTER_AUTO_BID"    -> handleRegisterAutoBid()
- *   3. Them case "CANCEL_AUTO_BID"      -> handleCancelAutoBid()
+ * ClientHandler - Chịu trách nhiệm duy trì kết nối Socket với từng Client,
+ * lắng nghe thông điệp tuần tự và định tuyến (route) đến các Controller tương ứng.
  */
 public class ClientHandler implements Runnable {
 
-    private final Socket            socket;
-    private final NetworkServer     server;
-    private final Gson              gson = new Gson();
+    private final Socket         socket;
+    private final NetworkServer  server;
+    private final Gson           gson = new Gson();
 
-    private final UserController    userController;
-    private final AuctionController auctionController;
-    private final AdminController   adminController;
+    // Các Controller điều hướng nghiệp vụ của hệ thống
+    private final UserController             userController;
+    private final AuctionRoomEngineController auctionController; // Đảm nhận Live-Bidding Realtime
+    private final ProductController          productController;  // ➕ Ổn định nghiệp vụ CRUD sản phẩm
+    private final AutoBidController          autoBidController;  // ➕ Quản lý luồng bật/tắt Bot tự động
+    private final AdminController            adminController;
+    
+    // Đối tượng ImageHandler độc lập đảm nhận các tác vụ liên quan tới hình ảnh
+    private final ImageHandler      imageHandler;
 
-    private PrintWriter    out;
+    private PrintWriter out;
     private BufferedReader in;
-    private User           currentUser;
-    private String         watchingAuctionId;
+    private User           currentUser;       // Lưu thông tin người dùng sau khi login thành công
+    private String         watchingAuctionId; // ID của phòng đấu giá mà client này đang mở xem
 
     public ClientHandler(Socket socket, NetworkServer server) {
         this.socket            = socket;
         this.server            = server;
         this.userController    = new UserController();
-        this.auctionController = new AuctionController(server);
+        this.auctionController = new AuctionRoomEngineController(server);
+        this.productController = new ProductController(); // ➕ Khởi tạo bộ quản lý sản phẩm
+        this.autoBidController = new AutoBidController(); // ➕ Khởi tạo bộ quản lý Bot
         this.adminController   = new AdminController(server);
+        this.imageHandler      = new ImageHandler(this.gson); // Khởi tạo bộ xử lý ảnh chuyên biệt
     }
 
+    /**
+     * Vòng lặp Socket chạy luồng riêng biệt để liên tục đọc dữ liệu gửi lên từ Client
+     */
     @Override
     public void run() {
         try {
             out = new PrintWriter(socket.getOutputStream(), true);
             in  = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String line;
+            
+            // Đọc liên tục từng dòng luồng JSON cho đến khi client ngắt kết nối
             while ((line = in.readLine()) != null) {
                 Message msg = gson.fromJson(line, Message.class);
                 System.out.println("[Server] Nhan: " + msg.getType());
+                
+                // Định tuyến xử lý thông điệp dựa trên trường 'type'
                 route(msg);
             }
         } catch (IOException e) {
             System.out.println("[ClientHandler] Client ngat ket noi.");
         } finally {
+            // Khi client thoát hoặc mất kết nối, dọn dẹp tài nguyên và xóa khỏi danh sách quản lý chung
             server.removeClient(this);
             try { socket.close(); } catch (IOException ignored) {}
         }
     }
 
+    /**
+     * Hàm route() - Trái tim định tuyến của ClientHandler, phân loại các Message Type
+     */
     private void route(Message msg) {
         String p = msg.getPayload();
 
         switch (msg.getType()) {
 
-            // ── Auth ──────────────────────────────────────────────────────
+            // ── Xác thực & Tài khoản (Auth) ─────────────────────────────────
             case "LOGIN" -> {
                 UserController.LoginResult r = userController.handleLogin(p);
-                if (r.user() != null) currentUser = r.user();
+                if (r.user() != null) currentUser = r.user(); // Ghi nhận session đăng nhập cho kết nối này
                 send(r.response());
             }
             case "REGISTER" -> send(userController.handleRegister(p));
 
-            // ── Auction chung ─────────────────────────────────────────────
+            // ── Nghiệp vụ phòng đấu giá thời gian thực (Engine Room) ────────
             case "GET_AUCTIONS" -> send(auctionController.handleGetAuctions());
 
-            case "GET_MY_PRODUCTS" -> {
-                if (!isAuthenticated()) return;
-                send(auctionController.handleGetMyProducts(p));
-            }
-            case "ADD_PRODUCT" -> {
-                if (!isAuthenticated()) return;
-                send(auctionController.handleAddProduct(p, role()));
-            }
-            case "UPDATE_PRODUCT" -> {
-                if (!isAuthenticated()) return;
-                send(auctionController.handleUpdateProduct(p, role()));
-            }
-            case "DELETE_PRODUCT" -> {
-                if (!isAuthenticated()) return;
-                send(auctionController.handleDeleteProduct(p, role()));
-            }
             case "WATCH_AUCTION" -> {
+                // Đánh dấu phòng đấu giá Client đang xem để Server tiện gửi thông báo realtime khi có cập nhật giá mới
                 WatchDto dto = gson.fromJson(p, WatchDto.class);
                 this.watchingAuctionId = dto.auctionId();
             }
@@ -105,37 +108,58 @@ public class ClientHandler implements Runnable {
                         p, role(), currentUser.getId(),
                         currentUser.getUsername(), this);
             }
-
-            // ── FIX: GET_BID_HISTORY (ban goc THIEU case nay) ─────────────
             case "GET_BID_HISTORY" -> {
-                // Khong can dang nhap — ai cung xem duoc lich su
                 send(auctionController.handleGetBidHistory(p));
             }
-
-            // ── THÊM MỚI: Định tuyến lấy lịch sử tổng hợp của cá nhân người dùng ─────────────
             case "GET_USER_BID_HISTORY" -> {
                 if (!isAuthenticated()) return;
                 send(auctionController.handleGetUserBidHistory(p));
             }
-            // ++++ Thêm UPLOAD hình ảnh-------------------------------
-            case "UPLOAD_IMAGE" -> {
-                if (!isAuthenticated()) return;
-                send(handleUploadImage(p));
+            case "GET_PRODUCT_HISTORY" -> { // Đồng bộ thêm case lịch sử thắng cược cũ của tài khoản nếu có gọi
+                send(auctionController.handleGetProductHistory(p));
             }
-            case "GET_IMAGE" -> send(handleGetImage(p));
 
-            // ── FIX: Auto-Bid routes (ban goc THIEU 2 case nay) ──────────
+            // ── Nghiệp vụ Quản lý Sản phẩm (Tuyến ProductController mới) ──
+            case "GET_MY_PRODUCTS" -> {
+                if (!isAuthenticated()) return;
+                send(productController.handleGetMyProducts(p)); // 🔀 Đã chuyển sang productController
+            }
+            case "ADD_PRODUCT" -> {
+                if (!isAuthenticated()) return;
+                send(productController.handleAddProduct(p, role())); // 🔀 Đã chuyển sang productController
+            }
+            case "UPDATE_PRODUCT" -> {
+                if (!isAuthenticated()) return;
+                send(productController.handleUpdateProduct(p, role())); // 🔀 Đã chuyển sang productController
+            }
+            case "DELETE_PRODUCT" -> {
+                if (!isAuthenticated()) return;
+                send(productController.handleDeleteProduct(p, role())); // 🔀 Đã chuyển sang productController
+            }
+            case "GET_PRODUCT_DETAIL" -> {
+                send(productController.handleGetProductDetail(p)); // 🔀 Đã chuyển sang productController
+            }
+
+            // ── Quản lý tính năng Tự động đặt giá (Tuyến AutoBidController mới) ──
             case "REGISTER_AUTO_BID" -> {
                 if (!isAuthenticated()) return;
-                send(auctionController.handleRegisterAutoBid(p, currentUser.getId()));
+                send(autoBidController.handleRegisterAutoBid(p, currentUser.getId())); // 🔀 Đã chuyển sang autoBidController
             }
             case "CANCEL_AUTO_BID" -> {
                 if (!isAuthenticated()) return;
-                send(auctionController.handleCancelAutoBid(p, currentUser.getId()));
+                send(autoBidController.handleCancelAutoBid(p, currentUser.getId())); // 🔀 Đã chuyển sang autoBidController
             }
-            case "GET_PRODUCT_DETAIL" -> send(auctionController.handleGetProductDetail(p));
+            
+            // ── Tách Logic sang ImageHandler xử lý dữ liệu ảnh hình hình ─────────
+            case "UPLOAD_IMAGE" -> {
+                if (!isAuthenticated()) return;
+                send(imageHandler.handleUploadImage(p));
+            }
+            case "GET_IMAGE" -> {
+                send(imageHandler.handleGetImage(p));
+            }
 
-            // ── Admin ─────────────────────────────────────────────────────
+            // ── Khu vực dành riêng cho Quản trị viên (Admin) ─────────────────
             case "ADMIN_GET_PRODUCTS" -> {
                 if (!isAdmin()) return;
                 send(adminController.handleGetProducts());
@@ -161,15 +185,22 @@ public class ClientHandler implements Runnable {
                 send(adminController.handleForceCloseAuction(p));
             }
 
+            // Trường hợp nhận Message Type lạ không hợp lệ
             default -> send(new Message("ERROR",
                     gson.toJson(java.util.Map.of("message", "Unknown type: " + msg.getType()))));
         }
     }
 
+    /**
+     * Gửi dữ liệu đồng bộ (Thread-safe) về phía client qua cổng Output Stream
+     */
     public synchronized void send(Message msg) {
         if (out != null) out.println(gson.toJson(msg));
     }
 
+    /**
+     * Kiểm tra người dùng hiện tại đã đăng nhập vào hệ thống chưa
+     */
     private boolean isAuthenticated() {
         if (currentUser == null) {
             send(new Message("ERROR", gson.toJson(
@@ -179,6 +210,9 @@ public class ClientHandler implements Runnable {
         return true;
     }
 
+    /**
+     * Kiểm tra người dùng hiện tại có phải vai trò ADMIN không
+     */
     private boolean isAdmin() {
         if (!isAuthenticated()) return false;
         if (!"ADMIN".equals(currentUser.getRole())) {
@@ -189,75 +223,20 @@ public class ClientHandler implements Runnable {
         return true;
     }
 
+    /**
+     * Lấy chuỗi phân quyền (Role) hiện tại
+     */
     private String role() {
         return currentUser != null ? currentUser.getRole() : "";
     }
 
+    /**
+     * Kiểm tra xem Client này có đang bật màn hình theo dõi phòng đấu giá này không
+     */
     public boolean isWatchingAuction(String auctionId) {
         return auctionId != null && auctionId.equals(watchingAuctionId);
     }
 
+    // Record bổ trợ để parse nhanh JSON xem phòng đấu giá
     private record WatchDto(String auctionId) {}
-    private Message handleUploadImage(String payload) {
-    try {
-        com.google.gson.JsonObject obj = gson.fromJson(payload, com.google.gson.JsonObject.class);
-        String fileName = obj.get("fileName").getAsString()
-                            .replaceAll("[^a-zA-Z0-9._-]", "_"); // sanitize
-        String base64   = obj.get("data").getAsString();
-
-        java.io.File dir = new java.io.File("uploads/images");
-        dir.mkdirs();
-
-        // Tên file unique
-        String uniqueName = System.currentTimeMillis() + "_" + fileName;
-        java.io.File outFile = new java.io.File(dir, uniqueName);
-
-        byte[] bytes = java.util.Base64.getDecoder().decode(base64);
-        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile)) {
-            fos.write(bytes);
-        }
-
-        return new Message("UPLOAD_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
-                "success",   true,
-                "imagePath", "uploads/images/" + uniqueName
-        )));
-
-    } catch (Exception e) {
-        e.printStackTrace();
-        return new Message("UPLOAD_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
-                "success", false,
-                "message", "Lỗi upload: " + e.getMessage()
-        )));
-    }
-}
-
-
-//________Lay hinh anh__________________________________________________________________________________________
-private Message handleGetImage(String payload) {
-    try {
-        com.google.gson.JsonObject obj = gson.fromJson(payload, com.google.gson.JsonObject.class);
-        String imagePath = obj.get("imagePath").getAsString();
-
-        // Chặn path traversal attack
-        java.io.File file = new java.io.File(imagePath).getCanonicalFile();
-        java.io.File base = new java.io.File("uploads").getCanonicalFile();
-        if (!file.toPath().startsWith(base.toPath()) || !file.exists()) {
-            return new Message("GET_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
-                    "success", false, "message", "Không tìm thấy ảnh.")));
-        }
-
-        byte[] bytes  = java.nio.file.Files.readAllBytes(file.toPath());
-        String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
-
-        return new Message("GET_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
-                "success",   true,
-                "imagePath", imagePath,
-                "data",      base64
-        )));
-
-    } catch (Exception e) {
-        return new Message("GET_IMAGE_RESPONSE", gson.toJson(java.util.Map.of(
-                "success", false, "message", "Lỗi: " + e.getMessage())));
-    }
-}
 }
