@@ -20,68 +20,59 @@
    <children>
       <BorderPane prefHeight="723" prefWidth="1053" style="-fx-background-color: #f0f2f5;" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
 
-         <!-- ══ TOP NAVBAR ══ -->
          <top>
             <HBox alignment="CENTER_LEFT" prefHeight="64" prefWidth="1053" spacing="0" style="-fx-background-color: #1a1f2e; -fx-padding: 0 24 0 16;" BorderPane.alignment="CENTER">
                <children>
-                  <Button fx:id="btLeaveRoom" mnemonicParsing="false" onAction="#onLeaveRoomClick" prefHeight="38" prefWidth="130" style="-fx-background-color: #e53e3e; -fx-text-fill: white;                                  -fx-background-radius: 6; -fx-cursor: hand;                                  -fx-font-size: 12; -fx-font-weight: bold;" text="← LEAVE ROOM">
+                  <Button fx:id="btLeaveRoom" focusTraversable="false" mnemonicParsing="false" onAction="#onLeaveRoomClick" prefHeight="38" prefWidth="130" style="-fx-background-color: #e53e3e; -fx-text-fill: white; -fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12; -fx-font-weight: bold;" text="← LEAVE ROOM">
                      <HBox.margin><Insets left="8" /></HBox.margin>
                   </Button>
 
-                  <Label fx:id="lblProductName" prefHeight="57" prefWidth="461" style="-fx-text-fill: white; -fx-font-size: 16;               -fx-font-weight: bold; -fx-alignment: CENTER;" text="PRODUCT NAME" HBox.hgrow="ALWAYS" />
+                  <Label fx:id="lblProductName" prefHeight="57" prefWidth="461" style="-fx-text-fill: white; -fx-font-size: 16; -fx-font-weight: bold; -fx-alignment: CENTER;" text="PRODUCT NAME" HBox.hgrow="ALWAYS" />
 
-                  <Label fx:id="lblCountdown" prefHeight="57" prefWidth="200" style="-fx-text-fill: #fc8181; -fx-font-size: 22;                                 -fx-font-weight: bold; -fx-alignment: CENTER;" text="05:00">
+                  <Label fx:id="lblCountdown" prefHeight="57" prefWidth="200" style="-fx-text-fill: #fc8181; -fx-font-size: 22; -fx-font-weight: bold; -fx-alignment: CENTER;" text="05:00">
                      <HBox.margin><Insets right="8" /></HBox.margin>
                   </Label>
                </children>
             </HBox>
          </top>
 
-         <!-- ══ CENTER: Bid input + chart ══ -->
          <center>
             <VBox prefWidth="570" spacing="0" style="-fx-background-color: #f0f2f5; -fx-padding: 16 24 24 24;" BorderPane.alignment="CENTER">
                <children>
 
-                  <!-- Current Bid label -->
-                  <Label fx:id="lblCurrentBid" style="-fx-text-fill: #38a169; -fx-font-size: 22;               -fx-font-weight: bold; -fx-padding: 0 0 10 0;" text="Current Bid: --" />
+                  <Label fx:id="lblCurrentBid" style="-fx-text-fill: #38a169; -fx-font-size: 22; -fx-font-weight: bold; -fx-padding: 0 0 10 0;" text="Current Bid: --" />
 
-                  <!-- ── Manual Bid card ── -->
-                  <VBox spacing="0" style="-fx-background-color: white; -fx-background-radius: 10;                                -fx-padding: 16 20 16 20;                                -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                  <VBox spacing="0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 16 20 16 20; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                      <children>
-                        <Label style="-fx-text-fill: #4a5568; -fx-font-size: 12;                                       -fx-font-weight: bold; -fx-padding: 0 0 8 0;" text="Đặt giá thủ công" />
+                        <Label style="-fx-text-fill: #4a5568; -fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 0 0 8 0;" text="Đặt giá thủ công" />
                         <HBox alignment="CENTER_LEFT" prefHeight="44" spacing="10">
                            <children>
-                              <TextField fx:id="txtBidAmount" prefHeight="40" promptText="Nhập số tiền..." style="-fx-background-color: #f7fafc;                                                 -fx-border-color: #e2e8f0;                                                 -fx-border-radius: 6;                                                 -fx-background-radius: 6;                                                 -fx-font-size: 14; -fx-padding: 0 12;" HBox.hgrow="ALWAYS" />
-                              <Button mnemonicParsing="false" onAction="#onPlaceBidClick" prefHeight="40" prefWidth="120" style="-fx-background-color: #4299e1;                                              -fx-text-fill: white; -fx-font-size: 13;                                              -fx-font-weight: bold; -fx-background-radius: 6;                                              -fx-cursor: hand;" text="Place Bid" />
+                              <TextField fx:id="txtBidAmount" focusTraversable="false" onAction="#onPlaceBidClick" prefHeight="40" promptText="Nhập số tiền..." style="-fx-background-color: #f7fafc; -fx-border-color: #e2e8f0; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 14; -fx-padding: 0 12;" HBox.hgrow="ALWAYS" />
+                              <Button mnemonicParsing="false" onAction="#onPlaceBidClick" prefHeight="40" prefWidth="120" style="-fx-background-color: #4299e1; -fx-text-fill: white; -fx-font-size: 13; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;" text="Place Bid" />
                            </children>
                         </HBox>
                      </children>
                   </VBox>
 
-                  <!-- ── AUTO BID card ── -->
                   <VBox spacing="0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 16 20 16 20; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.18),10,0,0,3);">
                      <VBox.margin><Insets top="12" /></VBox.margin>
                      <children>
 
-                        <!-- Header row: icon + title + status badge -->
                         <HBox alignment="CENTER_LEFT" spacing="8">
                            <children>
-
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 11;                                       -fx-wrap-text: true; -fx-padding: 4 0 10 0;" text="Hệ thống tự đặt giá = giá cao nhất + bước nhảy (khi có người trả cao hơn)." />
-                              <Label style="-fx-text-fill: white; -fx-font-size: 13;                                             -fx-font-weight: bold;" text="TỰ ĐỘNG ĐẤU GIÁ" />
+                              <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-wrap-text: true; -fx-padding: 4 0 10 0;" text="Hệ thống tự đặt giá = giá cao nhất + bước nhảy (khi có người trả cao hơn)." />
+                              <Label style="-fx-text-fill: white; -fx-font-size: 13; -fx-font-weight: bold;" text="TỰ ĐỘNG ĐẤU GIÁ" />
                               <Region HBox.hgrow="ALWAYS" />
-                              <!-- Dynamic status badge -->
-                              <Label fx:id="lblAutoBidStatus" style="-fx-text-fill: #718096; -fx-font-size: 11;                                             -fx-font-weight: bold;                                             -fx-background-color: #2d3748;                                             -fx-background-radius: 20;                                             -fx-padding: 3 10;" text="● TẮT" />
+                              <Label fx:id="lblAutoBidStatus" style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold; -fx-background-color: #2d3748; -fx-background-radius: 20; -fx-padding: 3 10;" text="● TẮT" />
                            </children>
                         </HBox>
 
-                        <!-- Input row: max price + activate button -->
                         <HBox alignment="CENTER_LEFT" spacing="10">
                            <children>
                               <VBox spacing="3" HBox.hgrow="ALWAYS">
                                  <children>
-                                    <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 10;                                                   -fx-font-weight: bold;" text="GIÁ TỐI ĐA (VNĐ)" />
-                                    <TextField fx:id="txtMaxBid" prefHeight="28.0" prefWidth="452.0" promptText="Vd: 5000000" style="-fx-background-color: #f7fafc; -fx-border-color: #e2e8f0; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 14; -fx-padding: 0 12;" />
+                                    <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 10; -fx-font-weight: bold;" text="GIÁ TỐI ĐA (VNĐ)" />
+                                    <TextField fx:id="txtMaxBid" focusTraversable="false" prefHeight="28.0" prefWidth="452.0" promptText="Vd: 5000000" style="-fx-background-color: #f7fafc; -fx-border-color: #e2e8f0; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 14; -fx-padding: 0 12;" />
                                  </children>
                               </VBox>
                               <VBox alignment="BOTTOM_LEFT" spacing="3">
@@ -93,20 +84,18 @@
                            </children>
                         </HBox>
 
-                        <!-- Info strip shown when active -->
                         <HBox fx:id="hboxAutoBidInfo" alignment="CENTER_LEFT" managed="false" spacing="6" visible="false">
                            <VBox.margin><Insets top="10" /></VBox.margin>
                            <children>
                               <Label style="-fx-font-size: 13;" text="🎯" />
-                              <Label fx:id="lblAutoBidInfo" style="-fx-text-fill: #68d391; -fx-font-size: 12;                                             -fx-font-weight: bold;" text="Đang chờ bid đối thủ..." />
+                              <Label fx:id="lblAutoBidInfo" style="-fx-text-fill: #68d391; -fx-font-size: 12; -fx-font-weight: bold;" text="Đang chờ bid đối thủ..." />
                            </children>
                         </HBox>
 
                      </children>
                   </VBox>
 
-                  <!-- Line Chart -->
-                  <LineChart fx:id="priceChart" animated="false" style="-fx-background-color: white;                                     -fx-background-radius: 10;                                     -fx-padding: 10;                                     -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);" VBox.vgrow="ALWAYS">
+                  <LineChart fx:id="priceChart" animated="false" style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 10; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);" VBox.vgrow="ALWAYS">
                      <VBox.margin><Insets top="12" /></VBox.margin>
                      <xAxis>
                         <CategoryAxis label="Thời gian" side="BOTTOM" fx:id="xAxis" />
@@ -120,14 +109,13 @@
             </VBox>
          </center>
 
-         <!-- ══ RIGHT: history + notifications ══ -->
          <right>
             <VBox prefWidth="380" spacing="0" style="-fx-background-color: #f0f2f5; -fx-padding: 16 24 24 0;" BorderPane.alignment="CENTER">
                <children>
 
-                  <Label style="-fx-text-fill: #2d3748; -fx-font-size: 15;                                 -fx-font-weight: bold; -fx-padding: 0 0 10 0;" text="Lịch sử đặt giá" />
+                  <Label style="-fx-text-fill: #2d3748; -fx-font-size: 15; -fx-font-weight: bold; -fx-padding: 0 0 10 0;" text="Lịch sử đặt giá" />
 
-                  <TableView fx:id="tableBidHistory" style="-fx-background-color: white;                                     -fx-background-radius: 10;                                     -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);" VBox.vgrow="ALWAYS">
+                  <TableView fx:id="tableBidHistory" style="-fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);" VBox.vgrow="ALWAYS">
                      <columns>
                         <TableColumn fx:id="colTime" prefWidth="110" text="Time" />
                         <TableColumn fx:id="colUser" prefWidth="135" text="User" />
@@ -135,8 +123,8 @@
                      </columns>
                   </TableView>
 
-                  <Label style="-fx-text-fill: #4a5568; -fx-font-size: 13;                                 -fx-font-weight: bold; -fx-padding: 14 0 8 0;" text="Thông báo" />
-                  <ListView fx:id="listNotifications" prefHeight="150" prefWidth="380" style="-fx-background-color: white;                                    -fx-background-radius: 10;                                    -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);" />
+                  <Label style="-fx-text-fill: #4a5568; -fx-font-size: 13; -fx-font-weight: bold; -fx-padding: 14 0 8 0;" text="Thông báo" />
+                  <ListView fx:id="listNotifications" prefHeight="150" prefWidth="380" style="-fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);" />
 
                </children>
             </VBox>

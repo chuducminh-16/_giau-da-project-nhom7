@@ -5,6 +5,8 @@ import com.auction.server.dao.item.ItemFindDAO;
 import com.auction.server.dao.auction.AuctionDAO;
 import com.auction.shared.model.Entity.Item.Item;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,11 +17,11 @@ public class BidService {
     private final AuctionDAO auctionDAO = new AuctionDAO();
 
     // ------------------------------------------------------------------ //
-    //  ĐẶT GIÁ                                                            //
+    //  ĐẶT GIÁ                                                           //
     // ------------------------------------------------------------------ //
 
     /**
-     * Đặt giá cho 1 phiên đấu giá.
+     * Đặt giá cho 1 phiên đấu giá qua ID Số (long).
      *
      * Luồng xử lý:
      * 1. Kiểm tra phiên còn mở không
@@ -42,7 +44,6 @@ public class BidService {
         }
 
         // Bước 2: Kiểm tra phiên còn mở không
-        // Chỉ cho phép đặt giá khi status là OPEN hoặc RUNNING
         String status = (String) auction.get("status");
         if (!status.equals("OPEN") && !status.equals("RUNNING")) {
             System.out.println("Lỗi: Phiên đấu giá đã kết thúc! (status: " + status + ")");
@@ -57,7 +58,6 @@ public class BidService {
         }
 
         // Bước 4: Lấy item_id từ phiên để lưu bid
-        // (bids.item_id vì DB đang dùng item_id thay vì auction_id)
         String itemId = (String) auction.get("itemId");
 
         // Bước 5: Lưu bid vào bảng bids
@@ -68,7 +68,6 @@ public class BidService {
         }
 
         // Bước 6: Cập nhật giá hiện tại trong bảng auctions
-        // → status tự động chuyển sang RUNNING trong AuctionDAO
         boolean priceUpdated = auctionDAO.updateCurrentPrice(auctionId, bidPrice);
         if (!priceUpdated) {
             System.out.println("Cảnh báo: Bid đã lưu nhưng không cập nhật được giá phiên!");
@@ -79,25 +78,50 @@ public class BidService {
     }
 
     // ------------------------------------------------------------------ //
-    //  XEM LỊCH SỬ                                                        //
+    //  XEM LỊCH SỬ                                                       //
     // ------------------------------------------------------------------ //
 
     /**
-     * Lấy lịch sử đặt giá của 1 phiên.
-     * Dùng để hiển thị trên màn hình LiveBidding.
+     * LẤY LỊCH SỬ THEO LONG (Hỗ trợ code cũ): 
+     * Sửa lỗi Type Mismatch bằng cách chuyển đổi List<BidRecord> thành List<Map<String, Object>>
      */
     public List<Map<String, Object>> getBidHistory(long auctionId) {
-
-        // Lấy item_id từ phiên trước
         Map<String, Object> auction = auctionDAO.findById(auctionId);
-        if (auction == null) return List.of(); // trả về list rỗng nếu không tìm thấy
+        if (auction == null) return List.of(); 
 
         String itemId = (String) auction.get("itemId");
-        return bidDAO.getBidHistory(itemId);
+        
+        // Lấy danh sách Record từ DAO
+        List<BidDAO.BidRecord> records = bidDAO.getBidHistory(itemId);
+        
+        // Khởi tạo danh sách Map để trả về tương thích với luồng cũ
+        List<Map<String, Object>> legacyHistory = new ArrayList<>();
+        for (BidDAO.BidRecord record : records) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", record.id());
+            map.put("itemId", record.itemId());
+            map.put("bidderId", record.bidderId());
+            map.put("bidPrice", record.bidPrice());
+            map.put("bidTime", record.bidTime());
+            legacyHistory.add(map);
+        }
+        
+        return legacyHistory;
     }
 
     /**
-     * Lấy giá cao nhất hiện tại của 1 phiên.
+     * LẤY LỊCH SỬ THEO STRING (Hỗ trợ Controller/Service mới):
+     * Trả về kiểu List<BidDAO.BidRecord> sạch dữ liệu đúng như các Controller mong đợi.
+     */
+    public List<BidDAO.BidRecord> getBidHistory(String productId) {
+        if (productId == null || productId.isBlank()) {
+            return List.of();
+        }
+        return bidDAO.getBidHistory(productId);
+    }
+
+    /**
+     * Lấy giá cao nhất hiện tại của 1 phiên qua ID Số (long).
      */
     public double getHighestBid(long auctionId) {
         Map<String, Object> auction = auctionDAO.findById(auctionId);
@@ -105,5 +129,13 @@ public class BidService {
 
         String itemId = (String) auction.get("itemId");
         return bidDAO.getHighestBid(itemId);
+    }
+
+    /**
+     * Lấy giá cao nhất hiện tại của một phiên thông qua chuỗi productId (String).
+     */
+    public double getHighestBid(String productId) {
+        if (productId == null || productId.isBlank()) return 0;
+        return bidDAO.getHighestBid(productId);
     }
 }

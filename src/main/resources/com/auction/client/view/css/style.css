@@ -1,59 +1,105 @@
-/* --- style.css --- */
+/* =========================================================================
+   CẤU HÌNH GIAO DIỆN CHUNG (GENERAL APPLICATION STYLES)
+   ========================================================================= */
+
 .root {
     -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    -fx-background-color: #FFFFFF; /* Nền trắng tinh */
+    -fx-background-color: #FFFFFF; 
 }
 
-/* Các tiêu đề lớn (Heading) */
+/* Định dạng tiêu đề cỡ lớn */
 .heading-1 {
     -fx-font-size: 32px;
     -fx-font-weight: bold;
     -fx-text-fill: #000000;
 }
+
+/* Định dạng tiêu đề phụ */
 .heading-2 {
     -fx-font-size: 24px;
     -fx-font-weight: bold;
     -fx-text-fill: #111111;
 }
 
-/* Chữ mô tả, chữ phụ (Body Text) */
+/* Định dạng chuỗi văn bản mờ ghi chú */
 .text-muted {
     -fx-font-size: 14px;
     -fx-text-fill: #666666;
 }
 
-/* Nút bấm chính (Màu đen, chữ trắng) */
+/* Nút bấm phong cách tối giản màu đen */
 .btn-black {
     -fx-background-color: #000000;
     -fx-text-fill: #FFFFFF;
     -fx-font-size: 14px;
     -fx-font-weight: bold;
     -fx-padding: 12px 24px;
-    -fx-background-radius: 0px; /* Thiết kế của em là góc vuông hoặc bo rất nhẹ */
-    -fx-cursor: hand;
+    -fx-background-radius: 0px; 
+    -fx-cursor: hand;            
 }
 .btn-black:hover {
-    -fx-background-color: #333333;
+    -fx-background-color: #333333; 
 }
 
-/* Ô nhập liệu (Viền mỏng, tối giản) */
+/* Ô nhập liệu tối giản chỉ có đường gạch chân */
 .input-field {
     -fx-background-color: transparent;
     -fx-border-color: #DDDDDD;
-    -fx-border-width: 0 0 1px 0; /* Chỉ có đường viền ở dưới đáy */
+    -fx-border-width: 0 0 1px 0; 
     -fx-padding: 10px 0px;
     -fx-font-size: 16px;
 }
 .input-field:focused {
-    -fx-border-color: #000000;
+    -fx-border-color: #000000; 
 }
 
-/* Thẻ sản phẩm (Card) */
+/* Khung bọc sản phẩm có bóng đổ nhẹ phía sau */
 .art-card {
     -fx-background-color: #FFFFFF;
-    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 5);
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 5); 
     -fx-padding: 15px;
 }
+
+/* Ép toàn bộ màu chữ trong các hàng dữ liệu TableView sang đen rõ nét */
 .table-row-cell .text {
     -fx-fill: black;
+}
+
+/* =========================================================================
+   HỆ THỐNG ĐỒ HỌA CHO LINE CHART - PHÂN TÁCH PHÂN TẦNG JAVAFX CHUẨN
+   ========================================================================= */
+
+/* 1. ĐƯỜNG THẲNG NỐI ĐỒ THỊ: Nhuộm đỏ và làm nổi đường line vẽ giá */
+.default-color0.chart-series-line {
+    -fx-stroke: #FF3B30 !important;
+    -fx-stroke-width: 2.5px !important;
+}
+
+/* 2. CẤU HÌNH MẶC ĐỊNH CHO CÁC CHẤM TRÒN: Trắng viền Đỏ (Tạo trạng thái rỗng ruột)
+   Khi có điểm mới, các điểm cũ sẽ tự động mang style mặc định này */
+.default-color0.chart-line-symbol {
+    -fx-background-color: #FF3B30, #FFFFFF !important; /* Lớp ngoài đỏ, lớp trong trắng tinh */
+    -fx-background-insets: 0, 2px !important;          /* Lớp trắng co vào 2px tạo hiệu ứng viền dày */
+    -fx-background-radius: 5px, 4px !important;        /* Bo tròn mượt mà cả hai lớp */
+    -fx-padding: 5px !important;                       /* Kích thước chấm vừa vặn */
+}
+
+/* 3. 🎯 CHẤM DẪN ĐẦU CUỐI CÙNG TRÊN ĐỒ THỊ: ÉP MÀU ĐỎ ĐẶC RUỘT HOÀN TOÀN
+   Giải pháp sửa lỗi: Phân tách `.chart-series-line-nodes` cách một dấu cách sang `:last-child` 
+   để chỉ định chuẩn xác phần tử đồ họa cuối cùng sinh ra trên biểu đồ */
+.chart-series-line-nodes > .chart-line-symbol:last-child,
+.chart-series-line-nodes :last-child.chart-line-symbol {
+    -fx-background-color: #FF3B30 !important;   /* Đổ duy nhất một lớp màu đỏ, triệt tiêu lõi trắng */
+    -fx-background-insets: 0 !important;         /* Xóa bỏ hoàn toàn khoảng thụt lề */
+    -fx-background-radius: 6px !important;       /* Bo tròn đều nút chấm */
+    -fx-padding: 6px !important;                 /* Cho chấm mới nhất to hơn chấm cũ 1 chút để tạo điểm nhấn */
+}
+
+/* 4. Ô CHÚ THÍCH (LEGEND SYMBOL) DƯỚI ĐÁY: Nhuộm đỏ đặc đồng bộ */
+.chart-legend-item-symbol,
+.chart-legend-item-symbol.default-color0 {
+    -fx-background-color: #FF3B30 !important;   /* Màu đỏ đặc hoàn toàn */
+    -fx-background-insets: 0 !important;
+    -fx-background-radius: 5px !important;
+    -fx-padding: 5px !important;
 }

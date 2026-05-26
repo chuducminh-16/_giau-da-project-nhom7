@@ -3,7 +3,6 @@ package com.auction.server.autobid;
 import com.auction.client.network.Message;
 import com.auction.server.network.NetworkServer;
 import com.auction.server.service.AutoBidService;
-import com.auction.server.service.AuctionService;
 import com.google.gson.Gson;
 
 import java.util.Map;
@@ -13,153 +12,167 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * BidAuto — Event Bus độc lập xử lý Auto-Bidding.
- *
- * Cách hoạt động:
- *   1. ClientHandler.handlePlaceBid() publish RecordBid vào queue
- *   2. BidAuto chạy trên thread riêng, liên tục đọc queue
- *   3. Mỗi event → gọi AutoBidService.triggerAutoBid()
- *   4. Nếu có auto-bid → broadcast BID_UPDATE tới tất cả client
- *
- * Không cần sửa ClientHandler hay bất kỳ file cũ nào.
- * Chỉ cần:
- *   - ClientHandler gọi: BidAuto.getInstance().publish(event)
- *   - NetworkServer gọi: BidAuto.getInstance().start(server)
+ * =========================================================================
+ * THƯ MỤC: com.auction.server.autobid
+ * CLASS: BidAuto (Áp dụng Design Pattern: Singleton & Producer-Consumer)
+ * * CHỨC NĂNG CỐT LÕI:
+ * - Hoạt động như một Event Bus (Vòng lặp sự kiện) chạy độc lập, ngầm hoàn toàn.
+ * - Lắng nghe, xếp hàng và xử lý tuần tự (Single-Thread) các sự kiện đặt giá tự động.
+ * - Loại bỏ hoàn toàn sự phụ thuộc vào AuctionService cũ đã bị phân rã.
+ * =========================================================================
  */
 public class BidAuto {
 
-    // ── Singleton ──────────────────────────────────────────────────────────
+    // ── Thiết kế Design Pattern: Singleton (Khởi tạo lười thông qua Holder) ──
     private static final class Holder {
+        // Đảm bảo thực thể duy nhất của BidAuto chỉ được tạo ra khi có lệnh gọi đầu tiên
         static final BidAuto INSTANCE = new BidAuto();
     }
 
+    /**
+     * Hàm toàn cục lấy ra thực thể duy nhất của luồng tự động đặt giá
+     */
     public static BidAuto getInstance() {
         return Holder.INSTANCE;
     }
 
+    // Constructor private để chặn tuyệt đối hành vi dùng lệnh 'new' từ bên ngoài
     private BidAuto() {}
 
-    // ── Fields ─────────────────────────────────────────────────────────────
+    // ── Các thuộc tính điều khiển và luồng lưu trữ (Fields) ─────────────────
 
-    // Queue không giới hạn — ClientHandler publish, worker thread consume
-    private final BlockingQueue<RecordBid> queue =
-            new LinkedBlockingQueue<>();
+    // Queue Thread-safe không giới hạn phần tử: ClientHandler đẩy vào (Produce), Worker lấy ra (Consume)
+    private final BlockingQueue<RecordBid> queue = new LinkedBlockingQueue<>();
 
-    // 1 thread xử lý tuần tự để tránh race condition giữa các auto-bid
-    private final ExecutorService worker =
-            Executors.newSingleThreadExecutor(r -> {
-                Thread t = new Thread(r, "auto-bid-worker");
-                t.setDaemon(true);
-                return t;
-            });
+    // Sử dụng duy nhất 1 Worker Thread để xử lý TUẦN TỰ mọi lượt Auto-bid trên sàn.
+    // ĐIỀU NÀY CỰC KỲ QUAN TRỌNG: Nó ngăn chặn hoàn toàn hiện tượng Race Condition (hai bot tự nâng giá đè nhau) ở tầng logic.
+    private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "auto-bid-worker");
+        t.setDaemon(true); // Đặt trạng thái Daemon để luồng này tự động giải phóng khi Server tắt hẳn
+        return t;
+    });
 
-    private NetworkServer server;
-    private AutoBidService autoBidService;
-    private final Gson gson = new Gson();
+    private NetworkServer server;          // Đối tượng Server điều phối kết nối mạng mạng Socket
+    private AutoBidService autoBidService;  // Dịch vụ chứa bộ não tính toán bước giá tự động
+    private final Gson gson = new Gson();   // Công cụ đúc chuỗi JSON chuyển vận qua mạng
 
+    // Biến cờ hiệu volatile để đảm bảo tính đồng bộ bộ nhớ tức thì giữa các luồng hệ thống
     private volatile boolean running = false;
 
-    // ── Start / Stop ───────────────────────────────────────────────────────
+    // ── Vòng đời: Kích hoạt / Chấm dứt (Start / Stop) ─────────────────────────
 
     /**
-     * Khởi động BidAuto. Gọi từ NetworkServer.start() sau scheduler.start().
+     * Khởi động bộ máy xử lý tự động đặt giá.
+     * Thường được gọi trực tiếp bên trong NetworkServer.start() ngay khi bật Server.
      *
-     * @param server NetworkServer để broadcast BID_UPDATE sau auto-bid
+     * @param server Thực thể mạng chính để broadcast gói tin "BID_UPDATE" ra toàn sàn
      */
     public void start(NetworkServer server) {
-        if (running) return;
+        if (running) return; // Nếu luồng đang chạy ngầm rồi thì bỏ qua không khởi chạy trùng lặp
+        
         this.server = server;
-        this.autoBidService = new AutoBidService(new AuctionService());
+        
+        // SỬA LỖI TẠI ĐÂY: Khởi tạo AutoBidService bằng Constructor mặc định (Không truyền AuctionService cũ nữa)
+        this.autoBidService = new AutoBidService();
         this.running = true;
 
+        // Đẩy luồng lặp vô tận processLoop vào hàng đợi thực thi của đơn luồng Worker
         worker.submit(this::processLoop);
-        System.out.println("[BidAuto] Đã khởi động. Sẵn sàng xử lý auto-bid.");
+        System.out.println("[✓] [BidAuto] Event Bus đã khởi động thành công. Sẵn sàng gánh vác các bot đặt giá.");
     }
-
-    public void stop() {
-        running = false;
-        worker.shutdownNow();
-    }
-
-    // ── Publish ────────────────────────────────────────────────────────────
 
     /**
-     * ClientHandler gọi method này sau mỗi bid thành công.
-     * Không block — chỉ thêm vào queue và return ngay.
-     *
-     * Cách dùng trong ClientHandler (thêm 1 dòng sau broadcast):
-     *   BidAuto.getInstance().publish(
-     *       new RecordBid(dto.productId(), currentUser.getId(), outcome.newBid())
-     *   );
+     * Dừng khẩn cấp toàn bộ hệ thống bot đặt giá khi Server đóng cửa
+     */
+    public void stop() {
+        running = false;
+        worker.shutdownNow(); // Ép buộc luồng worker đang ngủ trong hàng đợi phải tỉnh dậy và hủy bỏ
+        System.out.println("[!] [BidAuto] Đã phát lệnh hủy toàn bộ luồng tự động đặt giá.");
+    }
+
+    // ── Đẩy sự kiện vào hàng đợi (Publish Event) ────────────────────────────
+
+    /**
+     * BẤT ĐỒNG BỘ: Điểm chạm để ClientHandler gọi xuống sau khi một User đặt giá tay thành công.
+     * Hàm này chạy với tốc độ cực nhanh (Non-blocking) vì nó chỉ ném dữ liệu vào Queue rồi rút lui luôn.
      */
     public void publish(RecordBid event) {
         if (running) {
-            queue.offer(event);
+            queue.offer(event); // Ném nhẹ sự kiện đặt giá mới vào hàng đợi chờ xử lý
         }
     }
 
-    // ── Process Loop (chạy trên worker thread) ─────────────────────────────
+    // ── Vòng lặp xử lý sự kiện ngầm (Process Loop - Chạy trên Worker Thread) ──
 
     private void processLoop() {
         while (running) {
             try {
+                // Đọc chặn (Blocking read): Luồng sẽ đứng ngủ tại đây nếu Queue rỗng.
+                // Ngay khi có một người đặt giá mới, luồng sẽ tự thức giấc và bốc sự kiện ra xử lý.
                 RecordBid event = queue.take();
                 handleEvent(event);
 
             } catch (InterruptedException e) {
+                // Khôi phục lại trạng thái ngắt luồng của hệ thống khi bị cưỡng chế dừng
                 Thread.currentThread().interrupt();
                 break;
             } catch (Exception e) {
-                System.err.println("[BidAuto] Lỗi xử lý event: " + e.getMessage());
+                System.err.println("[❌] [BidAuto] Lỗi phát sinh trong vòng lặp xử lý sự kiện: " + e.getMessage());
             }
         }
     }
 
-    // ── Handle Event ───────────────────────────────────────────────────────
+    // ── Xử lý chi tiết sự kiện đặt giá (Handle Event) ───────────────────────
 
     private void handleEvent(RecordBid event) {
-        System.out.printf("[BidAuto] Nhận event: productId=%s, bidderId=%s, price=%.0f%n",
+        System.out.printf("[BidAuto Event Bus] Nhận tín hiệu đặt giá mới: Sản phẩm=%s, Người đặt=%s, Giá hiện tại=%.0f%n",
                 event.productId(), event.bidderId(), event.newPrice());
 
-        // Trigger auto-bid cho các đối thủ
+        // BƯỚC 1: Gọi AutoBidService quét DB xem có các đối thủ nào cài đặt chế độ tự động nâng giá cho sản phẩm này không.
+        // Bên trong AutoBidService của bạn sẽ tự động gọi dịch vụ đặt giá mới (BidPlacementService) để đẩy lệnh cược lên.
         AutoBidService.AutoBidResult result = autoBidService.triggerAutoBid(
                 event.productId(),
                 event.newPrice(),
-                event.bidderId()
+                event.bidderId() // Truyền Id người vừa đặt để loại trừ, bot không tự đấu giá với chính mình
         );
 
-        // Nếu có auto-bid thành công → broadcast cho tất cả client đang xem phiên
+        // BƯỚC 2: Nếu tìm thấy và kích nổ lệnh đặt giá tự động của bot thành công
         if (result != null && server != null) {
-            System.out.printf("[BidAuto] Auto-bid thành công: bidderId=%s, newBid=%.0f%n",
+            System.out.printf("[🔥] [BidAuto] Bot trả giá thành công: Mã User=%s, Giá cược mới=%.0f VNĐ%n",
                     result.bidderId(), result.newBid());
 
+            // Đóng gói Payload cập nhật giá tiền mới gửi về cho toàn bộ các Client đang mở phòng đấu giá xem
             String payload = gson.toJson(Map.of(
                     "productId",  event.productId(),
                     "newBid",     result.newBid(),
                     "bidderId",   result.bidderId(),
-                    "bidderName", "[Auto] " + result.bidderId(),
+                    "bidderName", "[Tự động] " + result.bidderId(), // Đánh dấu nhãn bot tự động trên giao diện UI
                     "timestamp",  java.time.LocalDateTime.now().toString(),
                     "isAutoBid",  true
             ));
 
+            // Phát sóng (Broadcast) bản tin cập nhật giá tới tất cả những ai đang xem sản phẩm này
             server.broadcastToAuction(
                     event.productId(),
                     new Message("BID_UPDATE", payload)
             );
 
-            // Nếu auto-bid kích hoạt anti-sniping (newEndTime != null)
+            // BƯỚC 3: Nếu lượt cược tự động này rơi vào phút chót và kích hoạt cơ chế chống bắn tỉa phút cuối (Anti-sniping)
             if (result.newEndTime() != null) {
                 String timePayload = gson.toJson(Map.of(
                         "productId",  event.productId(),
                         "newEndTime", result.newEndTime()
                 ));
+                // Bắn tin gia hạn thời gian phòng đấu giá sang phía Giao diện Client cập nhật lại đồng hồ đếm ngược
                 server.broadcastToAuction(
                         event.productId(),
                         new Message("TIME_EXTENDED", timePayload)
                 );
             }
 
-            // Đệ quy: auto-bid vừa xong có thể trigger auto-bid của người khác
+            // BƯỚC 4: (TÍNH ĐỆ QUY CỰC HAY)
+            // Lượt đặt giá tự động của Bot A vừa thành công, rất có thể nó sẽ chạm vào ngưỡng kích hoạt cấu hình tự động của Bot B!
+            // Ta tự ném chính kết quả vừa rồi lại vào hàng đợi để tiếp tục kiểm tra chuỗi nâng giá tiếp theo.
             publish(new RecordBid(
                     event.productId(),
                     result.bidderId(),
