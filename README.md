@@ -1,7 +1,7 @@
 # GIAU_DA — Online Auction System
 
 - Lập trình nâng cao — 252_UET.CS2043 16
-- Nhóm: 7 | Học kỳ: Học kỳ 2, năm học 2025 - 2026.
+- Nhóm: 7 | Học kỳ 2, năm học 2025 - 2026.
 
 
 # Authors:
@@ -84,7 +84,7 @@ Entity (Abstract)
 - AuctionStatus       — Enum: OPEN → RUNNING → FINISHED → PAID / CANCELED
 
 # OOP Principles Applied
-Nguyên lý Encapsulation. 
+Nguyên lý Encapsulation
 + Nơi áp dụng: tất cả fields private/protected, truy cập qua getter/setter. Bidder.setBalance() kiểm tra giá trị âm trước khi gán.
 
 Nguyên lý Inheritance
@@ -109,6 +109,7 @@ Nguyên lý Abstraction
 
 - BidAuto: Event Bus xử lý Auto-bid. Dùng Holder pattern, chạy trên single Worker Thread.
 
+
 2. Factory Method Pattern: ItemFactory.createItem(type, ...) tạo đúng subclass Item dựa trên chuỗi type:
 ```
 // Tự động tạo Art, Electronics, hoặc Vehicle tùy thuộc vào type:
@@ -117,6 +118,7 @@ Item item = ItemFactory.createItem("ELECTRONICS", id, name, price, endTime, sell
 - Input: "ART" / "ELECTRONICS" / "VEHICLE" (case-insensitive)
 - Output: instance đúng subclass tương ứng
 - Throws IllegalArgumentException nếu type không hợp lệ
+
 
 3. Observer Pattern: Dùng để cập nhật realtime giá đấu cho tất cả client đang xem một phiên:
 ```
@@ -134,6 +136,7 @@ BidEvent (Immutable)
 - Mỗi notifyBidPlaced() chạy trong try-catch riêng — 1 observer lỗi không ảnh hưởng observer khác
 - BidEvent là immutable — an toàn broadcast cho nhiều thread
 
+
 4. Strategy / Template Method Pattern (Power-ups / DAO): Tuy không đặt tên formal, hệ thống DAO áp dụng tư tưởng Strategy:
 
 - UserFindDAO, UserSaveDAO, UserListDAO — phân tách trách nhiệm đọc/ghi/liệt kê
@@ -144,8 +147,8 @@ BidEvent (Immutable)
 # System Architecture:
 Client–Server Architecture
 ```
-┌─────────────────────────────────┐     TCP Socket     ┌──────────────────────────────────┐
-│           CLIENT                │◄──────────────────►│           SERVER                 │
+┌─────────────────────────────────┐     TCP Socket      ┌──────────────────────────────────┐
+│           CLIENT                │◄──────────────────► │           SERVER                 │
 │                                 │   JSON Messages     │                                  │
 │  JavaFX (FXML + Controller)     │                     │  NetworkServer (port 9090)       │
 │  ├── LoginController            │                     │  ├── ClientHandler (per-client)  │
@@ -219,7 +222,7 @@ Server:
 
 
 # Key Technical Implementations:
-- Concurrent Bidding — Thread-Safe với ReentrantLock
+1. Concurrent Bidding — Thread-Safe với ReentrantLock
 ```
 // BidPlacementService.java:
 private static final ConcurrentHashMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<>();
@@ -241,8 +244,8 @@ public BidOutcome placeBid(String productId, String bidderId, double amount) {
 - Giá không bị rollback ngoài ý muốn
 - Seller không tự bid vào phiên của mình
 
-- Anti-Sniping Algorithm
-+ Nếu có bid trong 60 giây cuối của phiên → tự động gia hạn thêm 60 giây:
+2. Anti-Sniping Algorithm
+- Nếu có bid trong 60 giây cuối của phiên → tự động gia hạn thêm 60 giây:
 ```
 // Trong placeBidInTransaction()
 long secondsLeft = Duration.between(LocalDateTime.now(), endTime).getSeconds();
@@ -251,9 +254,9 @@ if (secondsLeft <= SNIPE_WINDOW_SECONDS) {          // 60 giây
     newEndTimeStr = getEndTime(conn, auctionId);
 }
 ```
-+ Broadcast TIME_EXTENDED tới tất cả client → đồng hồ đếm ngược cập nhật lại tức thì.
+Broadcast TIME_EXTENDED tới tất cả client → đồng hồ đếm ngược cập nhật lại tức thì.
 
-- Auto-Bidding System
+3. Auto-Bidding System
 ```
 Bidder đặt Auto-bid (maxBid, increment)
          │
@@ -268,9 +271,9 @@ Khi có bid mới → AutoBidService.triggerAutoBid()
          ├── Tính toán: nextBid = currentPrice + increment
          └── Nếu nextBid ≤ maxBid → placeBid() → Broadcast BID_UPDATE
 ```
-+ BidAuto Event Bus chạy trên single worker thread (Producer-Consumer pattern) để tránh race condition giữa các bot.
+BidAuto Event Bus chạy trên single worker thread (Producer-Consumer pattern) để tránh race condition giữa các bot.
 
-- Realtime Update — Observer via Socket
+4. Realtime Update — Observer via Socket
 ```
 Bidder đặt giá thành công
          │
@@ -287,7 +290,7 @@ Client: NetworkClient listener nhận message
          ▼
 LiveBiddingController: cập nhật giá, bảng lịch sử, biểu đồ
 ```
-- Exception Hierarchy
+5. Exception Hierarchy
 ```
 AuctionException (Abstract — RuntimeException)
 ├── InvalidBidException          — Giá đặt thấp hơn/bằng giá hiện tại
@@ -445,7 +448,7 @@ Prerequisites
 - MySQL - Version 8.0+ (hoặc dùng DB đã cấu hình sẵn)
 
 
-Database Setup:
+- Database Setup:
 ```
 -- Chạy file database.sql để khởi tạo schema và dữ liệu mẫu: 
 SOURCE database.sql;
@@ -456,20 +459,20 @@ private static final String URL  = "jdbc:mysql://YOUR_HOST:PORT/YOUR_DB";
 private static final String USER = "YOUR_USER";
 private static final String PASSWORD = "YOUR_PASSWORD";
 ```
-Build & Run
+- Build & Run
 ```
 Clone repository
 git clone [LINK_GITHUB_REPO]
 ```
-Build
+- Build
 ```
 mvn clean compile
 ```
-Chạy Server (Terminal 1)
+- Chạy Server (Terminal 1)
 ```
 mvn exec:java -Dexec.mainClass="com.auction.server.Main"
 ```
-Chạy Client (Terminal 2)
+- Chạy Client (Terminal 2)
 ```
 mvn exec:java -Dexec.mainClass="com.auction.client.Launcher"
 ```
