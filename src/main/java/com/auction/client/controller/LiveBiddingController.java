@@ -61,6 +61,7 @@ public class LiveBiddingController implements Initializable {
     @FXML private ListView<String> listNotifications;             // Khung danh sách nhật ký thông báo hệ thống
 
     @FXML private TextField txtMaxBid;         // Ô cấu hình mức trần tối đa cho Auto-bid
+    @FXML private TextField txtAutoBidIncrement; // ← THÊM MỚI: Ô nhập bước giá riêng của bidder cho Auto-bid
     @FXML private Button btnAutoBid;           // Nút kích hoạt/Hủy kích hoạt Auto-bid
     @FXML private Label lblAutoBidStatus;      // Nhãn trạng thái bật/tắt chữ (Đang chạy... / Đang tắt)
     @FXML private Label lblAutoBidInfo;        // Nhãn chi tiết mô tả bước nhảy của Auto-bid
@@ -127,6 +128,7 @@ public class LiveBiddingController implements Initializable {
         // ⚡ KÍCH HOẠT ĐỊNH DẠNG PHÂN TÁCH HÀNG NGHÌN THỜI GIAN THỰC CHO HAI Ô NHẬP TIỀN
         applyMoneyFormatter(txtBidAmount);
         applyMoneyFormatter(txtMaxBid);
+        applyMoneyFormatter(txtAutoBidIncrement); // ← THÊM MỚI: áp formatter cho ô bước giá
 
         // Lấy ID sản phẩm đã chọn từ màn hình danh sách trước đó lưu trong Session toàn cục
         itemId = SelectedProductSession.getInstance().getProductId();
@@ -338,6 +340,7 @@ public class LiveBiddingController implements Initializable {
     public Label getLblProductName() { return lblProductName; }
     public TextField getTxtBidAmount() { return txtBidAmount; }
     public TextField getTxtMaxBid() { return txtMaxBid; }
+    public TextField getTxtAutoBidIncrement() { return txtAutoBidIncrement; } // ← THÊM MỚI: getter cho bước giá
     public Button getBtnAutoBid() { return btnAutoBid; }
     public Label getLblAutoBidStatus() { return lblAutoBidStatus; }
     public Label getLblAutoBidInfo() { return lblAutoBidInfo; }
