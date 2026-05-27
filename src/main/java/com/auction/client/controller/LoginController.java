@@ -16,7 +16,7 @@ import java.util.Map;
 
 public class LoginController {
 
-    @FXML private TextField     emailInput;   // dùng cho username
+    @FXML private TextField     emailInput;   // Dùng cho nhập username tài khoản
     @FXML private PasswordField passwordInput;
     @FXML private StackPane     rootPane;
     @FXML private ImageView     backgroundImage;
@@ -71,18 +71,19 @@ public class LoginController {
             setLoading(false);
 
             if (resp.success) {
-                // Lưu session
+                // 🔥 [ĐÃ SỬA]: Nạp đầy đủ 7 tham số thông tin của User vào Session khi đăng nhập thành công
                 UserSession.getInstance().login(
                         resp.userId,
                         resp.username,
+                        resp.fullName,  // Đã lấy từ bản tin Server
                         resp.email,
+                        resp.phone,     // Đã lấy từ bản tin Server
+                        resp.address,   // Đã lấy từ bản tin Server
                         resp.role
                 );
                 client.removeListener(listener);
 
                 // ── PHÂN HƯỚNG THEO ROLE ──────────────────────────────────
-                // ADMIN  → admin-view.fxml
-                // Còn lại → home-view.fxml
                 if ("ADMIN".equalsIgnoreCase(resp.role)) {
                     SceneEngine.changeScene(
                             loginButton,
@@ -128,7 +129,16 @@ public class LoginController {
         loginButton.setText(loading ? "Đang đăng nhập..." : "Sign In");
     }
 
+    // 🔥 [ĐÃ SỬA]: Mở rộng cấu trúc Record để ánh xạ khớp hoàn toàn dữ liệu JSON từ Server gửi về
     private record LoginResponse(
-            boolean success, String message,
-            String userId, String username, String email, String role) {}
+            boolean success, 
+            String message,
+            String userId, 
+            String username, 
+            String fullName, // Thêm mới trường ánh xạ tên đầy đủ
+            String email, 
+            String phone,    // Thêm mới trường ánh xạ số điện thoại
+            String address,  // Thêm mới trường ánh xạ địa chỉ
+            String role
+    ) {}
 }

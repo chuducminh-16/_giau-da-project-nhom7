@@ -5,12 +5,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Map;
 
 import com.auction.client.network.Message;
 import com.auction.server.controller.AdminController;
 import com.auction.server.controller.AuctionRoomEngineController;
-import com.auction.server.controller.AutoBidController; // ➕ Thêm import Controller mới
-import com.auction.server.controller.ProductController; // ➕ Thêm import Controller mới
+import com.auction.server.controller.AutoBidController; // Thêm import Controller mới
+import com.auction.server.controller.ProductController; // Thêm import Controller mới
 import com.auction.server.controller.UserController;
 import com.auction.shared.model.Entity.User.User;
 import com.google.gson.Gson;
@@ -26,10 +27,10 @@ public class ClientHandler implements Runnable {
     private final Gson           gson = new Gson();
 
     // Các Controller điều hướng nghiệp vụ của hệ thống
-    private final UserController             userController;
+    private final UserController            userController;
     private final AuctionRoomEngineController auctionController; // Đảm nhận Live-Bidding Realtime
-    private final ProductController          productController;  // ➕ Ổn định nghiệp vụ CRUD sản phẩm
-    private final AutoBidController          autoBidController;  // ➕ Quản lý luồng bật/tắt Bot tự động
+    private final ProductController          productController;  // Ổn định nghiệp vụ CRUD sản phẩm
+    private final AutoBidController          autoBidController;  // Quản lý luồng bật/tắt Bot tự động
     private final AdminController            adminController;
     
     // Đối tượng ImageHandler độc lập đảm nhận các tác vụ liên quan tới hình ảnh
@@ -37,7 +38,7 @@ public class ClientHandler implements Runnable {
 
     private PrintWriter out;
     private BufferedReader in;
-    private User           currentUser;       // Lưu thông tin người dùng sau khi login thành công
+    private User         currentUser;       // Lưu thông tin người dùng sau khi login thành công (Session trên RAM Server)
     private String         watchingAuctionId; // ID của phòng đấu giá mà client này đang mở xem
 
     public ClientHandler(Socket socket, NetworkServer server) {
@@ -45,8 +46,8 @@ public class ClientHandler implements Runnable {
         this.server            = server;
         this.userController    = new UserController();
         this.auctionController = new AuctionRoomEngineController(server);
-        this.productController = new ProductController(); // ➕ Khởi tạo bộ quản lý sản phẩm
-        this.autoBidController = new AutoBidController(); // ➕ Khởi tạo bộ quản lý Bot
+        this.productController = new ProductController(); // Khởi tạo bộ quản lý sản phẩm
+        this.autoBidController = new AutoBidController(); // Khởi tạo bộ quản lý Bot
         this.adminController   = new AdminController(server);
         this.imageHandler      = new ImageHandler(this.gson); // Khởi tạo bộ xử lý ảnh chuyên biệt
     }
@@ -57,12 +58,14 @@ public class ClientHandler implements Runnable {
     @Override
     public void run() {
         try {
+            // Khởi tạo kênh xuất (out) để gửi dữ liệu và kênh nhập (in) để đọc dữ liệu qua TCP Stream
             out = new PrintWriter(socket.getOutputStream(), true);
             in  = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String line;
             
             // Đọc liên tục từng dòng luồng JSON cho đến khi client ngắt kết nối
             while ((line = in.readLine()) != null) {
+                // Giải mã chuỗi JSON nhận được thành đối tượng cấu trúc Message chung
                 Message msg = gson.fromJson(line, Message.class);
                 System.out.println("[Server] Nhan: " + msg.getType());
                 
@@ -70,9 +73,10 @@ public class ClientHandler implements Runnable {
                 route(msg);
             }
         } catch (IOException e) {
+            // Lỗi xảy ra khi Client tắt đột ngột hoặc mất mạng (Connection reset)
             System.out.println("[ClientHandler] Client ngat ket noi.");
         } finally {
-            // Khi client thoát hoặc mất kết nối, dọn dẹp tài nguyên và xóa khỏi danh sách quản lý chung
+            // Khi client thoát hoặc mất kết nối, dọn dẹp tài nguyên và xóa khỏi danh sách quản lý chung của Server
             server.removeClient(this);
             try { socket.close(); } catch (IOException ignored) {}
         }
@@ -82,6 +86,7 @@ public class ClientHandler implements Runnable {
      * Hàm route() - Trái tim định tuyến của ClientHandler, phân loại các Message Type
      */
     private void route(Message msg) {
+        // Lấy cục chuỗi JSON chi tiết (payload) bên trong gói tin để chuẩn bị phân tích
         String p = msg.getPayload();
 
         switch (msg.getType()) {
@@ -89,10 +94,34 @@ public class ClientHandler implements Runnable {
             // ── Xác thực & Tài khoản (Auth) ─────────────────────────────────
             case "LOGIN" -> {
                 UserController.LoginResult r = userController.handleLogin(p);
-                if (r.user() != null) currentUser = r.user(); // Ghi nhận session đăng nhập cho kết nối này
+                // Nếu đăng nhập thành công, lưu lại thực thể User vào biến tạm của Handler này để chứng thực session
+                if (r.user() != null) currentUser = r.user(); 
                 send(r.response());
             }
             case "REGISTER" -> send(userController.handleRegister(p));
+
+            // 🔥 TÍCH HỢP MỚI: Xử lý cập nhật thông tin hồ sơ cá nhân (Profile) 🔥
+            case "UPDATE_PROFILE" -> {
+                // Bước 1: Bảo mật - Kiểm tra xem Client này đã đăng nhập vào hệ thống chưa
+                if (!isAuthenticated()) return;
+                
+                // Bước 2: Chuyển payload JSON qua cho UserController xử lý cập nhật xuống Database
+                Message responseMsg = userController.handleUpdateProfile(p);
+                
+                // Bước 3: Nếu UserController thông báo cập nhật Database thành công rực rỡ
+                if ("UPDATE_PROFILE_RESPONSE".equals(responseMsg.getType())) {
+                    // Trích xuất dữ liệu mới từ payload gửi lên để ghi đè (đồng bộ) trực tiếp vào RAM Server
+                    Map<String, Object> data = gson.fromJson(p, Map.class);
+                    if (data.containsKey("fullName")) currentUser.setFullName((String) data.get("fullName"));
+                    if (data.containsKey("email"))    currentUser.setEmail((String) data.get("email"));
+                    if (data.containsKey("phone"))    currentUser.setPhone((String) data.get("phone"));
+                    if (data.containsKey("address"))  currentUser.setAddress((String) data.get("address"));
+                    System.out.println("[ClientHandler] Dong bo RAM Server thanh cong cho: " + currentUser.getUsername());
+                }
+                
+                // Bước 4: Bắn gói tin phản hồi ngược về mạng, Client đang treo chữ "Đang lưu..." sẽ nhận được để mở khóa UI
+                send(responseMsg);
+            }
 
             // ── Nghiệp vụ phòng đấu giá thời gian thực (Engine Room) ────────
             case "GET_AUCTIONS" -> send(auctionController.handleGetAuctions());
@@ -122,32 +151,32 @@ public class ClientHandler implements Runnable {
             // ── Nghiệp vụ Quản lý Sản phẩm (Tuyến ProductController mới) ──
             case "GET_MY_PRODUCTS" -> {
                 if (!isAuthenticated()) return;
-                send(productController.handleGetMyProducts(p)); // 🔀 Đã chuyển sang productController
+                send(productController.handleGetMyProducts(p)); // Đã chuyển sang productController
             }
             case "ADD_PRODUCT" -> {
                 if (!isAuthenticated()) return;
-                send(productController.handleAddProduct(p, role())); // 🔀 Đã chuyển sang productController
+                send(productController.handleAddProduct(p, role())); // Đã chuyển sang productController
             }
             case "UPDATE_PRODUCT" -> {
                 if (!isAuthenticated()) return;
-                send(productController.handleUpdateProduct(p, role())); // 🔀 Đã chuyển sang productController
+                send(productController.handleUpdateProduct(p, role())); // Đã chuyển sang productController
             }
             case "DELETE_PRODUCT" -> {
                 if (!isAuthenticated()) return;
-                send(productController.handleDeleteProduct(p, role())); // 🔀 Đã chuyển sang productController
+                send(productController.handleDeleteProduct(p, role())); // Đã chuyển sang productController
             }
             case "GET_PRODUCT_DETAIL" -> {
-                send(productController.handleGetProductDetail(p)); // 🔀 Đã chuyển sang productController
+                send(productController.handleGetProductDetail(p)); // Đã chuyển sang productController
             }
 
             // ── Quản lý tính năng Tự động đặt giá (Tuyến AutoBidController mới) ──
             case "REGISTER_AUTO_BID" -> {
                 if (!isAuthenticated()) return;
-                send(autoBidController.handleRegisterAutoBid(p, currentUser.getId())); // 🔀 Đã chuyển sang autoBidController
+                send(autoBidController.handleRegisterAutoBid(p, currentUser.getId())); // Đã chuyển sang autoBidController
             }
             case "CANCEL_AUTO_BID" -> {
                 if (!isAuthenticated()) return;
-                send(autoBidController.handleCancelAutoBid(p, currentUser.getId())); // 🔀 Đã chuyển sang autoBidController
+                send(autoBidController.handleCancelAutoBid(p, currentUser.getId())); // Đã chuyển sang autoBidController
             }
             
             // ── Tách Logic sang ImageHandler xử lý dữ liệu ảnh hình hình ─────────
@@ -185,9 +214,9 @@ public class ClientHandler implements Runnable {
                 send(adminController.handleForceCloseAuction(p));
             }
 
-            // Trường hợp nhận Message Type lạ không hợp lệ
+            // Trường hợp nhận Message Type lạ không hợp lệ (Tránh kẹt luồng Client)
             default -> send(new Message("ERROR",
-                    gson.toJson(java.util.Map.of("message", "Unknown type: " + msg.getType()))));
+                    gson.toJson(Map.of("message", "Unknown type: " + msg.getType()))));
         }
     }
 
@@ -204,7 +233,7 @@ public class ClientHandler implements Runnable {
     private boolean isAuthenticated() {
         if (currentUser == null) {
             send(new Message("ERROR", gson.toJson(
-                    java.util.Map.of("message", "Vui long dang nhap truoc."))));
+                    Map.of("message", "Vui lòng đăng nhập trước khi thực hiện thao tác này."))));
             return false;
         }
         return true;
@@ -217,7 +246,7 @@ public class ClientHandler implements Runnable {
         if (!isAuthenticated()) return false;
         if (!"ADMIN".equals(currentUser.getRole())) {
             send(new Message("ERROR", gson.toJson(
-                    java.util.Map.of("message", "Khong co quyen truy cap."))));
+                    Map.of("message", "Từ chối truy cập: Bạn không có quyền quản trị viên."))));
             return false;
         }
         return true;

@@ -68,10 +68,23 @@ public class UserFindDAO {
         double rating   = rs.getDouble("rating");
         int adminLevel  = rs.getInt("admin_level");
 
-        return switch (role != null ? role.toUpperCase() : "BIDDER") {
+        // ➕ BỔ SUNG: Đọc dữ liệu từ 3 cột thông tin cá nhân mới trên Database Cloud
+        String fullName = rs.getString("full_name");
+        String phone    = rs.getString("phone");
+        String address  = rs.getString("address");
+
+        // Khởi tạo đối tượng dựa trên vai trò hệ thống (Role)
+        User user = switch (role != null ? role.toUpperCase() : "BIDDER") {
             case "SELLER" -> new Seller(id, username, email, password, rating);
             case "ADMIN"  -> new Admin(id, username, email, password, adminLevel);
             default       -> new Bidder(id, username, email, password, balance);
         };
+
+        // ➕ BỔ SUNG: Thiết lập dữ liệu Profile vào đối tượng User trước khi gửi qua Socket về Client
+        user.setFullName(fullName != null ? fullName : "");
+        user.setPhone(phone != null ? phone : "");
+        user.setAddress(address != null ? address : "");
+
+        return user;
     }
 }
