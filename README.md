@@ -161,8 +161,8 @@ Client–Server Architecture
 │  NetworkClient (Singleton)      │                     │  AuctionScheduler (daemon)       │
 │  UserSession (Singleton)        │                     │  BidAuto Event Bus               │
 └─────────────────────────────────┘                     └────────────────┬─────────────────┘
-                                                                          │
-                                                                          ▼
+                                                                         │ 
+                                                                         ▼
                                                          ┌──────────────────────────────────┐
                                                          │         DATABASE                 │
                                                          │   MySQL (Railway Cloud)          │
