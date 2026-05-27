@@ -231,9 +231,9 @@ Các message type chính:
 
 - Type: ```TIME_EXTENDED```. Chiều: ```→ Client```. Mô tả: ```Thông báo gia hạn phiên```
 
-- Type: ```WATCH_AUCTION```. Chiều: ```→ Server```. Mô tả: ```Thông báo gia hạn phiên```
+- Type: ```WATCH_AUCTION```. Chiều: ```→ Server```. Mô tả: ```Đăng ký theo dõi phiên```
 
-- Type: ```REGISTER_AUTO_BID```. Chiều: ```↔```. Mô tả: ```Thông báo gia hạn phiên```
+- Type: ```REGISTER_AUTO_BID```. Chiều: ```↔```. Mô tả: ```Đăng ký auto-bid```
 
 
 # MVC Structure:
