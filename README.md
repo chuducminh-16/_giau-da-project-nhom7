@@ -1,7 +1,7 @@
 # GIAU_DA — Online Auction System
 
-Lập trình nâng cao — 252_UET.CS2043 16
-Nhóm: 7 | Học kỳ: Học kỳ 2, năm học 2025 - 2026.
+- Lập trình nâng cao — 252_UET.CS2043 16
+- Nhóm: 7 | Học kỳ: Học kỳ 2, năm học 2025 - 2026.
 
 
 # Authors:
@@ -18,7 +18,7 @@ GIAU_DA là hệ thống đấu giá trực tuyến (Online Auction System) đư
 Dự án thể hiện toàn diện các nguyên lý Lập trình Hướng Đối Tượng (OOP), các Design Pattern phổ biến, kỹ thuật Concurrent Programming, và Realtime Communication trong một ứng dụng thực tế.
 
 
-Key Features:
+- Key Features:
 
 🔐 Quản lý người dùng đa vai trò — Bidder, Seller, Admin với quyền hạn riêng biệt
 
@@ -67,15 +67,24 @@ Lịch sử đấu giá cá nhân
 
 # OOP Design:
 
-Class Hierarchy
+- Class Hierarchy
+
 Entity (Abstract)
+
 ├── User (Abstract)
+
 │   ├── Bidder       — Người tham gia đấu giá, có balance
+
 │   ├── Seller       — Người đăng sản phẩm, có rating
+
 │   └── Admin        — Quản trị viên, có adminLevel
+
 └── Item (Abstract)
+
     ├── Art          — Tác phẩm nghệ thuật (artist)
+    
     ├── Electronics  — Thiết bị điện tử (warrantyPeriod)
+    
     └── Vehicle      — Phương tiện (mileage)
 
 - Auction             — Quản lý trung tâm một phiên đấu giá
