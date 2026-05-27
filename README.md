@@ -51,19 +51,32 @@ Dự án thể hiện toàn diện các nguyên lý Lập trình Hướng Đối
 Screenshots
 
 Màn hình Đăng nhập
+
 ![Login Screen](uploads/images/login.png)
+Màn hình Đăng ký
+
+![Profile Screen](uploads/images/profile-register.png)
 Trang chủ — Danh sách phiên đấu giá
+
 
 Chi tiết sản phẩm
 
+![Detail Screen](uploads/images/detail.png)
 Phòng đấu giá realtime (Live Bidding)
 
+![Live-bidding Screen](uploads/images/live-bidding.png)
 Seller Dashboard — Quản lý sản phẩm
 
+![Manage-product Screen](uploads/images/manage-product.png)
 Admin Dashboard
 
+![Admin Screen](uploads/images/admin-1.png)
+![Admin Screen](uploads/images/admin-2.png)
+![Admin Screen](uploads/images/admin-3.png)
 Lịch sử đấu giá cá nhân
 
+![History Screen](uploads/images/history-1.png)
+![History Screen](uploads/images/history-2.png)
 
 # OOP Design:
 
