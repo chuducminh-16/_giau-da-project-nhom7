@@ -51,7 +51,7 @@ Dự án thể hiện toàn diện các nguyên lý Lập trình Hướng Đối
 Screenshots
 
 Màn hình Đăng nhập
-
+![Login Screen](uploads/images/login.png)
 Trang chủ — Danh sách phiên đấu giá
 
 Chi tiết sản phẩm
