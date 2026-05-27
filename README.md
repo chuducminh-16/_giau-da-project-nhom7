@@ -206,18 +206,18 @@ Các message type chính:
 # MVC Structure:
 Client (JavaFX):
 
-View    — FXML files (login-view, home-view, live-bidding-view, ...)
+- View    — FXML files (login-view, home-view, live-bidding-view, ...)
            + CSS styles
-Controller — *Controller.java (LoginController, HomeController, ...)
+- Controller — *Controller.java (LoginController, HomeController, ...)
            + MessageHandler (tách xử lý mạng ra khỏi Controller)
-Model   — shared/model/Entity (User, Item, Auction, Bid)
+- Model   — shared/model/Entity (User, Item, Auction, Bid)
            + session (UserSession, SelectedProductSession)
            
 Server:
 
-Controller — UserController, AuctionRoomEngineController, ProductController, ...
-Service    — UserService, BidPlacementService, AuctionProductService, ...
-DAO        — UserFindDAO, BidDAO, AuctionDAO, ... (chỉ server truy cập DB)
+- Controller — UserController, AuctionRoomEngineController, ProductController, ...
+- Service    — UserService, BidPlacementService, AuctionProductService, ...
+- DAO        — UserFindDAO, BidDAO, AuctionDAO, ... (chỉ server truy cập DB)
 
 
 # Key Technical Implementations:
