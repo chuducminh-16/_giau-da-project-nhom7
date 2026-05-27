@@ -1,17 +1,17 @@
-GIAU_DA — Online Auction System
+# GIAU_DA — Online Auction System
 
 Lập trình nâng cao — 252_UET.CS2043 16
 Nhóm: 7 | Học kỳ: Học kỳ 2, năm học 2025 - 2026.
 
 
-Authors:
+# Authors:
 1. Đồng Hải Dương - 2502
 2. Trịnh Văn Hiệp - 2502
 3. Chử Đức Minh - 25023317
 4. Nguyễn Khắc Nhật Quang - 2502
 
 
-Description: 
+# Description: 
 
 GIAU_DA là hệ thống đấu giá trực tuyến (Online Auction System) được phát triển bằng Java, áp dụng kiến trúc Client–Server thực tế với giao tiếp qua TCP Socket và cơ sở dữ liệu MySQL. Hệ thống cho phép nhiều người dùng đồng thời tham gia cạnh tranh giá để mua sản phẩm trong một khoảng thời gian xác định, tham khảo mô hình eBay Auctions.
 
@@ -47,7 +47,7 @@ Key Features:
 🔄 CI/CD tự động — GitHub Actions build & test khi push lên main
 
 
-Demo:
+# Demo:
 Screenshots
 
 Màn hình Đăng nhập
@@ -65,7 +65,7 @@ Admin Dashboard
 Lịch sử đấu giá cá nhân
 
 
-OOP Design:
+# OOP Design:
 
 Class Hierarchy
 Entity (Abstract)
@@ -82,7 +82,7 @@ Auction             — Quản lý trung tâm một phiên đấu giá
 Bid                 — Một lượt đặt giá (id, itemId, bidderId, amount, timestamp)
 AuctionStatus       — Enum: OPEN → RUNNING → FINISHED → PAID / CANCELED
 
-OOP Principles Applied
+# OOP Principles Applied
 Nguyên lý Encapsulation. 
 + Nơi áp dụng: tất cả fields private/protected, truy cập qua getter/setter. Bidder.setBalance() kiểm tra giá trị âm trước khi gán.
 
@@ -96,7 +96,7 @@ Nguyên lý Abstraction
 + Nơi áp dụng: User và Item là abstract class. AuctionObserver là interface. AuctionException là abstract base exception.
 
 
-Design Patterns:
+# Design Patterns:
 
 1. Singleton Pattern
 Đảm bảo duy nhất một instance cho các thành phần quan trọng:
@@ -143,7 +143,7 @@ Tuy không đặt tên formal, hệ thống DAO áp dụng tư tưởng Strategy
 - Dễ dàng thay thế implementation mà không ảnh hưởng tầng Service
 
 
-System Architecture:
+# System Architecture:
 Client–Server Architecture
 
 ┌─────────────────────────────────┐     TCP Socket     ┌──────────────────────────────────┐
@@ -174,7 +174,7 @@ Client–Server Architecture
                                                          └──────────────────────────────────┘
 
 
-Message Protocol:
+# Message Protocol:
 Giao tiếp Client–Server qua JSON dòng đơn trên TCP Socket:
 
 // Request (Client → Server)
@@ -203,7 +203,7 @@ Các message type chính:
 - Type: REGISTER_AUTO_BID. Chiều: ↔. Mô tả: Thông báo gia hạn phiên
 
 
-MVC Structure:
+# MVC Structure:
 Client (JavaFX):
 
 View    — FXML files (login-view, home-view, live-bidding-view, ...)
@@ -220,7 +220,7 @@ Service    — UserService, BidPlacementService, AuctionProductService, ...
 DAO        — UserFindDAO, BidDAO, AuctionDAO, ... (chỉ server truy cập DB)
 
 
-Key Technical Implementations:
+# Key Technical Implementations:
 - Concurrent Bidding — Thread-Safe với ReentrantLock
 
 // BidPlacementService.java
@@ -302,7 +302,7 @@ AuctionException (Abstract — RuntimeException)
 └── NetworkException             — Lỗi kết nối socket / server
 
 
-User Roles & Features:
+# User Roles & Features:
 Bidder
 
 - Đăng ký / đăng nhập
@@ -331,7 +331,7 @@ Admin
 - Tự động chuyển hướng vào Admin Panel sau khi đăng nhập
 
 
-Auction Lifecycle:
+# Auction Lifecycle:
 OPEN → RUNNING → FINISHED → PAID
                            → CANCELED (nếu không có bid nào)
 
@@ -348,7 +348,7 @@ OPEN → RUNNING → FINISHED → PAID
 AuctionScheduler chạy mỗi 10 giây để tự động đóng các phiên hết giờ, xác định winner, lưu transaction, và broadcast AUCTION_ENDED.
 
 
-Database Schema:
+# Database Schema:
 
 users        (id, username, email, password, balance, role, rating, admin_level)
 items        (id, name, starting_price, current_price, end_time, type, seller_id,
@@ -359,7 +359,7 @@ transactions (id, item_id, winner_id, final_price, transaction_time)
 auto_bids    (item_id, bidder_id, max_bid, increment, active, registered_at)
 
 
-Unit Tests:
+# Unit Tests:
 Tests được viết bằng JUnit 5, bao phủ logic quan trọng không cần kết nối DB:
 
 - Test File: ObserverPatternTest. Phạm vi kiểm tra: Subscribe/Unsubscribe, notify bid placed, notify auction closed, isolation khi observer throw exception, BidEvent getters
@@ -380,7 +380,7 @@ Chạy toàn bộ test:
 mvn test
 
 
-CI/CD:
+# CI/CD:
 GitHub Actions tự động chạy khi push lên main hoặc tạo Pull Request:
 
 Job 1 — Build & Test:
@@ -395,7 +395,7 @@ Job 2 — Package JAR (chỉ khi push, sau khi CI pass):
 - Upload JAR artifact (lưu 30 ngày)
 
 
-Project Structur:
+# Project Structur:
 
 src/
 ├── main/java/com/auction/
@@ -436,7 +436,7 @@ src/
 └── test/java/com/auction/       # JUnit 5 test classes
 
 
-Installation & Setup:
+# Installation & Setup:
 Prerequisites
 
 - Java JDK - Version 21+
@@ -456,27 +456,27 @@ private static final String PASSWORD = "YOUR_PASSWORD";
 
 Build & Run
 
-# Clone repository
+Clone repository
 git clone [LINK_GITHUB_REPO]
 
-# Build
+Build
 mvn clean compile
 
-# Chạy Server (Terminal 1)
+Chạy Server (Terminal 1)
 mvn exec:java -Dexec.mainClass="com.auction.server.Main"
 
-# Chạy Client (Terminal 2)
+Chạy Client (Terminal 2)
 mvn exec:java -Dexec.mainClass="com.auction.client.Launcher"
 
 
-Default Test Accounts:
+# Default Test Accounts:
 - Username: admin. Password: admin. Role: Admin
 - Username: seller1. Password: sell123. Role: Seller
 - Username: minh_dz. Password: 123456. Role: Bidder
 - Username: test_user. Password: 1111. Role: Bidder
 
 
-Dependencies:
+# Dependencies:
 Được quản lý bởi Maven (pom.xml):
 
 + Dependency: javafx-controls. Version: 21.0.2. Mục đích: UI framework
@@ -494,7 +494,7 @@ Dependencies:
 + Dependency: junit-jupiter-engine. Version: 5.10.0. Mục đích: JUnit 5 runner
 
 
-Known Limitations:
+# Known Limitations:
 
 - Không hỗ trợ HTTPS / TLS — Socket giao tiếp plain text (phù hợp cho môi trường học thuật)
 - Password lưu plain text — Chưa hash password (cần bcrypt trong production)
@@ -503,7 +503,7 @@ Known Limitations:
 - JavaFX HiDPI — Một số scale màn hình có thể cần điều chỉnh
 
 
-Repository: 
+# Repository: 
 🔗 GitHub: https://github.com/chuducminh-16/_giau-da-project-nhom7 
 
 
