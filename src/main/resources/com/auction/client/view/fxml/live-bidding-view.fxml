@@ -42,6 +42,7 @@
 
                   <Label fx:id="lblCurrentBid" style="-fx-text-fill: #38a169; -fx-font-size: 22; -fx-font-weight: bold; -fx-padding: 0 0 10 0;" text="Current Bid: --" />
 
+                  <!-- Card đặt giá thủ công -->
                   <VBox spacing="0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 16 20 16 20; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                      <children>
                         <Label style="-fx-text-fill: #4a5568; -fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 0 0 8 0;" text="Đặt giá thủ công" />
@@ -54,36 +55,68 @@
                      </children>
                   </VBox>
 
+                  <!-- Card tự động đấu giá -->
                   <VBox spacing="0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 16 20 16 20; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.18),10,0,0,3);">
                      <VBox.margin><Insets top="12" /></VBox.margin>
                      <children>
 
+                        <!-- Header card -->
                         <HBox alignment="CENTER_LEFT" spacing="8">
                            <children>
-                              <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-wrap-text: true; -fx-padding: 4 0 10 0;" text="Hệ thống tự đặt giá = giá cao nhất + bước nhảy (khi có người trả cao hơn)." />
-                              <Label style="-fx-text-fill: white; -fx-font-size: 13; -fx-font-weight: bold;" text="TỰ ĐỘNG ĐẤU GIÁ" />
+                              <Label style="-fx-text-fill: #2d3748; -fx-font-size: 13; -fx-font-weight: bold;" text="TỰ ĐỘNG ĐẤU GIÁ" />
                               <Region HBox.hgrow="ALWAYS" />
                               <Label fx:id="lblAutoBidStatus" style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold; -fx-background-color: #2d3748; -fx-background-radius: 20; -fx-padding: 3 10;" text="● TẮT" />
                            </children>
                         </HBox>
 
+                        <!-- Mô tả -->
+                        <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-wrap-text: true; -fx-padding: 4 0 10 0;" text="Hệ thống tự đặt giá = giá cao nhất + bước nhảy của bạn (khi có người trả cao hơn)." />
+
+                        <!-- Row nhập liệu: Giá tối đa + Bước giá + Nút kích hoạt -->
                         <HBox alignment="CENTER_LEFT" spacing="10">
                            <children>
+
+                              <!-- Giá tối đa -->
                               <VBox spacing="3" HBox.hgrow="ALWAYS">
                                  <children>
                                     <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 10; -fx-font-weight: bold;" text="GIÁ TỐI ĐA (VNĐ)" />
-                                    <TextField fx:id="txtMaxBid" focusTraversable="false" prefHeight="28.0" prefWidth="452.0" promptText="Vd: 5000000" style="-fx-background-color: #f7fafc; -fx-border-color: #e2e8f0; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 14; -fx-padding: 0 12;" />
+                                    <TextField fx:id="txtMaxBid" focusTraversable="false" prefHeight="28.0"
+                                               promptText="Vd: 5000000"
+                                               style="-fx-background-color: #f7fafc; -fx-border-color: #e2e8f0;
+                                                      -fx-border-radius: 6; -fx-background-radius: 6;
+                                                      -fx-font-size: 14; -fx-padding: 0 12;" />
                                  </children>
                               </VBox>
+
+                              <!-- THÊM MỚI: Bước giá riêng của bidder -->
+                              <VBox spacing="3" HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 10; -fx-font-weight: bold;" text="BƯỚC GIÁ CỦA BẠN (VNĐ)" />
+                                    <TextField fx:id="txtAutoBidIncrement" focusTraversable="false" prefHeight="28.0"
+                                               promptText="Vd: 100000"
+                                               style="-fx-background-color: #f7fafc; -fx-border-color: #e2e8f0;
+                                                      -fx-border-radius: 6; -fx-background-radius: 6;
+                                                      -fx-font-size: 14; -fx-padding: 0 12;" />
+                                 </children>
+                              </VBox>
+
+                              <!-- Nút kích hoạt -->
                               <VBox alignment="BOTTOM_LEFT" spacing="3">
                                  <children>
                                     <Label style="-fx-font-size: 10;" text=" " />
-                                    <Button fx:id="btnAutoBid" mnemonicParsing="false" onAction="#onAutoBidToggle" prefHeight="28.0" prefWidth="119.0" style="-fx-background-color: #4299e1; -fx-text-fill: white; -fx-font-size: 13; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;" text="⚡ Kích hoạt" />
+                                    <Button fx:id="btnAutoBid" mnemonicParsing="false" onAction="#onAutoBidToggle"
+                                            prefHeight="28.0" prefWidth="119.0"
+                                            style="-fx-background-color: #4299e1; -fx-text-fill: white;
+                                                   -fx-font-size: 13; -fx-font-weight: bold;
+                                                   -fx-background-radius: 6; -fx-cursor: hand;"
+                                            text="⚡ Kích hoạt" />
                                  </children>
                               </VBox>
+
                            </children>
                         </HBox>
 
+                        <!-- Thanh thông tin trạng thái auto-bid -->
                         <HBox fx:id="hboxAutoBidInfo" alignment="CENTER_LEFT" managed="false" spacing="6" visible="false">
                            <VBox.margin><Insets top="10" /></VBox.margin>
                            <children>
@@ -95,6 +128,7 @@
                      </children>
                   </VBox>
 
+                  <!-- Biểu đồ giá -->
                   <LineChart fx:id="priceChart" animated="false" style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 10; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.05),6,0,0,2);" VBox.vgrow="ALWAYS">
                      <VBox.margin><Insets top="12" /></VBox.margin>
                      <xAxis>
@@ -117,8 +151,8 @@
 
                   <TableView fx:id="tableBidHistory" style="-fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);" VBox.vgrow="ALWAYS">
                      <columns>
-                        <TableColumn fx:id="colTime" prefWidth="110" text="Time" />
-                        <TableColumn fx:id="colUser" prefWidth="135" text="User" />
+                        <TableColumn fx:id="colTime"   prefWidth="110" text="Time" />
+                        <TableColumn fx:id="colUser"   prefWidth="135" text="User" />
                         <TableColumn fx:id="colAmount" prefWidth="115" text="Amount" />
                      </columns>
                   </TableView>
