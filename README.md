@@ -78,9 +78,9 @@ Entity (Abstract)
     ├── Electronics  — Thiết bị điện tử (warrantyPeriod)
     └── Vehicle      — Phương tiện (mileage)
 
-Auction             — Quản lý trung tâm một phiên đấu giá
-Bid                 — Một lượt đặt giá (id, itemId, bidderId, amount, timestamp)
-AuctionStatus       — Enum: OPEN → RUNNING → FINISHED → PAID / CANCELED
+- Auction             — Quản lý trung tâm một phiên đấu giá
+- Bid                 — Một lượt đặt giá (id, itemId, bidderId, amount, timestamp)
+- AuctionStatus       — Enum: OPEN → RUNNING → FINISHED → PAID / CANCELED
 
 # OOP Principles Applied
 Nguyên lý Encapsulation. 
@@ -98,8 +98,7 @@ Nguyên lý Abstraction
 
 # Design Patterns:
 
-1. Singleton Pattern
-Đảm bảo duy nhất một instance cho các thành phần quan trọng:
+1. Singleton Pattern: Đảm bảo duy nhất một instance cho các thành phần quan trọng:
 
 - AuctionManager: Quản lý toàn bộ danh sách phiên đấu giá đang hoạt động. Dùng Initialization-on-demand Holder — lazy, thread-safe, không cần synchronized.
 
@@ -109,18 +108,17 @@ Nguyên lý Abstraction
 
 - BidAuto: Event Bus xử lý Auto-bid. Dùng Holder pattern, chạy trên single Worker Thread.
 
-2. Factory Method Pattern
-ItemFactory.createItem(type, ...) tạo đúng subclass Item dựa trên chuỗi type:
+2. Factory Method Pattern: ItemFactory.createItem(type, ...) tạo đúng subclass Item dựa trên chuỗi type:
 
-// Tự động tạo Art, Electronics, hoặc Vehicle tùy thuộc vào type
+// Tự động tạo Art, Electronics, hoặc Vehicle tùy thuộc vào type:
+
 Item item = ItemFactory.createItem("ELECTRONICS", id, name, price, endTime, sellerId, "24");
 
 - Input: "ART" / "ELECTRONICS" / "VEHICLE" (case-insensitive)
 - Output: instance đúng subclass tương ứng
 - Throws IllegalArgumentException nếu type không hợp lệ
 
-3. Observer Pattern
-Dùng để cập nhật realtime giá đấu cho tất cả client đang xem một phiên:
+3. Observer Pattern: Dùng để cập nhật realtime giá đấu cho tất cả client đang xem một phiên:
 
 AuctionSubject (Abstract)           AuctionObserver (Interface)
 ├── subscribe(observer)             ├── onBidPlaced(BidEvent)
@@ -135,8 +133,7 @@ BidEvent (Immutable)
 - Mỗi notifyBidPlaced() chạy trong try-catch riêng — 1 observer lỗi không ảnh hưởng observer khác
 - BidEvent là immutable — an toàn broadcast cho nhiều thread
 
-4. Strategy / Template Method Pattern (Power-ups / DAO)
-Tuy không đặt tên formal, hệ thống DAO áp dụng tư tưởng Strategy:
+4. Strategy / Template Method Pattern (Power-ups / DAO): Tuy không đặt tên formal, hệ thống DAO áp dụng tư tưởng Strategy:
 
 - UserFindDAO, UserSaveDAO, UserListDAO — phân tách trách nhiệm đọc/ghi/liệt kê
 - ItemFindDAO, ItemSaveDAO, ItemListDAO — tương tự cho Item
@@ -178,10 +175,10 @@ Client–Server Architecture
 Giao tiếp Client–Server qua JSON dòng đơn trên TCP Socket:
 
 // Request (Client → Server)
-{"type": "PLACE_BID", "payload": "{\"productId\":\"I01\",\"amount\":2500.0}"}
+- {"type": "PLACE_BID", "payload": "{\"productId\":\"I01\",\"amount\":2500.0}"}
 
 // Response (Server → Client)
-{"type": "BID_RESULT", "payload": "{\"success\":true,\"newBid\":2500.0}"}
+- {"type": "BID_RESULT", "payload": "{\"success\":true,\"newBid\":2500.0}"}
 
 Các message type chính:
 - Type: LOGIN / LOGIN_RESPONSE. Chiều: ↔. Mô tả: Đăng nhập
@@ -223,7 +220,7 @@ Server:
 # Key Technical Implementations:
 - Concurrent Bidding — Thread-Safe với ReentrantLock
 
-// BidPlacementService.java
+// BidPlacementService.java:
 private static final ConcurrentHashMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<>();
 
 public BidOutcome placeBid(String productId, String bidderId, double amount) {
@@ -238,13 +235,13 @@ public BidOutcome placeBid(String productId, String bidderId, double amount) {
 }
 
 Đảm bảo:
-✅ Không lost update khi nhiều bidder đặt giá cùng lúc
-✅ Không hai người cùng thắng
-✅ Giá không bị rollback ngoài ý muốn
-✅ Seller không tự bid vào phiên của mình
+- Không lost update khi nhiều bidder đặt giá cùng lúc
+- Không hai người cùng thắng
+- Giá không bị rollback ngoài ý muốn
+- Seller không tự bid vào phiên của mình
 
 - Anti-Sniping Algorithm
-Nếu có bid trong 60 giây cuối của phiên → tự động gia hạn thêm 60 giây:
++ Nếu có bid trong 60 giây cuối của phiên → tự động gia hạn thêm 60 giây:
 
 // Trong placeBidInTransaction()
 long secondsLeft = Duration.between(LocalDateTime.now(), endTime).getSeconds();
@@ -252,7 +249,7 @@ if (secondsLeft <= SNIPE_WINDOW_SECONDS) {          // 60 giây
     extendEndTime(conn, auctionId, SNIPE_EXTEND_SECONDS); // +60 giây
     newEndTimeStr = getEndTime(conn, auctionId);
 }
-Broadcast TIME_EXTENDED tới tất cả client → đồng hồ đếm ngược cập nhật lại tức thì.
++ Broadcast TIME_EXTENDED tới tất cả client → đồng hồ đếm ngược cập nhật lại tức thì.
 
 - Auto-Bidding System
 
@@ -267,9 +264,8 @@ Khi có bid mới → AutoBidService.triggerAutoBid()
          ├── Lấy tất cả bidder có auto-bid active, maxBid > currentPrice, loại trừ người vừa bid
          ├── Ưu tiên: maxBid cao nhất → registered_at cũ nhất (PriorityQueue)
          ├── Tính toán: nextBid = currentPrice + increment
-         └── Nếu nextBid ≤ maxBid → placeBid() → Broadcast BID_UPDATE
-         
-BidAuto Event Bus chạy trên single worker thread (Producer-Consumer pattern) để tránh race condition giữa các bot.
+         └── Nếu nextBid ≤ maxBid → placeBid() → Broadcast BID_UPDATE      
++ BidAuto Event Bus chạy trên single worker thread (Producer-Consumer pattern) để tránh race condition giữa các bot.
 
 - Realtime Update — Observer via Socket
 
@@ -446,10 +442,11 @@ Prerequisites
 
 Database Setup:
 
--- Chạy file database.sql để khởi tạo schema và dữ liệu mẫu
+-- Chạy file database.sql để khởi tạo schema và dữ liệu mẫu: 
 SOURCE database.sql;
 
-Cấu hình kết nối DB trong DatabaseConnection.java:
+- Cấu hình kết nối DB trong DatabaseConnection.java:
+
 private static final String URL  = "jdbc:mysql://YOUR_HOST:PORT/YOUR_DB";
 private static final String USER = "YOUR_USER";
 private static final String PASSWORD = "YOUR_PASSWORD";
