@@ -20,8 +20,6 @@ import java.util.ResourceBundle;
 
 /**
  * 👑 LỚP ĐIỀU KHIỂN DASHBOARD ADMIN (ADMIN UI CONTROLLER)
- * - Tập trung 100% vào điều hướng Sidebar, tìm kiếm bộ lọc cục bộ và các tương tác đồ họa.
- * - Đã ủy quyền toàn bộ khâu phân tích gói tin mạng và cập nhật thống kê cho AdminMessageHandler.
  */
 public class AdminController implements Initializable {
 
@@ -31,6 +29,9 @@ public class AdminController implements Initializable {
     @FXML private Button btnSideAuctions;
     @FXML private Label  lblAdminName;
     @FXML private Label  lblStatusBar;
+
+    // ✅ THÊM MỚI: Nút ACC trên navbar
+    @FXML private Button btnAccount;
 
     // Các thẻ thống kê nhanh ghim trên Sidebar
     @FXML private Label lblStatProducts;
@@ -100,28 +101,24 @@ public class AdminController implements Initializable {
     private final ObservableList<Map<String, Object>> filteredAuctions = FXCollections.observableArrayList();
 
     private final NetworkClient client = NetworkClient.getInstance();
-    private AdminMessageHandler messageHandler; // Lớp Handler mạng mới vừa tách
+    private AdminMessageHandler messageHandler;
     private NetworkClient.MessageListener listener;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Thiết lập hiển thị thông tin Admin hiện tại đăng nhập
         String username = UserSession.getInstance().getUsername();
         if (lblAdminName != null && username != null) {
             lblAdminName.setText("👤 " + username);
         }
 
-        // Khởi tạo cầu nối xử lý gói tin
         this.messageHandler = new AdminMessageHandler(this);
         this.listener = msg -> messageHandler.handleServerMessage(msg);
         client.addListener(listener);
 
-        // Ủy nhiệm việc dựng cột và gài nút bấm Action sang cho lớp AdminTableSetup cũ
         AdminTableSetup.setupProductTable(this, tableProducts, colProdId, colProdName, colProdType, colProdPrice, colProdSeller, colProdStatus, colProdEndTime, colProdAction);
         AdminTableSetup.setupUserTable(this, tableUsers, colUserId, colUsername, colUserEmail, colUserRole, colUserBalance, colUserAction);
         AdminTableSetup.setupAuctionTable(this, tableAuctions, colAuctionId, colAuctionItem, colAuctionSeller, colAuctionPrice, colAuctionStatus, colAuctionEnd, colAuctionAction);
 
-        // Gắn danh sách liên kết bộ nhớ vào TableView
         tableProducts.setItems(allProducts);
         tableUsers.setItems(allUsers);
         tableAuctions.setItems(filteredAuctions);
@@ -158,7 +155,7 @@ public class AdminController implements Initializable {
         btnSideProducts.setStyle(off); btnSideUsers.setStyle(off); btnSideAuctions.setStyle(off); active.setStyle(on);
     }
 
-    // ── 🔄 LÀM MỚI VÀ TÌM KIẾM NHANH (SEARCH LOGIC) ──────────────────────────
+    // ── 🔄 LÀM MỚI VÀ TÌM KIẾM NHANH ──────────────────────────────────────────
     @FXML public void onRefreshAll(ActionEvent e) { loadAllData(); setStatus("Đang tải lại dữ liệu..."); }
     @FXML public void onRefreshProducts(ActionEvent e) { loadProducts(); setStatus("Đang tải lại sản phẩm..."); }
     @FXML public void onRefreshUsers(ActionEvent e) { loadUsers(); setStatus("Đang tải lại người dùng..."); }
@@ -176,7 +173,7 @@ public class AdminController implements Initializable {
         else tableUsers.setItems(allUsers.filtered(u -> safeStr(u.get("username")).toLowerCase().contains(kw) || safeStr(u.get("email")).toLowerCase().contains(kw) || safeStr(u.get("role")).toLowerCase().contains(kw)));
     }
 
-    // ── ⏳ BỘ LỌC TRẠNG THÁI PHIÊN ĐẤU GIÁ (AUCTION FILTERS) ──────────────────
+    // ── ⏳ BỘ LỌC TRẠNG THÁI PHIÊN ĐẤU GIÁ ────────────────────────────────────
     @FXML public void onFilterAll(ActionEvent e) { filteredAuctions.setAll(allAuctions); setFilterButtonActive(btnFilterAll); }
     @FXML public void onFilterRunning(ActionEvent e) { filteredAuctions.setAll(allAuctions.filtered(a -> "RUNNING".equals(a.get("status")))); setFilterButtonActive(btnFilterRunning); }
     @FXML public void onFilterOpen(ActionEvent e) { filteredAuctions.setAll(allAuctions.filtered(a -> "OPEN".equals(a.get("status")))); setFilterButtonActive(btnFilterOpen); }
@@ -188,16 +185,16 @@ public class AdminController implements Initializable {
         btnFilterAll.setStyle(off); btnFilterRunning.setStyle(off); btnFilterOpen.setStyle(off); btnFilterFinished.setStyle(off); active.setStyle(on);
     }
 
-    // ── ❓ THÔNG BÁO XÁC NHẬN CÁC THAO TÁC NGUY HIỂM (ALERT DIALOGS) ──────────
+    // ── ❓ THÔNG BÁO XÁC NHẬN CÁC THAO TÁC NGUY HIỂM ──────────────────────────
     public void confirmDeleteProduct(Map<String, Object> row) {
         String name = safeStr(row.get("name")); String id = safeStr(row.get("id"));
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Xóa sản phẩm: " + name + "?\n\nThao tác này sẽ xóa cả phiên và lịch sử bid.", ButtonType.YES, ButtonType.NO);
         alert.setTitle("Xác nhận xóa");
-        alert.showAndWait().ifPresent(btn -> { 
-            if (btn == ButtonType.YES) { 
-                client.send(new Message("ADMIN_DELETE_PRODUCT", messageHandler.getGson().toJson(Map.of("productId", id)))); 
-                showProductStatus("Đang xóa...", false); 
-            } 
+        alert.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.YES) {
+                client.send(new Message("ADMIN_DELETE_PRODUCT", messageHandler.getGson().toJson(Map.of("productId", id))));
+                showProductStatus("Đang xóa...", false);
+            }
         });
     }
 
@@ -205,11 +202,11 @@ public class AdminController implements Initializable {
         String username = safeStr(row.get("username")); String id = safeStr(row.get("id"));
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Xóa tài khoản: " + username + "?\n\nThao tác này không thể hoàn tác.", ButtonType.YES, ButtonType.NO);
         alert.setTitle("Xác nhận xóa tài khoản");
-        alert.showAndWait().ifPresent(btn -> { 
-            if (btn == ButtonType.YES) { 
-                client.send(new Message("ADMIN_DELETE_USER", messageHandler.getGson().toJson(Map.of("userId", id)))); 
-                showUserStatus("Đang xóa...", false); 
-            } 
+        alert.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.YES) {
+                client.send(new Message("ADMIN_DELETE_USER", messageHandler.getGson().toJson(Map.of("userId", id))));
+                showUserStatus("Đang xóa...", false);
+            }
         });
     }
 
@@ -218,21 +215,28 @@ public class AdminController implements Initializable {
         String id = idObj != null ? idObj.toString().replaceAll("\\.0$", "") : "";
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Đóng phiên: " + itemName + "?\n\nPhiên sẽ kết thúc ngay, winner được xác định.", ButtonType.YES, ButtonType.NO);
         alert.setTitle("Xác nhận đóng phiên");
-        alert.showAndWait().ifPresent(btn -> { 
-            if (btn == ButtonType.YES) { 
-                client.send(new Message("ADMIN_FORCE_CLOSE_AUCTION", messageHandler.getGson().toJson(Map.of("auctionId", id)))); 
-                showAuctionStatus("Đang đóng phiên...", false); 
-            } 
+        alert.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.YES) {
+                client.send(new Message("ADMIN_FORCE_CLOSE_AUCTION", messageHandler.getGson().toJson(Map.of("auctionId", id))));
+                showAuctionStatus("Đang đóng phiên...", false);
+            }
         });
     }
 
-    @FXML public void onLogoutClick(ActionEvent event) { 
-        client.removeListener(listener); 
-        UserSession.getInstance().logout(); 
-        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập"); 
+    // ── ✅ THÊM MỚI: Handler nút ACC - Mở trang hồ sơ Admin ───────────────────
+    @FXML
+    public void onAccountClick(ActionEvent event) {
+        client.removeListener(listener);
+        SceneEngine.changeScene(event, "profile-view.fxml", "The Curator — Hồ sơ cá nhân");
     }
 
-    // ── 🛠️ CHUỖI TIỆN ÍCH TRỢ GIÚP ĐỊNH DẠNG (FORMAT HELPERS) ──────────────────
+    @FXML public void onLogoutClick(ActionEvent event) {
+        client.removeListener(listener);
+        UserSession.getInstance().logout();
+        SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập");
+    }
+
+    // ── 🛠️ TIỆN ÍCH ĐỊNH DẠNG ──────────────────────────────────────────────────
     public String safeStr(Object obj) { return obj != null ? obj.toString() : ""; }
     public double safeDouble(Object obj) { if (obj == null) return 0; try { return Double.parseDouble(obj.toString()); } catch (Exception e) { return 0; } }
 
@@ -256,7 +260,7 @@ public class AdminController implements Initializable {
         };
     }
 
-    // ── ⚙️ GETTERS, SETTERS & UI TRẠNG THÁI (ĐƯỢC GỌI TỪ HANDLER) ─────────────
+    // ── ⚙️ GETTERS & SETTERS (ĐƯỢC GỌI TỪ HANDLER) ────────────────────────────
     public void setStatus(String msg) { if (lblStatusBar != null) lblStatusBar.setText(msg); }
     public void setLabelText(Label lbl, String text) { if (lbl != null) lbl.setText(text); }
     public void showProductStatus(String msg, boolean err) { showStatus(lblProductStatus, msg, err); }

@@ -11,7 +11,7 @@ CREATE DATABASE IF NOT EXISTS auction_db;
 USE auction_db;
 
 -- =====================================
--- 2. BẢNG USERS
+-- 2. BẢNG USERS (Đã bổ sung 3 cột cá nhân)
 -- =====================================
 CREATE TABLE users (
     id          VARCHAR(50)    PRIMARY KEY,
@@ -21,7 +21,10 @@ CREATE TABLE users (
     balance     DECIMAL(15, 2) DEFAULT 1000.00,
     role        VARCHAR(20)    DEFAULT 'BIDDER',
     rating      DECIMAL(3, 1)  DEFAULT 5.0,
-    admin_level INT            DEFAULT 1
+    admin_level INT            DEFAULT 1,
+    full_name   VARCHAR(255)   DEFAULT '',  -- ➕ Bổ sung đồng bộ Profile
+    phone       VARCHAR(20)    DEFAULT '',  -- ➕ Bổ sung đồng bộ Profile
+    address     VARCHAR(255)   DEFAULT ''   -- ➕ Bổ sung đồng bộ Profile
 );
 
 -- =====================================
@@ -46,13 +49,13 @@ CREATE TABLE items (
 -- 4. BẢNG AUCTIONS
 -- =====================================
 CREATE TABLE auctions (
-    id            BIGINT         PRIMARY KEY,
-    item_id       VARCHAR(50)    NOT NULL,
-    seller_id     VARCHAR(50)    NOT NULL,
-    current_price DECIMAL(15, 2) NOT NULL,
-    status        VARCHAR(20)    DEFAULT 'OPEN',
-    end_time      DATETIME       NOT NULL,
-    created_at    DATETIME       DEFAULT CURRENT_TIMESTAMP,
+    id             BIGINT         PRIMARY KEY,
+    item_id        VARCHAR(50)    NOT NULL,
+    seller_id      VARCHAR(50)    NOT NULL,
+    current_price  DECIMAL(15, 2) NOT NULL,
+    status         VARCHAR(20)    DEFAULT 'OPEN',
+    end_time       DATETIME       NOT NULL,
+    created_at     DATETIME       DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (item_id)   REFERENCES items(id),
     FOREIGN KEY (seller_id) REFERENCES users(id)
 );
@@ -84,13 +87,13 @@ CREATE TABLE transactions (
 );
 
 -- =====================================
--- 7. DỮ LIỆU MẪU
+-- 7. DỮ LIỆU MẪU (Đã nạp sẵn data Profile)
 -- =====================================
-INSERT INTO users (id, username, email, password, balance, role, rating, admin_level) VALUES
-('U01', 'minh_dz',   'minh@gmail.com',   '123456',  5000.00, 'BIDDER', 5.0, 1),
-('U02', 'test_user', 'test@gmail.com',   '1111',    2000.00, 'BIDDER', 5.0, 1),
-('U03', 'admin',     'admin@gmail.com',  'admin',   0.00,    'ADMIN',  5.0, 3),
-('U04', 'seller1',   'seller@gmail.com', 'sell123', 0.00,    'SELLER', 4.5, 1);
+INSERT INTO users (id, username, email, password, balance, role, rating, admin_level, full_name, phone, address) VALUES
+('U01', 'minh_dz',   'minh@gmail.com',   '123456',  5000.00, 'BIDDER', 5.0, 1, 'Nguyễn Quang Minh', '0912345678', 'Hà Nội'),
+('U02', 'test_user', 'test@gmail.com',   '1111',    2000.00, 'BIDDER', 5.0, 1, 'Người Dùng Thử',   '0988888888', 'Cầu Giấy'),
+('U03', 'admin',     'admin@gmail.com',  'admin',   0.00,    'ADMIN',  5.0, 3, 'Hệ Thống Admin',   '0243111222', 'UET - VNU'),
+('U04', 'seller1',   'seller@gmail.com', 'sell123', 0.00,    'SELLER', 4.5, 1, 'Chủ Giới Gian Hàng', '0977777777', 'Hải Phòng');
 
 INSERT INTO items (id, name, starting_price, current_price, end_time, type, seller_id, status, description, bid_increment, image_path) VALUES
 ('I01', 'Macbook Pro M3', 2000.00, 2000.00, '2026-12-31 23:59:59', 'ELECTRONICS', 'U04', 'OPEN', 'MacBook Pro M3 chip, 16GB RAM', 100.00, ''),

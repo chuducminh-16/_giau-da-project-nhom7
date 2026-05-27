@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.auction.server.database.DatabaseConnection;
+import com.auction.shared.model.Entity.User.Admin;
 import com.auction.shared.model.Entity.User.Bidder;
+import com.auction.shared.model.Entity.User.Seller;
 import com.auction.shared.model.Entity.User.User;
 
 public class UserListDAO {
@@ -50,14 +52,37 @@ public class UserListDAO {
         return users;
     }
 
-    // Map ResultSet → Bidder (dùng chung)
+    /**
+     * ✨ SỬA ĐỔI: Map ResultSet đa hình theo đúng subclass User dựa vào cột role trong DB,
+     * đồng thời nạp đầy đủ thông tin cá nhân (full_name, phone, address).
+     */
     private User mapRow(ResultSet rs) throws Exception {
-        return new Bidder(
-            rs.getString("id"),
-            rs.getString("username"),
-            rs.getString("email"),     // ← thêm
-            rs.getString("password"),
-            rs.getDouble("balance")
-        );
+        String id       = rs.getString("id");
+        String username = rs.getString("username");
+        String email    = rs.getString("email");
+        String password = rs.getString("password");
+        String role     = rs.getString("role");
+        double balance  = rs.getDouble("balance");
+        double rating   = rs.getDouble("rating");
+        int adminLevel  = rs.getInt("admin_level");
+
+        // Đọc thêm dữ liệu từ 3 cột thông tin cá nhân mới
+        String fullName = rs.getString("full_name");
+        String phone    = rs.getString("phone");
+        String address  = rs.getString("address");
+
+        // Khởi tạo đúng Class con (Subclass) theo cấu trúc đa hình hệ thống
+        User user = switch (role != null ? role.toUpperCase() : "BIDDER") {
+            case "SELLER" -> new Seller(id, username, email, password, rating);
+            case "ADMIN"  -> new Admin(id, username, email, password, adminLevel);
+            default       -> new Bidder(id, username, email, password, balance);
+        };
+
+        // Thiết lập đầy đủ dữ liệu Profile cá nhân vào đối tượng User trước khi đưa vào danh sách công việc
+        user.setFullName(fullName != null ? fullName : "");
+        user.setPhone(phone != null ? phone : "");
+        user.setAddress(address != null ? address : "");
+
+        return user;
     }
 }

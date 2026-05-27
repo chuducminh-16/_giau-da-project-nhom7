@@ -13,10 +13,16 @@ import java.sql.SQLException;
 public class UserSaveDAO {
 
     public boolean saveUser(User user) {
-        // Map đúng tất cả cột trong bảng users:
-        // id, username, email, password, balance, role, rating, admin_level
-        String sql = "INSERT INTO users (id, username, email, password, balance, role, rating, admin_level) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        // ✨ CẢI TIẾN: Bổ sung 3 cột cá nhân (full_name, phone, address) vào câu lệnh dữ liệu.
+        // Dùng ON DUPLICATE KEY UPDATE để tự động chuyển từ INSERT thành UPDATE nếu trùng ID/Username.
+        String sql = "INSERT INTO users (id, username, email, password, balance, role, rating, admin_level, full_name, phone, address) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                   + "ON DUPLICATE KEY UPDATE "
+                   + "email = VALUES(email), "
+                   + "password = VALUES(password), "
+                   + "full_name = VALUES(full_name), "
+                   + "phone = VALUES(phone), "
+                   + "address = VALUES(address)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -34,6 +40,7 @@ public class UserSaveDAO {
                 adminLevel = a.getAdminLevel();
             }
 
+            // Gán các tham số từ 1 đến 8 (Dữ liệu cốt lõi hệ thống)
             pstmt.setString(1, user.getId());
             pstmt.setString(2, user.getUsername());
             pstmt.setString(3, user.getEmail());
@@ -43,8 +50,13 @@ public class UserSaveDAO {
             pstmt.setDouble(7, rating);
             pstmt.setInt   (8, adminLevel);
 
+            // ➕ Gán các tham số từ 9 đến 11 (Thông tin cá nhân mới bổ sung)
+            pstmt.setString(9, user.getFullName() != null ? user.getFullName() : "");
+            pstmt.setString(10, user.getPhone() != null ? user.getPhone() : "");
+            pstmt.setString(11, user.getAddress() != null ? user.getAddress() : "");
+
             int rows = pstmt.executeUpdate();
-            System.out.println("[UserSaveDAO] INSERT rows affected: " + rows
+            System.out.println("[UserSaveDAO] SQL EXECUTE rows affected: " + rows
                     + " | user: " + user.getUsername());
             return rows > 0;
 

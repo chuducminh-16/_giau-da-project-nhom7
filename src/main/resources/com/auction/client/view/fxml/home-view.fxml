@@ -28,7 +28,7 @@
 
                   <TextField fx:id="searchField" onKeyPressed="#onSearchEnter" prefHeight="34" prefWidth="200" promptText="🔍  Search lots, artists..." style="-fx-background-color: #2d3748; -fx-text-fill: white; -fx-prompt-text-fill: #718096; -fx-background-radius: 6; -fx-border-radius: 6; -fx-padding: 0 10;" />
 
-                  <Button mnemonicParsing="false" style="-fx-background-color: #2d3748; -fx-text-fill: #a0aec0; -fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 6 14; -fx-font-size: 12;" text="👤 ACC">
+                  <Button mnemonicParsing="false" onAction="#onAccountClick" style="-fx-background-color: #2d3748; -fx-text-fill: #a0aec0; -fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 6 14; -fx-font-size: 12;" text="👤 ACC">
                      <HBox.margin><Insets left="12" /></HBox.margin>
                   </Button>
 
@@ -46,13 +46,13 @@
                   <children>
                      <Label style="-fx-text-fill: #4a5568; -fx-font-size: 10; -fx-font-weight: bold; -fx-padding: 0 0 8 8;" text="MENU" />
 
-                     <Button fx:id="btnSideAuctions" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSideAuctionsClick" style="-fx-background-color: #4299e1; -fx-text-fill: white; -fx-alignment: CENTER_LEFT; -fx-background-radius: 6; -fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;" text="📋  Danh sách đấu giá" />
+                     <Button fx:id="btnSideAuctions" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSideAuctionsClick" style="-fx-background-color: #4299e1; -fx-text-fill: white; -fx-alignment: CENTER_LEFT; -fx-background-radius: 6; -fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;" text="📋  Danh sách đấu giá" />
 
-                     <Button fx:id="btnSellerDash" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSellerDashboardClick" style="-fx-background-color: transparent; -fx-text-fill: #a0aec0; -fx-alignment: CENTER_LEFT; -fx-background-radius: 6; -fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;" text="➕  Đăng sản phẩm">
+                     <Button fx:id="btnSellerDash" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSellerDashboardClick" style="-fx-background-color: transparent; -fx-text-fill: #a0aec0; -fx-alignment: CENTER_LEFT; -fx-background-radius: 6; -fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;" text="➕  Đăng sản phẩm">
                         <VBox.margin><Insets top="2" /></VBox.margin>
                      </Button>
 
-                     <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#onBidHistoryClick" style="-fx-background-color: transparent; -fx-text-fill: #a0aec0; -fx-alignment: CENTER_LEFT; -fx-background-radius: 6; -fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;" text="📊  Lịch sử đấu giá">
+                     <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#onBidHistoryClick" style="-fx-background-color: transparent; -fx-text-fill: #a0aec0; -fx-alignment: CENTER_LEFT; -fx-background-radius: 6; -fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;" text="📊  Lịch sử đấu giá">
                         <VBox.margin><Insets top="2" /></VBox.margin>
                      </Button>
 
@@ -60,7 +60,7 @@
 
                      <Label prefHeight="4.0" prefWidth="168.0" style="-fx-text-fill: #2d3748; -fx-padding: 8 0;" text="──────────────" />
 
-                     <Label fx:id="userLabel" alignment="TOP_LEFT" prefHeight="68.0" prefWidth="84.0" style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-padding: 0 0 0 8;" text="👤  Người dùng" />
+                     <Label fx:id="userLabel" alignment="TOP_LEFT" prefHeight="68.0" prefWidth="84.0" style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-padding: 0 0 0 8;" text="👤  Người dùng" />
                   </children>
                </VBox>
 
@@ -82,7 +82,7 @@
                                     <children>
                                        <HBox alignment="CENTER_LEFT" spacing="10">
                                           <children>
-                                             <Label style="-fx-text-fill: #fc8181; -fx-font-size: 11; -fx-font-weight: bold; -fx-background-color: #742a2a; -fx-background-radius: 20; -fx-padding: 3 10;" text="🔴  LIVE NOW" />
+                                             <Label style="-fx-text-fill: #fc8181; -fx-font-size: 11; -fx-font-weight: bold; -fx-background-color: #742a2a; -fx-background-radius: 20; -fx-padding: 3 10;" text="🔴  LIVE NOW" />
                                              <Label fx:id="heroTime" style="-fx-text-fill: #fc8181; -fx-font-size: 13; -fx-font-weight: bold;" text="" />
                                              <Region prefWidth="5" />
                                              <Label fx:id="heroStatus" style="-fx-text-fill: #a0aec0; -fx-font-size: 12;" text="Lot 001" />
@@ -106,7 +106,7 @@
                                                 </children>
                                              </VBox>
                                              <Region HBox.hgrow="ALWAYS" />
-                                             <Button mnemonicParsing="false" onAction="#onHeroBidClicked" prefHeight="44" prefWidth="150" style="-fx-background-color: #4299e1; -fx-text-fill: white; -fx-font-size: 14; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;" text="Place Bid  →" />
+                                             <Button mnemonicParsing="false" onAction="#onHeroBidClicked" prefHeight="44" prefWidth="150" style="-fx-background-color: #4299e1; -fx-text-fill: white; -fx-font-size: 14; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;" text="Place Bid  →" />
                                           </children>
                                        </HBox>
                                     </children>
@@ -128,9 +128,7 @@
                                     <columns>
                                        <TableColumn fx:id="colAuctionName" prefWidth="200" text="Sản phẩm" />
                                        <TableColumn fx:id="colAuctionPrice" prefWidth="120" text="Giá hiện tại" />
-                                       
                                        <TableColumn fx:id="colAuctionEndTime" prefWidth="140" text="Thời gian kết thúc" />
-                                       
                                        <TableColumn fx:id="colAuctionTime" prefWidth="110" text="Còn lại" />
                                        <TableColumn fx:id="colAuctionStatus" prefWidth="100" text="Trạng thái" />
                                        <TableColumn fx:id="colAuctionAction" prefWidth="100" text="Hành động" />

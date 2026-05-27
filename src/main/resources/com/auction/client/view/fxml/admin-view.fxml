@@ -16,15 +16,6 @@
        <?import javafx.scene.layout.VBox?>
        <?import javafx.scene.layout.StackPane?>
 
-       <!--
-       ADMIN DASHBOARD VIEW
-       Chức năng:
-       - Tab 1: Quản lí sản phẩm (items)
-       - Tab 2: Quản lí tài khoản người dùng
-       - Tab 3: Quản lí phiên đấu giá (đã, đang, sẽ)
-       Controller: AdminController
-       -->
-
        <AnchorPane style="-fx-background-color: #f0f2f5;"
               xmlns="http://javafx.com/javafx/25"
               xmlns:fx="http://javafx.com/fxml/1"
@@ -63,6 +54,18 @@
                                    text="👤 Admin">
                                    <HBox.margin><Insets right="16" /></HBox.margin>
                             </Label>
+
+                            <!-- ✅ NÚT ACC - Xem hồ sơ Admin -->
+                            <Button fx:id="btnAccount"
+                                   mnemonicParsing="false"
+                                   onAction="#onAccountClick"
+                                   prefHeight="36" prefWidth="60"
+                                   style="-fx-background-color: #2d3748; -fx-text-fill: #a0aec0;
+                                          -fx-background-radius: 6; -fx-cursor: hand;
+                                          -fx-font-size: 12; -fx-font-weight: bold;"
+                                   text="ACC">
+                                   <HBox.margin><Insets right="10" /></HBox.margin>
+                            </Button>
 
                             <!-- Nút Refresh tổng -->
                             <Button mnemonicParsing="false" onAction="#onRefreshAll"
@@ -150,7 +153,7 @@
                             </children>
                      </VBox>
 
-                     <!-- ── CONTENT AREA (TabPane ẩn tab header) ── -->
+                     <!-- ── CONTENT AREA ── -->
                      <StackPane HBox.hgrow="ALWAYS" style="-fx-background-color: #f0f2f5;">
                             <children>
 
@@ -166,7 +169,6 @@
                                                  style="-fx-background-color: #f0f2f5; -fx-padding: 28 32 40 32;">
                                           <children>
 
-                                                 <!-- Header -->
                                                  <HBox alignment="CENTER_LEFT" spacing="12">
                                                  <children>
                                                         <Label style="-fx-font-size: 20; -fx-font-weight: bold;
@@ -193,77 +195,42 @@
                                                  </children>
                                                  </HBox>
 
-                                                 <!-- Summary Cards -->
                                                  <HBox spacing="16">
                                                  <children>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="TỔNG SẢN PHẨM" />
-                                                               <Label fx:id="lblTotalProducts"
-                                                                      style="-fx-text-fill: #4299e1;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="TỔNG SẢN PHẨM" />
+                                                               <Label fx:id="lblTotalProducts" style="-fx-text-fill: #4299e1; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="ĐANG HOẠT ĐỘNG" />
-                                                               <Label fx:id="lblActiveProducts"
-                                                                      style="-fx-text-fill: #38a169;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="ĐANG HOẠT ĐỘNG" />
+                                                               <Label fx:id="lblActiveProducts" style="-fx-text-fill: #38a169; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="CHỜ DUYỆT" />
-                                                               <Label fx:id="lblPendingProducts"
-                                                                      style="-fx-text-fill: #d69e2e;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="CHỜ DUYỆT" />
+                                                               <Label fx:id="lblPendingProducts" style="-fx-text-fill: #d69e2e; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                  </children>
                                                  </HBox>
 
-                                                 <!-- Table sản phẩm -->
                                                  <VBox spacing="10"
-                                                        style="-fx-background-color: white;
-                                                               -fx-background-radius: 10;
-                                                               -fx-padding: 20;
-                                                               -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                        style="-fx-background-color: white; -fx-background-radius: 10;
+                                                               -fx-padding: 20; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                  <children>
-                                                        <Label style="-fx-font-size: 14; -fx-font-weight: bold;
-                                                                      -fx-text-fill: #2d3748;"
-                                                               text="Danh sách sản phẩm" />
-
+                                                        <Label style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #2d3748;" text="Danh sách sản phẩm" />
                                                         <TableView fx:id="tableProducts" prefHeight="320"
-                                                                      style="-fx-background-color: white;
-                                                                             -fx-background-radius: 8;">
+                                                                      style="-fx-background-color: white; -fx-background-radius: 8;">
                                                                <columns>
                                                                <TableColumn fx:id="colProdId" prefWidth="90" text="ID" />
                                                                <TableColumn fx:id="colProdName" prefWidth="200" text="Tên sản phẩm" />
@@ -275,12 +242,7 @@
                                                                <TableColumn fx:id="colProdAction" prefWidth="100" text="Thao tác" />
                                                                </columns>
                                                         </TableView>
-
-                                                        <!-- Status label -->
-                                                        <Label fx:id="lblProductStatus"
-                                                               visible="false" managed="false"
-                                                               wrapText="true"
-                                                               style="-fx-font-size: 12px;" />
+                                                        <Label fx:id="lblProductStatus" visible="false" managed="false" wrapText="true" style="-fx-font-size: 12px;" />
                                                  </children>
                                                  </VBox>
 
@@ -301,12 +263,9 @@
                                                  style="-fx-background-color: #f0f2f5; -fx-padding: 28 32 40 32;">
                                           <children>
 
-                                                 <!-- Header -->
                                                  <HBox alignment="CENTER_LEFT" spacing="12">
                                                  <children>
-                                                        <Label style="-fx-font-size: 20; -fx-font-weight: bold;
-                                                                      -fx-text-fill: #1a1f2e;"
-                                                               text="👥 Quản lí Người dùng" />
+                                                        <Label style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a1f2e;" text="👥 Quản lí Người dùng" />
                                                         <Region HBox.hgrow="ALWAYS" />
                                                         <TextField fx:id="txtSearchUser"
                                                                       prefHeight="34" prefWidth="220"
@@ -320,85 +279,48 @@
                                                         <Button mnemonicParsing="false"
                                                                onAction="#onRefreshUsers"
                                                                prefHeight="34" prefWidth="100"
-                                                               style="-fx-background-color: #4299e1;
-                                                                      -fx-text-fill: white;
-                                                                      -fx-background-radius: 6;
-                                                                      -fx-cursor: hand; -fx-font-size: 12;"
+                                                               style="-fx-background-color: #4299e1; -fx-text-fill: white;
+                                                                      -fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12;"
                                                                text="🔄 Tải lại" />
                                                  </children>
                                                  </HBox>
 
-                                                 <!-- Summary Cards -->
                                                  <HBox spacing="16">
                                                  <children>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="TỔNG TÀI KHOẢN" />
-                                                               <Label fx:id="lblTotalUsers"
-                                                                      style="-fx-text-fill: #4299e1;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="TỔNG TÀI KHOẢN" />
+                                                               <Label fx:id="lblTotalUsers" style="-fx-text-fill: #4299e1; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="BIDDER" />
-                                                               <Label fx:id="lblTotalBidders"
-                                                                      style="-fx-text-fill: #38a169;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="BIDDER" />
+                                                               <Label fx:id="lblTotalBidders" style="-fx-text-fill: #38a169; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="SELLER" />
-                                                               <Label fx:id="lblTotalSellers"
-                                                                      style="-fx-text-fill: #d69e2e;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="SELLER" />
+                                                               <Label fx:id="lblTotalSellers" style="-fx-text-fill: #d69e2e; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                  </children>
                                                  </HBox>
 
-                                                 <!-- Table người dùng -->
                                                  <VBox spacing="10"
-                                                        style="-fx-background-color: white;
-                                                               -fx-background-radius: 10;
-                                                               -fx-padding: 20;
-                                                               -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                        style="-fx-background-color: white; -fx-background-radius: 10;
+                                                               -fx-padding: 20; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                  <children>
-                                                        <Label style="-fx-font-size: 14; -fx-font-weight: bold;
-                                                                      -fx-text-fill: #2d3748;"
-                                                               text="Danh sách tài khoản" />
-
+                                                        <Label style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #2d3748;" text="Danh sách tài khoản" />
                                                         <TableView fx:id="tableUsers" prefHeight="340"
-                                                                      style="-fx-background-color: white;
-                                                                             -fx-background-radius: 8;">
+                                                                      style="-fx-background-color: white; -fx-background-radius: 8;">
                                                                <columns>
                                                                <TableColumn fx:id="colUserId" prefWidth="90" text="ID" />
                                                                <TableColumn fx:id="colUsername" prefWidth="140" text="Tên đăng nhập" />
@@ -408,12 +330,7 @@
                                                                <TableColumn fx:id="colUserAction" prefWidth="120" text="Thao tác" />
                                                                </columns>
                                                         </TableView>
-
-                                                        <!-- Status label -->
-                                                        <Label fx:id="lblUserStatus"
-                                                               visible="false" managed="false"
-                                                               wrapText="true"
-                                                               style="-fx-font-size: 12px;" />
+                                                        <Label fx:id="lblUserStatus" visible="false" managed="false" wrapText="true" style="-fx-font-size: 12px;" />
                                                  </children>
                                                  </VBox>
 
@@ -434,157 +351,89 @@
                                                  style="-fx-background-color: #f0f2f5; -fx-padding: 28 32 40 32;">
                                           <children>
 
-                                                 <!-- Header -->
                                                  <HBox alignment="CENTER_LEFT" spacing="12">
                                                  <children>
-                                                        <Label style="-fx-font-size: 20; -fx-font-weight: bold;
-                                                                      -fx-text-fill: #1a1f2e;"
-                                                               text="🔨 Quản lí Phiên đấu giá" />
+                                                        <Label style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a1f2e;" text="🔨 Quản lí Phiên đấu giá" />
                                                         <Region HBox.hgrow="ALWAYS" />
                                                         <Button mnemonicParsing="false"
                                                                onAction="#onRefreshAuctions"
                                                                prefHeight="34" prefWidth="100"
-                                                               style="-fx-background-color: #4299e1;
-                                                                      -fx-text-fill: white;
-                                                                      -fx-background-radius: 6;
-                                                                      -fx-cursor: hand; -fx-font-size: 12;"
+                                                               style="-fx-background-color: #4299e1; -fx-text-fill: white;
+                                                                      -fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12;"
                                                                text="🔄 Tải lại" />
                                                  </children>
                                                  </HBox>
 
-                                                 <!-- Summary Cards -->
                                                  <HBox spacing="16">
                                                  <children>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="ĐANG DIỄN RA" />
-                                                               <Label fx:id="lblRunningAuctions"
-                                                                      style="-fx-text-fill: #fc8181;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="ĐANG DIỄN RA" />
+                                                               <Label fx:id="lblRunningAuctions" style="-fx-text-fill: #fc8181; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="SẮP DIỄN RA" />
-                                                               <Label fx:id="lblOpenAuctions"
-                                                                      style="-fx-text-fill: #4299e1;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="SẮP DIỄN RA" />
+                                                               <Label fx:id="lblOpenAuctions" style="-fx-text-fill: #4299e1; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="ĐÃ KẾT THÚC" />
-                                                               <Label fx:id="lblFinishedAuctions"
-                                                                      style="-fx-text-fill: #38a169;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="ĐÃ KẾT THÚC" />
+                                                               <Label fx:id="lblFinishedAuctions" style="-fx-text-fill: #38a169; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                         <VBox prefWidth="180" spacing="4"
-                                                               style="-fx-background-color: white;
-                                                                      -fx-background-radius: 10;
-                                                                      -fx-padding: 16;
-                                                                      -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                               style="-fx-background-color: white; -fx-background-radius: 10;
+                                                                      -fx-padding: 16; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                                <children>
-                                                               <Label style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 11;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="ĐÃ HỦY" />
-                                                               <Label fx:id="lblCanceledAuctions"
-                                                                      style="-fx-text-fill: #718096;
-                                                                             -fx-font-size: 28;
-                                                                             -fx-font-weight: bold;"
-                                                                      text="--" />
+                                                               <Label style="-fx-text-fill: #718096; -fx-font-size: 11; -fx-font-weight: bold;" text="ĐÃ HỦY" />
+                                                               <Label fx:id="lblCanceledAuctions" style="-fx-text-fill: #718096; -fx-font-size: 28; -fx-font-weight: bold;" text="--" />
                                                                </children>
                                                         </VBox>
                                                  </children>
                                                  </HBox>
 
-                                                 <!-- Bộ lọc nhanh -->
                                                  <HBox spacing="10" alignment="CENTER_LEFT">
                                                  <children>
-                                                        <Label style="-fx-text-fill: #4a5568;
-                                                                      -fx-font-size: 13;"
-                                                               text="Lọc:" />
-                                                        <Button fx:id="btnFilterAll"
-                                                               mnemonicParsing="false"
-                                                               onAction="#onFilterAll"
+                                                        <Label style="-fx-text-fill: #4a5568; -fx-font-size: 13;" text="Lọc:" />
+                                                        <Button fx:id="btnFilterAll" mnemonicParsing="false" onAction="#onFilterAll"
                                                                prefHeight="32" prefWidth="80"
-                                                               style="-fx-background-color: #1a1f2e;
-                                                                      -fx-text-fill: white;
-                                                                      -fx-background-radius: 6;
-                                                                      -fx-cursor: hand; -fx-font-size: 12;"
+                                                               style="-fx-background-color: #1a1f2e; -fx-text-fill: white;
+                                                                      -fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12;"
                                                                text="Tất cả" />
-                                                        <Button fx:id="btnFilterRunning"
-                                                               mnemonicParsing="false"
-                                                               onAction="#onFilterRunning"
+                                                        <Button fx:id="btnFilterRunning" mnemonicParsing="false" onAction="#onFilterRunning"
                                                                prefHeight="32" prefWidth="110"
-                                                               style="-fx-background-color: #edf2f7;
-                                                                      -fx-text-fill: #4a5568;
-                                                                      -fx-background-radius: 6;
-                                                                      -fx-cursor: hand; -fx-font-size: 12;"
+                                                               style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;
+                                                                      -fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12;"
                                                                text="🔴 Đang diễn ra" />
-                                                        <Button fx:id="btnFilterOpen"
-                                                               mnemonicParsing="false"
-                                                               onAction="#onFilterOpen"
+                                                        <Button fx:id="btnFilterOpen" mnemonicParsing="false" onAction="#onFilterOpen"
                                                                prefHeight="32" prefWidth="110"
-                                                               style="-fx-background-color: #edf2f7;
-                                                                      -fx-text-fill: #4a5568;
-                                                                      -fx-background-radius: 6;
-                                                                      -fx-cursor: hand; -fx-font-size: 12;"
+                                                               style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;
+                                                                      -fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12;"
                                                                text="🔵 Sắp diễn ra" />
-                                                        <Button fx:id="btnFilterFinished"
-                                                               mnemonicParsing="false"
-                                                               onAction="#onFilterFinished"
+                                                        <Button fx:id="btnFilterFinished" mnemonicParsing="false" onAction="#onFilterFinished"
                                                                prefHeight="32" prefWidth="100"
-                                                               style="-fx-background-color: #edf2f7;
-                                                                      -fx-text-fill: #4a5568;
-                                                                      -fx-background-radius: 6;
-                                                                      -fx-cursor: hand; -fx-font-size: 12;"
+                                                               style="-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;
+                                                                      -fx-background-radius: 6; -fx-cursor: hand; -fx-font-size: 12;"
                                                                text="✅ Đã kết thúc" />
                                                  </children>
                                                  </HBox>
 
-                                                 <!-- Table phiên đấu giá -->
                                                  <VBox spacing="10"
-                                                        style="-fx-background-color: white;
-                                                               -fx-background-radius: 10;
-                                                               -fx-padding: 20;
-                                                               -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
+                                                        style="-fx-background-color: white; -fx-background-radius: 10;
+                                                               -fx-padding: 20; -fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);">
                                                  <children>
-                                                        <Label style="-fx-font-size: 14; -fx-font-weight: bold;
-                                                                      -fx-text-fill: #2d3748;"
-                                                               text="Danh sách phiên đấu giá" />
-
+                                                        <Label style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #2d3748;" text="Danh sách phiên đấu giá" />
                                                         <TableView fx:id="tableAuctions" prefHeight="340"
-                                                                      style="-fx-background-color: white;
-                                                                             -fx-background-radius: 8;">
+                                                                      style="-fx-background-color: white; -fx-background-radius: 8;">
                                                                <columns>
                                                                <TableColumn fx:id="colAuctionId" prefWidth="80" text="ID" />
                                                                <TableColumn fx:id="colAuctionItem" prefWidth="200" text="Sản phẩm" />
@@ -595,12 +444,7 @@
                                                                <TableColumn fx:id="colAuctionAction" prefWidth="110" text="Thao tác" />
                                                                </columns>
                                                         </TableView>
-
-                                                        <!-- Status label -->
-                                                        <Label fx:id="lblAuctionStatus"
-                                                               visible="false" managed="false"
-                                                               wrapText="true"
-                                                               style="-fx-font-size: 12px;" />
+                                                        <Label fx:id="lblAuctionStatus" visible="false" managed="false" wrapText="true" style="-fx-font-size: 12px;" />
                                                  </children>
                                                  </VBox>
 
