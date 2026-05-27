@@ -5,10 +5,10 @@
 
 
 # Authors:
-1. Đồng Hải Dương - 2502
-2. Trịnh Văn Hiệp - 2502
-3. Chử Đức Minh - 25023317
-4. Nguyễn Khắc Nhật Quang - 2502
+1. Đồng Hải Dương - MSV: 25023206
+2. Trịnh Văn Hiệp - MSV: 25023242
+3. Chử Đức Minh - MSV: 25023317
+4. Nguyễn Khắc Nhật Quang - MSV: 25023364
 
 
 # Description: 
@@ -99,7 +99,7 @@ Nguyên lý Abstraction
 
 # Design Patterns:
 
-1. Singleton Pattern: Đảm bảo duy nhất một instance cho các thành phần quan trọng:
+1. Singleton Pattern:  Đảm bảo duy nhất một instance cho các thành phần quan trọng:
 
 - AuctionManager: Quản lý toàn bộ danh sách phiên đấu giá đang hoạt động. Dùng Initialization-on-demand Holder — lazy, thread-safe, không cần synchronized.
 
@@ -110,7 +110,7 @@ Nguyên lý Abstraction
 - BidAuto: Event Bus xử lý Auto-bid. Dùng Holder pattern, chạy trên single Worker Thread.
 
 
-2. Factory Method Pattern: ItemFactory.createItem(type, ...) tạo đúng subclass Item dựa trên chuỗi type:
+2. Factory Method Pattern:  ItemFactory.createItem(type, ...) tạo đúng subclass Item dựa trên chuỗi type:
 ```
 // Tự động tạo Art, Electronics, hoặc Vehicle tùy thuộc vào type:
 Item item = ItemFactory.createItem("ELECTRONICS", id, name, price, endTime, sellerId, "24");
@@ -120,7 +120,7 @@ Item item = ItemFactory.createItem("ELECTRONICS", id, name, price, endTime, sell
 - Throws IllegalArgumentException nếu type không hợp lệ
 
 
-3. Observer Pattern: Dùng để cập nhật realtime giá đấu cho tất cả client đang xem một phiên:
+3. Observer Pattern:  Dùng để cập nhật realtime giá đấu cho tất cả client đang xem một phiên:
 ```
 AuctionSubject (Abstract)           AuctionObserver (Interface)
 ├── subscribe(observer)             ├── onBidPlaced(BidEvent)
@@ -137,7 +137,7 @@ BidEvent (Immutable)
 - BidEvent là immutable — an toàn broadcast cho nhiều thread
 
 
-4. Strategy / Template Method Pattern (Power-ups / DAO): Tuy không đặt tên formal, hệ thống DAO áp dụng tư tưởng Strategy:
+4. Strategy / Template Method Pattern (Power-ups / DAO):  Tuy không đặt tên formal, hệ thống DAO áp dụng tư tưởng Strategy:
 
 - UserFindDAO, UserSaveDAO, UserListDAO — phân tách trách nhiệm đọc/ghi/liệt kê
 - ItemFindDAO, ItemSaveDAO, ItemListDAO — tương tự cho Item
@@ -185,23 +185,23 @@ Giao tiếp Client–Server qua JSON dòng đơn trên TCP Socket:
 {"type": "BID_RESULT", "payload": "{\"success\":true,\"newBid\":2500.0}"}
 ```
 Các message type chính:
-- Type: LOGIN / LOGIN_RESPONSE. Chiều: ↔. Mô tả: Đăng nhập
+- Type: ```LOGIN / LOGIN_RESPONSE```. Chiều:``` ↔```. Mô tả: ```Đăng nhập```
 
-- Type: REGISTER / REGISTER_RESPONSE. Chiều: ↔. Mô tả: Đăng ký
+- Type: ```REGISTER / REGISTER_RESPONSE```. Chiều: ```↔```. Mô tả: ```Đăng ký```
 
-- Type: GET_AUCTIONS / AUCTIONS_LIST. Chiều: ↔. Mô tả: Lấy danh sách phiên
+- Type: ```GET_AUCTIONS / AUCTIONS_LIST```. Chiều: ```↔```. Mô tả: ```Lấy danh sách phiên```
   
-- Type: PLACE_BID / BID_RESULT. Chiều: ↔. Mô tả: Đặt giá
+- Type: ```PLACE_BID / BID_RESULT```. Chiều: ```↔```. Mô tả: ```Đặt giá```
 
-- Type: BID_UPDATE. Chiều: → Client. Mô tả: Broadcast giá mới realtime
+- Type: ```BID_UPDATE```. Chiều: ```→ Client```. Mô tả: ```Broadcast giá mới realtime```
 
-- Type: AUCTION_ENDED. Chiều: → Client. Mô tả: Thông báo phiên kết thúc
+- Type: ```AUCTION_ENDED```. Chiều: ```→ Client```. Mô tả: ```Thông báo phiên kết thúc```
 
-- Type: TIME_EXTENDED. Chiều: → Client. Mô tả: Thông báo gia hạn phiên
+- Type: ```TIME_EXTENDED```. Chiều: ```→ Client```. Mô tả: ```Thông báo gia hạn phiên```
 
-- Type: WATCH_AUCTION. Chiều: → Server. Mô tả: Thông báo gia hạn phiên
+- Type: ```WATCH_AUCTION```. Chiều: ```→ Server```. Mô tả: ```Thông báo gia hạn phiên```
 
-- Type: REGISTER_AUTO_BID. Chiều: ↔. Mô tả: Thông báo gia hạn phiên
+- Type: ```REGISTER_AUTO_BID```. Chiều: ```↔```. Mô tả: ```Thông báo gia hạn phiên```
 
 
 # MVC Structure:
@@ -338,15 +338,15 @@ Admin
 OPEN → RUNNING → FINISHED → PAID
                            → CANCELED (nếu không có bid nào)
 ```
-- Trạng thái: OPEN - Vừa tạo, chưa đến giờ bắt đầu
+- Trạng thái: ```OPEN``` - Vừa tạo, chưa đến giờ bắt đầu
 
-- Trạng thái: RUNNING - Đang diễn ra, nhận bid
+- Trạng thái: ```RUNNING``` - Đang diễn ra, nhận bid
 
-- Trạng thái: FINISHED - Hết giờ, có người thắng, chờ thanh toán
+- Trạng thái: ```FINISHED``` - Hết giờ, có người thắng, chờ thanh toán
 
-- Trạng thái: PAID - Người thắng đã thanh toán
+- Trạng thái: ```PAID``` - Người thắng đã thanh toán
 
-- Trạng thái: CANCELED - Bị hủy hoặc kết thúc mà không có bid
+- Trạng thái: ```CANCELED``` - Bị hủy hoặc kết thúc mà không có bid
 
 AuctionScheduler chạy mỗi 10 giây để tự động đóng các phiên hết giờ, xác định winner, lưu transaction, và broadcast AUCTION_ENDED.
 
@@ -365,19 +365,19 @@ auto_bids    (item_id, bidder_id, max_bid, increment, active, registered_at)
 # Unit Tests:
 Tests được viết bằng JUnit 5, bao phủ logic quan trọng không cần kết nối DB:
 
-- Test File: ObserverPatternTest. Phạm vi kiểm tra: Subscribe/Unsubscribe, notify bid placed, notify auction closed, isolation khi observer throw exception, BidEvent getters
+- Test File: ```ObserverPatternTest```. Phạm vi kiểm tra: ```Subscribe/Unsubscribe, notify bid placed, notify auction closed, isolation khi observer throw exception, BidEvent getters```
 
-- Test File: AuctionTest. Phạm vi kiểm tra: Auction status (OPEN/RUNNING/FINISHED), isActive(), refreshStatus(), setStatus(String), AuctionManager Singleton, add/remove/findById, getActiveAuctions
+- Test File: ```AuctionTest```. Phạm vi kiểm tra: ```Auction status (OPEN/RUNNING/FINISHED), isActive(), refreshStatus(), setStatus(String), AuctionManager Singleton, add/remove/findById, getActiveAuctions```
 
-- Test File: UserTest. Phạm vi kiểm tra: getRole() cho Bidder/Seller/Admin, checkPassword(), setBalance() với giá trị âm, Polymorphism qua User reference
+- Test File: ```UserTest```. Phạm vi kiểm tra: ```getRole() cho Bidder/Seller/Admin, checkPassword(), setBalance() với giá trị âm, Polymorphism qua User reference```
 
-- Test File: ItemTest. Phạm vi kiểm tra: getType() và showDetails() cho Art / Electronics / Vehicle, ItemFactory tạo đúng subclass, ItemFactory với type null/invalid/lowercase
+- Test File: ```ItemTest```. Phạm vi kiểm tra: ```getType() và showDetails() cho Art / Electronics / Vehicle, ItemFactory tạo đúng subclass, ItemFactory với type null/invalid/lowercase```
 
-- Test File: UserServiceTest. Phạm vi kiểm tra: Validate input đăng ký (null, rỗng, email sai, password ngắn), validate input đăng nhập (null, rỗng, blank)
+- Test File: ```UserServiceTest```. Phạm vi kiểm tra: ```Validate input đăng ký (null, rỗng, email sai, password ngắn), validate input đăng nhập (null, rỗng, blank)```
 
-- Test File: AuctionServiceTest. Phạm vi kiểm tra: BidResult enum, BidOutcome getters, validateBid logic (giá hợp lệ/thấp/phiên đóng/hết giờ/null), Anti-sniping logic, Concurrent bidding với 50 threads
+- Test File: ```AuctionServiceTest```. Phạm vi kiểm tra: ```BidResult enum, BidOutcome getters, validateBid logic (giá hợp lệ/thấp/phiên đóng/hết giờ/null), Anti-sniping logic, Concurrent bidding với 50 threads```
 
-- Test File: SnipeGuardServiceTest. Phạm vi kiểm tra: Bid trong/ngoài cửa sổ 60s, ranh giới chính xác 60/61s, cascade 3 lần gia hạn, SnipeGuardResult getters
+- Test File: ```SnipeGuardServiceTest```. Phạm vi kiểm tra: ```Bid trong/ngoài cửa sổ 60s, ranh giới chính xác 60/61s, cascade 3 lần gia hạn, SnipeGuardResult getters```
 
 Chạy toàn bộ test:
 ```
@@ -448,6 +448,7 @@ Prerequisites
 - MySQL - Version 8.0+ (hoặc dùng DB đã cấu hình sẵn)
 
 
+
 - Database Setup:
 ```
 -- Chạy file database.sql để khởi tạo schema và dữ liệu mẫu: 
@@ -478,28 +479,28 @@ mvn exec:java -Dexec.mainClass="com.auction.client.Launcher"
 ```
 
 # Default Test Accounts:
-- Username: admin. Password: admin. Role: Admin
-- Username: seller1. Password: sell123. Role: Seller
-- Username: minh_dz. Password: 123456. Role: Bidder
-- Username: test_user. Password: 1111. Role: Bidder
+- Username: ```admin```. Password: ```admin```. Role: ```Admin```
+- Username: ```seller1```. Password: ```sell123```. Role: ```Seller```
+- Username: ```minh_dz```. Password: ```123456```. Role: ```Bidder```
+- Username: ```test_user```. Password: ```1111```. Role: ```Bidder```
 
 
 # Dependencies:
 Được quản lý bởi Maven (pom.xml):
 
-+ Dependency: javafx-controls. Version: 21.0.2. Mục đích: UI framework
++ Dependency: ```javafx-controls```. Version: ```21.0.2```. Mục đích: ```UI framework```
 
-+ Dependency: javafx-fxml. Version: 21.0.2. Mục đích: FXML loader
++ Dependency: ```javafx-fxml```. Version: ```21.0.2```. Mục đích: ```FXML loader```
 
-+ Dependency: javafx-swing. Version: 21.0.2. Mục đích: SwingFXUtils cho ảnh
++ Dependency: ```javafx-swing```. Version: ```21.0.2```. Mục đích: ```SwingFXUtils cho ảnh```
 
-+ Dependency: gson. Version: 2.14.0. Mục đích: JSON serialize/deserialize qua socket
++ Dependency: ```gson```. Version: ```2.14.0```. Mục đích: ```JSON serialize/deserialize qua socket```
 
-+ Dependency: mysql-connector-j. Version: 8.3.0. Mục đích: Kết nối MySQL
++ Dependency: ```mysql-connector-j```. Version: ```8.3.0```. Mục đích: ```Kết nối MySQL```
 
-+ Dependency: junit-jupiter-api. Version: 5.10.0. Mục đích: Unit testing
++ Dependency: ```junit-jupiter-api```. Version: ```5.10.0```. Mục đích: ```Unit testing```
 
-+ Dependency: junit-jupiter-engine. Version: 5.10.0. Mục đích: JUnit 5 runner
++ Dependency: ```junit-jupiter-engine```. Version: ```5.10.0```. Mục đích: ```JUnit 5 runner```
 
 
 # Known Limitations:
