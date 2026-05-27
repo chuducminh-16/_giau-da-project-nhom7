@@ -21,17 +21,29 @@ Dự án thể hiện toàn diện các nguyên lý Lập trình Hướng Đối
 Key Features:
 
 🔐 Quản lý người dùng đa vai trò — Bidder, Seller, Admin với quyền hạn riêng biệt
+
 📦 Quản lý sản phẩm đa loại — Art, Electronics, Vehicle với thông tin đặc trưng
+
 ⚡ Đấu giá realtime — Cập nhật giá tức thì cho tất cả client đang xem phiên, không dùng polling
+
 🔒 Xử lý đồng thời an toàn — ReentrantLock per-product ngăn chặn race condition, lost update
+
 🤖 Auto-Bidding — Tự động đặt giá thay người dùng với ngân sách và bước giá tùy chỉnh
+
 🛡️ Anti-Sniping — Tự động gia hạn phiên khi có bid trong 60 giây cuối
+
 📊 Biểu đồ giá realtime — Line chart cập nhật động theo từng lượt bid
+
 👑 Admin Dashboard — Quản lý toàn bộ sản phẩm, tài khoản, phiên đấu giá
+
 🖼️ Upload ảnh sản phẩm — Tích hợp ImgBB API lưu trữ ảnh đám mây
+
 🔔 Toast Notification — Thông báo popup khi có bid mới
+
 ⏳ Đồng hồ đếm ngược realtime — Hiển thị thời gian còn lại cho từng phiên
+
 📜 Lịch sử đấu giá cá nhân — Theo dõi các phiên đã tham gia, thắng/thua
+
 🔄 CI/CD tự động — GitHub Actions build & test khi push lên main
 
 
