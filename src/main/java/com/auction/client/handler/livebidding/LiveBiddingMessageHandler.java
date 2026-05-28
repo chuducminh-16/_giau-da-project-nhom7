@@ -1,4 +1,4 @@
-package com.auction.client.handler.livebidding;
+﻿package com.auction.client.handler.livebidding;
 
 import com.auction.client.BidItem;
 import com.auction.client.controller.LiveBiddingController;
@@ -297,11 +297,16 @@ public class LiveBiddingMessageHandler {
 
                 if (message != null) {
                     controller.addLog(message);
-                } else if (winnerName != null && finalPrice > 0) {
-                    controller.addLog(String.format("🏆 CHÚC MỪNG CHIẾN THẮNG: Người thắng cuộc: %s — Giá chốt: %,.0f VNĐ", winnerName, finalPrice));
+                } 
+
+                // Luôn luôn hiện winner nếu có dữ liệu, bất kể message có hay không
+                // Hien thi thong bao nguoi chien thang - day la phan quan trong bi bug
+                if (winnerName != null && !winnerName.isBlank() && finalPrice > 0) {
+                    controller.addLog(String.format("?? CHUC MUNG CHIEN THANG! Nguoi thang cuoc: %s | Gia chot: %,.0f VND", winnerName, finalPrice));
                 } else {
-                    controller.addLog("Phiên kết thúc — Không tìm thấy người đặt giá hợp lệ.");
+                    controller.addLog("Phien ket thuc - Khong tim thay nguoi dat gia hop le.");
                 }
+                
 
                 // Đẩy một hộp thoại chúc mừng lớn hiển thị trên màn hình nền Client
                 try {

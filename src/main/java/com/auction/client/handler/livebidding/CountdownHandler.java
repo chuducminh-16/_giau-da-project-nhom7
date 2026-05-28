@@ -1,4 +1,4 @@
-package com.auction.client.handler.livebidding;
+﻿package com.auction.client.handler.livebidding;
 
 // Bắt buộc phải IMPORT Controller từ package khác sang để tương tác
 import com.auction.client.controller.LiveBiddingController;
@@ -124,6 +124,8 @@ public class CountdownHandler {
         if (mainController.getTxtBidAmount() != null) mainController.getTxtBidAmount().setDisable(true);
         if (mainController.getTxtMaxBid() != null) mainController.getTxtMaxBid().setDisable(true);
         if (mainController.getBtnAutoBid() != null) mainController.getBtnAutoBid().setDisable(true);
+        // Hien thi thong bao het gio tren thanh thong bao ngay lap tuc
+        mainController.addLog("[HẾT GIỜ] Phiên đấu giá đã kết thúc ! Đang chờ kết quả chính thức từ máy chủ...");
     }
 
     /**
