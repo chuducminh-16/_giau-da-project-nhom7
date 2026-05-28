@@ -1,7 +1,5 @@
 package com.auction.server.service;
 
-import java.util.UUID;
-
 import com.auction.server.dao.user.UserFindDAO;
 import com.auction.server.dao.user.UserSaveDAO;
 import com.auction.shared.model.Entity.User.Admin;
@@ -57,8 +55,10 @@ public class UserService {
                 return RegisterResult.USERNAME_EXISTS;
             }
 
-            // 3. Khởi tạo đối tượng đa hình (Polymorphism) theo Vai trò người dùng
-            String id = UUID.randomUUID().toString().substring(0, 8);
+            // 3. Sinh ID tuần tự thay vì UUID ngẫu nhiên → "U001", "U002"...
+            String id = saveDAO.getNextUserId();
+
+            // 4. Khởi tạo đối tượng đa hình (Polymorphism) theo Vai trò người dùng
             User newUser;
             String normalizedRole = (role != null) ? role.toUpperCase() : "BIDDER";
 
@@ -68,7 +68,7 @@ public class UserService {
                 default       -> newUser = new Bidder(id, username, email, password, 1000.0);
             }
 
-            // ✨ SỬA LỖI ĐỒNG BỘ ĐĂNG KÝ: Thiết lập đầy đủ thông tin cá nhân vào đối tượng trước khi lưu
+            // 5. Thiết lập đầy đủ thông tin cá nhân vào đối tượng trước khi lưu
             newUser.setFullName(fullName != null ? fullName.trim() : "");
             newUser.setPhone(phone != null ? phone.trim() : "");
             newUser.setAddress(address != null ? address.trim() : "");
@@ -77,7 +77,7 @@ public class UserService {
                     + " | role: " + newUser.getRole()
                     + " | id: " + id);
 
-            // 4. Đẩy thực thể xuống tầng DAO để ghi lại vào Database / File
+            // 6. Đẩy thực thể xuống tầng DAO để ghi lại vào Database
             boolean saved = saveDAO.saveUser(newUser);
             if (saved) {
                 System.out.println("[UserService] REGISTER SUCCESS: " + username);
@@ -109,7 +109,7 @@ public class UserService {
             return null;
         }
 
-        // Kiểm tra khớp mật khẩu (Password Hash / String Match)
+        // Kiểm tra khớp mật khẩu
         if (!user.checkPassword(password)) {
             System.out.println("[UserService] LOGIN FAIL: sai mat khau cho: " + username);
             return null;
@@ -120,16 +120,16 @@ public class UserService {
     }
 
     // ══════════════════════════════════════════
-    // 🔥 CẬP NHẬT HỒ SƠ TÀI KHOẢN (UPDATE PROFILE)
+    // CẬP NHẬT HỒ SƠ TÀI KHOẢN (UPDATE PROFILE)
     // ══════════════════════════════════════════
-    public boolean updateProfile(String username, String fullName, String email, 
+    public boolean updateProfile(String username, String fullName, String email,
                                  String phone, String password, String address) {
         try {
             System.out.println("[UserService] Bat dau thuc thi update ho so cho: " + username);
 
-            // ➕ BỔ SUNG VALIDATE: Chặn cập nhật nếu dữ liệu nhập vào bị trống hoặc sai định dạng
+            // Validate
             if (fullName == null || fullName.isBlank()) {
-                System.out.println("[UserService] UPDATE FAIL: Ho ten kho lam trong");
+                System.out.println("[UserService] UPDATE FAIL: Ho ten khong duoc trong");
                 return false;
             }
             if (email == null || !email.contains("@")) {
@@ -144,26 +144,26 @@ public class UserService {
                 return false;
             }
 
-            // Bước 2: Tiến hành thay đổi dữ liệu (set) các trường thông tin cơ bản
+            // Bước 2: Cập nhật dữ liệu
             user.setFullName(fullName.trim());
             user.setEmail(email.trim());
             user.setPhone(phone != null ? phone.trim() : "");
             user.setAddress(address != null ? address.trim() : "");
 
-            // Riêng mật khẩu, nếu người dùng nhập mật khẩu mới thì tiến hành cập nhật
+            // Chỉ đổi mật khẩu nếu người dùng nhập mới
             if (password != null && !password.isBlank() && password.length() >= 6) {
                 user.setPassword(password);
                 System.out.println("[UserService] Nguoi dung yeu cau thay doi Mat khau moi.");
             }
 
-            // Bước 3: Đẩy thực thể đã thay đổi dữ liệu xuống DAO để đồng bộ cập nhật ghi đè
-            boolean isUpdated = saveDAO.saveUser(user); 
+            // Bước 3: Ghi đè xuống DB
+            boolean isUpdated = saveDAO.saveUser(user);
 
             if (isUpdated) {
                 System.out.println("[UserService] UPDATE PROFILE SUCCESS: Da ghi du lieu moi cho " + username);
                 return true;
             } else {
-                System.out.println("[UserService] UPDATE PROFILE FAIL: Ghi du lieu thuyet bai.");
+                System.out.println("[UserService] UPDATE PROFILE FAIL: Ghi du lieu that bai.");
                 return false;
             }
 

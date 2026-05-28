@@ -10,7 +10,6 @@ import com.auction.shared.model.Entity.Item.Vehicle;
 
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * AuctionProductService - Chịu trách nhiệm quản lý vòng đời sản phẩm,
@@ -30,11 +29,11 @@ public class AuctionProductService {
                            String imagePath, LocalDateTime startTime,
                            LocalDateTime endTime, String type) {
 
-        // Sinh mã ID sản phẩm ngẫu nhiên ngắn gọn
-        String itemId   = "I-" + UUID.randomUUID().toString().substring(0, 8);
+        // Sinh ID sản phẩm tuần tự → "SP-001", "SP-002"...
+        String itemId   = itemSaveDAO.getNextItemId();
         String itemType = (type != null && !type.isBlank()) ? type.toUpperCase() : "ART";
 
-        // Sử dụng Pattern Matching switch để khởi tạo đúng thực thể Model kế thừa tương ứng
+        // Khởi tạo đúng thực thể Model theo loại sản phẩm
         Item item = switch (itemType) {
             case "ELECTRONICS" -> {
                 Electronics e = new Electronics(itemId, name, startPrice, endTime, sellerId, 0);
@@ -49,22 +48,23 @@ public class AuctionProductService {
             default -> new Art(itemId, name, startPrice, endTime, sellerId, description);
         };
 
-        // Gán các thông số bổ trợ cho đối tượng sản phẩm đấu giá
+        // Gán các thông số bổ trợ
         item.setBidIncrement(bidIncrement);
         item.setImagePath(imagePath);
         item.setStartTime(startTime);
         item.setStatus("OPEN");
         item.setDescription(description);
 
-        // Lưu thông tin mô tả chi tiết sản phẩm xuống DB qua DAO
+        // Lưu sản phẩm xuống DB
         boolean itemSaved = itemSaveDAO.saveItem(item);
         if (!itemSaved) {
             System.err.println("[AuctionProductService] saveItem that bai: " + name);
             return null;
         }
 
-        // Tạo song song một phiên đấu giá tương thích liên kết trực tiếp với sản phẩm vừa tạo
-        long auctionId = System.currentTimeMillis();
+        // Sinh ID phiên đấu giá tuần tự → lấy từ DB (AUTO_INCREMENT)
+        // Dùng auctionDAO để lấy ID tiếp theo thay vì System.currentTimeMillis()
+        long auctionId = auctionDAO.getNextAuctionId();
         boolean auctionSaved = auctionDAO.saveAuction(
                 auctionId, itemId, sellerId, startPrice, endTime.toString());
         if (!auctionSaved) {
@@ -78,7 +78,7 @@ public class AuctionProductService {
     }
 
     /**
-     * Hàm Overload thêm sản phẩm mặc định kiểu nghệ thuật (ART)
+     * Overload thêm sản phẩm mặc định kiểu ART
      */
     public Item addProduct(String sellerId, String name, String description,
                            double startPrice, double bidIncrement,
@@ -89,7 +89,7 @@ public class AuctionProductService {
     }
 
     /**
-     * Cập nhật thông tin sản phẩm (Trường hợp có thay đổi cả ảnh mới)
+     * Cập nhật thông tin sản phẩm (có ảnh mới)
      */
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
@@ -104,7 +104,7 @@ public class AuctionProductService {
     }
 
     /**
-     * Cập nhật thông tin sản phẩm (Trường hợp giữ nguyên đường dẫn ảnh cũ)
+     * Cập nhật thông tin sản phẩm (giữ ảnh cũ)
      */
     public boolean updateProduct(String productId, String name, String description,
                                  double startPrice, double bidIncrement,
@@ -114,43 +114,36 @@ public class AuctionProductService {
     }
 
     /**
-     * Xóa hoàn toàn sản phẩm khỏi hệ thống
+     * Xóa sản phẩm khỏi hệ thống
      */
     public boolean deleteProduct(String productId) {
         return itemSaveDAO.deleteItem(productId);
     }
 
     /**
-     * Đóng và chấm dứt phiên đấu giá để thực hiện phân định thắng/thua
+     * Đóng phiên đấu giá và phân định thắng/thua
      */
     public Map<String, Object> endAuction(long auctionId) {
         Map<String, Object> auction = auctionDAO.findById(auctionId);
         if (auction == null) return null;
 
         String status = (String) auction.get("status");
-        // Nếu phiên đã ở trạng thái kết thúc hoặc hủy từ trước thì bỏ qua không xử lý lại
         if ("FINISHED".equals(status) || "CANCELED".equals(status) || "PAID".equals(status))
             return null;
 
-        // Tìm kiếm người đặt mức giá cao nhất trong hệ thống cho phòng này
         Map<String, Object> winner = auctionDAO.findWinner(auctionId);
 
         String itemId = (String) auction.get("itemId");
         if (itemId == null) itemId = (String) auction.get("item_id");
 
         if (winner != null) {
-            // Trường hợp tìm thấy người chiến thắng hợp lệ
             String winnerId   = (String) winner.get("bidderId");
             double finalPrice = ((Number) winner.get("finalPrice")).doubleValue();
-            
-            // Đúc kết thương vụ: Ghi nhận thông tin hóa đơn hóa đơn vào bảng Transactions
             transactionDAO.saveTransaction(itemId, winnerId, finalPrice);
-            // Chuyển trạng thái phiên đấu giá sang hoàn thành FINISHED
             auctionDAO.updateStatus(auctionId, "FINISHED");
             winner.put("itemId", itemId);
             return winner;
         } else {
-            // Không có bất kỳ ai tham gia đặt giá -> Đổi trạng thái phiên đấu giá thành hủy CANCELED
             auctionDAO.updateStatus(auctionId, "CANCELED");
             return null;
         }
