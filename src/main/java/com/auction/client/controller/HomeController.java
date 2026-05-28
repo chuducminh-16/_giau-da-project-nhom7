@@ -158,88 +158,84 @@ public class HomeController implements Initializable {
     // 5. LOGIC DỰ LIỆU: ĐẨY THÔNG TIN SẢN PHẨM LÊN BANNER ĐEN (HERO CARD)
     // =========================================================================
     public void updateHeroCard(Item item) {
-        if (item == null) return;
-        this.heroItem = item; // Lưu trữ lại đối tượng đang xem để phục vụ nếu người dùng nhấn nút "Place Bid" nhanh
+    if (item == null) return;
+    this.heroItem = item;
 
-        // 5.1. Cập nhật các chuỗi văn bản thông tin cơ bản lên các Label tương ứng
-        if (heroName   != null) heroName.setText(item.getName());
-        if (heroBid    != null) heroBid.setText(String.format("%,.0f VND", item.getCurrentBid())); // Định dạng hiển thị tiền tệ có dấu phẩy phân tách hàng nghìn
-        if (heroStatus != null) heroStatus.setText("Lot • " + item.getStatus());
-        if (heroDesc   != null) {
-            String desc = item.getDescription();
-            // Điều kiện kiểm tra: Nếu sản phẩm có mô tả thì hiện mô tả, nếu trống thì hiện tạm tên của Seller người bán
-            heroDesc.setText(desc != null && !desc.isBlank() ? desc : (item.getSellerName() != null ? item.getSellerName() : ""));
-        }
+    if (heroName   != null) heroName.setText(item.getName());
+    if (heroBid    != null) heroBid.setText(String.format("%,.0f VND", item.getCurrentBid()));
+    if (heroStatus != null) heroStatus.setText("Lot • " + item.getStatus());
+    if (heroDesc   != null) {
+        String desc = item.getDescription();
+        heroDesc.setText(desc != null && !desc.isBlank() ? desc : (item.getSellerName() != null ? item.getSellerName() : ""));
+    }
 
-        // 5.2. Xử lý logic đọc đường dẫn file ảnh nội bộ (ImagePath) để render hình ảnh sản phẩm
-        if (heroImage != null) {
-            String rawPath = item.getImagePath();
-            // Nếu chuỗi chứa ký tự gạch đứng '|' (do lưu danh sách nhiều ảnh), thực hiện cắt chuỗi lấy đường dẫn của tấm ảnh đầu tiên
-            String path = (rawPath != null && rawPath.contains("|")) ? rawPath.split("\\|")[0] : rawPath;
-            
-            if (path != null && !path.isBlank()) {
-                try {
-                    java.io.File imgFile = new java.io.File(path);
-                    if (imgFile.exists()) {
-                        // Nạp hình ảnh từ file hệ thống lên khung ImageView, bật cờ nạp bất đồng bộ (true) để chống nghẽn luồng UI chính
-                        javafx.scene.image.Image img = new javafx.scene.image.Image(imgFile.toURI().toString(), true);
-                        heroImage.setImage(img);
-                        if (heroPlaceholder != null) heroPlaceholder.setVisible(false); // Ẩn nhãn chữ báo trống ảnh đi vì đã tìm thấy ảnh hợp lệ
-                    } else {
-                        heroImage.setImage(null);
-                        if (heroPlaceholder != null) heroPlaceholder.setVisible(true);  // Hiện nhãn chữ báo trống nếu file không tồn tại thực tế
-                    }
-                } catch (Exception e) {
-                    heroImage.setImage(null);
-                    if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
-                }
-            } else {
-                heroImage.setImage(null);
-                if (heroPlaceholder != null) heroPlaceholder.setVisible(true); // Trường hợp chuỗi path rỗng hoàn toàn
-            }
-        }
+    if (heroImage != null) {
+        String rawPath = item.getImagePath();
+        String path = (rawPath != null && rawPath.contains("|")) ? rawPath.split("\\|")[0] : rawPath;
 
-        // 5.3. Reset và tái thiết lập bộ đếm thời gian đếm ngược riêng biệt cho Banner đen
-        if (heroTimeline != null) {
-            heroTimeline.stop(); // Tắt đồng hồ đếm ngược của sản phẩm cũ trước đó để giải phóng tài nguyên
-        }
-
-        if (heroTime != null) {
-            if (item.getEndTime() == null) {
-                heroTime.setText("");
-                return;
-            }
-
-            // Tạo luồng đếm ngược tính toán khoảng cách hiệu số thời gian giữa Hiện tại (now) và Kết thúc (endTime)
-            heroTimeline = new Timeline(new KeyFrame(Duration.seconds(1), event -> {
-                java.time.LocalDateTime endTime = item.getEndTime();
-                java.time.LocalDateTime now = java.time.LocalDateTime.now();
-
-                // Trường hợp 1: Nếu thời gian hiện tại của hệ thống đã vượt quá mốc thời gian kết thúc đấu giá
-                if (now.isAfter(endTime)) {
-                    heroTime.setText("⏳ ĐÃ KẾT THÚC");
-                    heroTime.setStyle("-fx-text-fill: #e53e3e; -fx-font-size: 13; -fx-font-weight: bold;"); // Chuyển chữ sang màu đỏ đậm cảnh báo
-                    heroTimeline.stop(); // Ngắt đồng hồ đếm ngược ngay lập tức
+        if (path != null && !path.isBlank()) {
+            try {
+                String imageUrl;
+                if (path.startsWith("http://") || path.startsWith("https://")) {
+                    imageUrl = path;
                 } else {
-                    // Trường hợp 2: Phiên đấu giá vẫn đang diễn ra, thực hiện bóc tách hiệu số thời gian còn lại
-                    long days = java.time.temporal.ChronoUnit.DAYS.between(now, endTime);
-                    long hours = java.time.temporal.ChronoUnit.HOURS.between(now, endTime) % 24;
-                    long minutes = java.time.temporal.ChronoUnit.MINUTES.between(now, endTime) % 60;
-                    long seconds = java.time.temporal.ChronoUnit.SECONDS.between(now, endTime) % 60;
-
-                    heroTime.setStyle("-fx-text-fill: #fc8181; -fx-font-size: 13; -fx-font-weight: bold;"); // Màu chữ hồng cam nổi bật trên nền đen
-                    // Định dạng chuỗi hiển thị tùy thuộc vào việc sản phẩm còn nhiều ngày hay chỉ còn vài giờ
-                    if (days > 0) {
-                        heroTime.setText(String.format("⏳ Còn %d ngày %02d:%02d:%02d", days, hours, minutes, seconds));
-                    } else {
-                        heroTime.setText(String.format("⏳ Còn %02d:%02d:%02d", hours, minutes, seconds));
+                    java.io.File imgFile = new java.io.File(path);
+                    if (!imgFile.exists()) {
+                        heroImage.setImage(null);
+                        if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+                        return;
                     }
+                    imageUrl = imgFile.toURI().toString();
                 }
-            }));
-            heroTimeline.setCycleCount(Animation.INDEFINITE);
-            heroTimeline.play(); // Kích hoạt đồng hồ Banner đen chạy
+                javafx.scene.image.Image img = new javafx.scene.image.Image(imageUrl, true);
+                heroImage.setImage(img);
+                if (heroPlaceholder != null) heroPlaceholder.setVisible(false);
+            } catch (Exception e) {
+                heroImage.setImage(null);
+                if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
+            }
+        } else {
+            heroImage.setImage(null);
+            if (heroPlaceholder != null) heroPlaceholder.setVisible(true);
         }
     }
+
+    if (heroTimeline != null) {
+        heroTimeline.stop();
+    }
+
+    if (heroTime != null) {
+        if (item.getEndTime() == null) {
+            heroTime.setText("");
+            return;
+        }
+
+        heroTimeline = new Timeline(new KeyFrame(Duration.seconds(1), event -> {
+            java.time.LocalDateTime endTime = item.getEndTime();
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+            if (now.isAfter(endTime)) {
+                heroTime.setText("⏳ ĐÃ KẾT THÚC");
+                heroTime.setStyle("-fx-text-fill: #e53e3e; -fx-font-size: 13; -fx-font-weight: bold;");
+                heroTimeline.stop();
+            } else {
+                long days    = java.time.temporal.ChronoUnit.DAYS.between(now, endTime);
+                long hours   = java.time.temporal.ChronoUnit.HOURS.between(now, endTime) % 24;
+                long minutes = java.time.temporal.ChronoUnit.MINUTES.between(now, endTime) % 60;
+                long seconds = java.time.temporal.ChronoUnit.SECONDS.between(now, endTime) % 60;
+
+                heroTime.setStyle("-fx-text-fill: #fc8181; -fx-font-size: 13; -fx-font-weight: bold;");
+                if (days > 0) {
+                    heroTime.setText(String.format("⏳ Còn %d ngày %02d:%02d:%02d", days, hours, minutes, seconds));
+                } else {
+                    heroTime.setText(String.format("⏳ Còn %02d:%02d:%02d", hours, minutes, seconds));
+                }
+            }
+        }));
+        heroTimeline.setCycleCount(Animation.INDEFINITE);
+        heroTimeline.play();
+    }
+}
 
     // =========================================================================
     // 6. CÁC PHƯƠNG THỨC ĐIỀU HƯỚNG VÀ XỬ LÝ SỰ KIỆN CLICK CHUỘT (EVENT HANDLERS)
