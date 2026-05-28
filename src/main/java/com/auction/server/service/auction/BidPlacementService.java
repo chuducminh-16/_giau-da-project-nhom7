@@ -80,6 +80,14 @@ public class BidPlacementService {
                             String.format("Gia phai cao hon %.0f VND.", check.currentPrice), null);
                 }
 
+                // ── BƯỚC 2.5: Kiểm tra số dư ví của người đấu giá ──
+                double balance = getBidderBalance(conn, bidderId);
+                if (balance < amount) {
+                    conn.rollback();
+                    return new BidOutcome(BidResult.ERROR, check.currentPrice,
+                            String.format("Số dư tài khoản không đủ để đặt giá (Số dư: %,.0f VNĐ, Cần đặt: %,.0f VNĐ).", balance, amount), null);
+                }
+
                 // ── BƯỚC 3: Thêm bản ghi mới vào bảng lịch sử bids ──
                 boolean bidSaved = insertBid(conn, productId, bidderId, amount);
                 if (!bidSaved) {
@@ -127,6 +135,19 @@ public class BidPlacementService {
     // ─────────────────────────────────────────────────────────────────
     // Tầng SQL TRỢ THỦ - Sử dụng chung Connection từ Transaction chuyển xuống
     // ─────────────────────────────────────────────────────────────────
+
+    private double getBidderBalance(Connection conn, String bidderId) throws Exception {
+        String sql = "SELECT balance FROM users WHERE id = ? FOR UPDATE";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, bidderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("balance");
+                }
+            }
+        }
+        return 0.0;
+    }
 
     private BidCheckResult readForUpdate(Connection conn, String productId) throws Exception {
         String sql = "SELECT a.id, a.seller_id, a.status, a.end_time, a.current_price " +

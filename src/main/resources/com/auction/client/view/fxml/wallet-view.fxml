@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<!--
+    wallet-view.fxml — Popup nạp tiền đơn giản
+    Đặt tại: src/main/resources/com/auction/client/view/fxml/wallet-view.fxml
+    Controller: com.auction.client.controller.WalletController
+-->
+<VBox alignment="CENTER" prefHeight="260.0" prefWidth="340.0" spacing="16"
+      style="-fx-background-color: #1a1f2e; -fx-padding: 28 32 28 32;"
+      xmlns="http://javafx.com/javafx/25"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.auction.client.controller.WalletController">
+
+    <!-- Tiêu đề -->
+    <Label style="-fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold;"
+           text="💰 Nạp tiền" />
+
+    <!-- Số dư hiện tại -->
+    <Label fx:id="lblBalance"
+           style="-fx-text-fill: #68d391; -fx-font-size: 15; -fx-font-weight: bold;"
+           text="Số dư: đang tải..." />
+
+    <!-- Divider -->
+    <Label style="-fx-text-fill: #2d3748;" text="────────────────────────────" />
+
+    <!-- Ô nhập số tiền -->
+    <VBox spacing="6">
+        <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 11; -fx-font-weight: bold;"
+               text="SỐ TIỀN NẠP (VND)" />
+        <TextField fx:id="txtAmount"
+                   prefHeight="40" prefWidth="276"
+                   promptText="Nhập số tiền..."
+                   style="-fx-background-color: #2d3748;
+                          -fx-text-fill: white;
+                          -fx-prompt-text-fill: #4a5568;
+                          -fx-background-radius: 6;
+                          -fx-border-color: #4a5568;
+                          -fx-border-radius: 6;
+                          -fx-padding: 0 12; -fx-font-size: 14;" />
+    </VBox>
+
+    <!-- Thông báo trạng thái -->
+    <Label fx:id="lblStatus"
+           managed="false" visible="false"
+           prefWidth="276"
+           style="-fx-font-size: 12px;"
+           wrapText="true" />
+
+    <!-- Các nút -->
+    <HBox alignment="CENTER" spacing="12">
+        <VBox.margin><Insets top="4" /></VBox.margin>
+        <Button fx:id="btnTopUp"
+                mnemonicParsing="false"
+                onAction="#onTopUpClick"
+                prefHeight="40" prefWidth="130"
+                style="-fx-background-color: #4299e1; -fx-text-fill: white;
+                       -fx-font-size: 13; -fx-font-weight: bold;
+                       -fx-background-radius: 8; -fx-cursor: hand;"
+                text="Nạp tiền" />
+
+        <Button mnemonicParsing="false"
+                onAction="#onCloseClick"
+                prefHeight="40" prefWidth="130"
+                style="-fx-background-color: #2d3748; -fx-text-fill: #a0aec0;
+                       -fx-font-size: 13; -fx-background-radius: 8;
+                       -fx-border-color: #4a5568; -fx-border-radius: 8;
+                       -fx-cursor: hand;"
+                text="Đóng" />
+    </HBox>
+
+</VBox>

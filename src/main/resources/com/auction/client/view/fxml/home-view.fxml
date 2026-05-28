@@ -55,6 +55,13 @@
                      <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#onBidHistoryClick" style="-fx-background-color: transparent; -fx-text-fill: #a0aec0; -fx-alignment: CENTER_LEFT; -fx-background-radius: 6; -fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;" text="📊  Lịch sử đấu giá">
                         <VBox.margin><Insets top="2" /></VBox.margin>
                      </Button>
+                     <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#onWalletClick"
+                           style="-fx-background-color: transparent; -fx-text-fill: #a0aec0;
+                                    -fx-alignment: CENTER_LEFT; -fx-background-radius: 6;
+                                    -fx-padding: 10 14; -fx-font-size: 13; -fx-cursor: hand;"
+                           text="💰  Nạp tiền">
+                        <VBox.margin><Insets top="2" /></VBox.margin>
+                     </Button>
 
                      <Region VBox.vgrow="ALWAYS" />
 

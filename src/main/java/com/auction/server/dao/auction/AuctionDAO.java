@@ -76,12 +76,14 @@ public class AuctionDAO {
                 + "FROM auctions a "
                 + "JOIN items i ON a.item_id = i.id "
                 + "LEFT JOIN users u ON a.seller_id = u.id "
-                + "WHERE a.status IN ('OPEN','RUNNING') AND a.end_time > NOW() "
+                + "WHERE a.status IN ('OPEN','RUNNING') AND a.end_time > ? "
                 + "ORDER BY a.end_time ASC";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) list.add(mapRowFull(rs));
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, java.time.LocalDateTime.now().toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRowFull(rs));
+            }
         } catch (Exception e) { e.printStackTrace(); }
         return list;
     }
@@ -175,11 +177,13 @@ public class AuctionDAO {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT a.*, i.name as item_name, i.current_price, i.type "
                 + "FROM auctions a JOIN items i ON a.item_id = i.id "
-                + "WHERE a.status IN ('OPEN','RUNNING') AND a.end_time <= NOW()";
+                + "WHERE a.status IN ('OPEN','RUNNING') AND a.end_time <= ?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) list.add(mapRowFull(rs));
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, java.time.LocalDateTime.now().toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRowFull(rs));
+            }
         } catch (Exception e) { e.printStackTrace(); }
         return list;
     }

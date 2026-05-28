@@ -18,7 +18,7 @@ public class ItemListDAO {
 
     // Chỉ lấy sản phẩm đang mở
     public List<Item> findAllOpen() {
-        return query("SELECT * FROM items WHERE status = 'OPEN' AND end_time > NOW()", null);
+        return query("SELECT * FROM items WHERE status = 'OPEN' AND end_time > ?", java.time.LocalDateTime.now().toString());
     }
 
     // Lấy sản phẩm theo người bán
