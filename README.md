@@ -344,11 +344,11 @@ Tài khoản test mặc định:
 
 - Xác thực & Người dùng
 
- Đăng ký tài khoản (Bidder / Seller / Admin)
+ Đăng ký tài khoản (Bidder / Seller)
  
  Đăng nhập với phân quyền theo role
  
- Validate đầu vào phía client và server (email, password tối thiểu 6 ký tự)
+ Validate đầu vào phía client và server
  
  Tự động chuyển hướng đúng màn hình theo role sau khi đăng nhập
  
@@ -405,7 +405,7 @@ Xóa tài khoản người dùng (có xác nhận, không tự xóa mình)
 
 Xem tất cả phiên đấu giá với bộ lọc (Tất cả / Đang diễn ra / Sắp diễn ra / Đã kết thúc)
 
-óng phiên đấu giá bất kỳ
+Đóng phiên đấu giá bất kỳ
 
 Tự động chuyển hướng vào Admin Panel sau khi đăng nhập
 
@@ -548,25 +548,6 @@ BidEvent (Immutable)
 - UserFindDAO, UserSaveDAO, UserListDAO — phân tách trách nhiệm đọc/ghi/liệt kê
 - ItemFindDAO, ItemSaveDAO, ItemListDAO — tương tự cho Item
 - Dễ dàng thay thế implementation mà không ảnh hưởng tầng Service
-
-
-# Auction Lifecycle:
-```
-OPEN → RUNNING → FINISHED → PAID
-                           → CANCELED (nếu không có bid nào)
-```
-- Trạng thái: ```OPEN``` - Vừa tạo, chưa đến giờ bắt đầu
-
-- Trạng thái: ```RUNNING``` - Đang diễn ra, nhận bid
-
-- Trạng thái: ```FINISHED``` - Hết giờ, có người thắng, chờ thanh toán
-
-- Trạng thái: ```PAID``` - Người thắng đã thanh toán
-
-- Trạng thái: ```CANCELED``` - Bị hủy hoặc kết thúc mà không có bid
-
-AuctionScheduler chạy mỗi 10 giây để tự động đóng các phiên hết giờ, xác định winner, lưu transaction, và broadcast AUCTION_ENDED.
-
 
 # System Architecture:
 Client–Server Architecture
