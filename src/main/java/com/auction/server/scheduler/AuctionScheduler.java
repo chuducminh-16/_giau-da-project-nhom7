@@ -1,17 +1,18 @@
 package com.auction.server.scheduler;
 
-import com.auction.client.network.Message;
-import com.auction.server.dao.auction.AuctionDAO;
-import com.auction.server.dao.bid.BidDAO;
-import com.auction.server.dao.transaction.TransactionDAO;
-import com.auction.server.network.NetworkServer;
-import com.google.gson.Gson;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import com.auction.client.network.Message;
+import com.auction.server.dao.auction.AuctionDAO;
+import com.auction.server.dao.bid.BidDAO;
+import com.auction.server.dao.transaction.TransactionDAO;
+import com.auction.server.network.NetworkServer;
+import com.auction.server.service.WalletService;
+import com.google.gson.Gson;
 
 /**
  * Tự động kiểm tra và đóng các phiên đấu giá hết giờ.
@@ -73,6 +74,7 @@ public class AuctionScheduler {
 
             transactionDAO.saveTransaction(itemId, winnerId, finalPrice);
             auctionDAO.updateStatus(auctionId, "FINISHED");
+            new WalletService().deductBalance(winnerId, finalPrice);  // THÊM DÒNG NÀY
 
             System.out.printf("[Scheduler] Phiên #%d kết thúc. Winner: %s, Giá: %.0f%n",
                     auctionId, username, finalPrice);
