@@ -2,12 +2,34 @@ package com.auction.server.dao.item;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 
 import com.auction.server.database.DatabaseConnection;
 import com.auction.shared.model.Entity.Item.Item;
 
 public class ItemSaveDAO {
+
+    // ══════════════════════════════════════════
+    // SINH ID TUẦN TỰ → "SP-001", "SP-002"...
+    // ══════════════════════════════════════════
+    public String getNextItemId() {
+        String sql = "SELECT COUNT(*) FROM items";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                int count = rs.getInt(1);
+                return String.format("SP-%03d", count + 1); // SP-001, SP-002...
+            }
+        } catch (SQLException e) {
+            System.err.println("[ItemSaveDAO] ERROR khi sinh ID: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return "SP-001"; // fallback
+    }
 
     public boolean saveItem(Item item) {
         String sqlWithDesc = "INSERT INTO items (id, name, current_price, starting_price, end_time, type, seller_id, status, description, bid_increment, image_path) " +
@@ -46,11 +68,9 @@ public class ItemSaveDAO {
         }
     }
 
-    // FIX: thêm image_path vào UPDATE
-    // Bản gốc thiếu image_path → ảnh mới không bao giờ được lưu khi Update
     public boolean updateItem(String productId, String name, String description,
                               double startPrice, double bidIncrement,
-                              LocalDateTime endTime, String imagePath, String type) { // Thêm tham số type
+                              LocalDateTime endTime, String imagePath, String type) {
         String sql = "UPDATE items SET name=?, current_price=?, end_time=?, description=?, bid_increment=?, image_path=?, type=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -60,7 +80,7 @@ public class ItemSaveDAO {
             ps.setString(4, description != null ? description : "");
             ps.setDouble(5, bidIncrement);
             ps.setString(6, imagePath != null ? imagePath : "");
-            ps.setString(7, type); // Gán loại hàng mới vào đây
+            ps.setString(7, type);
             ps.setString(8, productId);
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
@@ -69,7 +89,6 @@ public class ItemSaveDAO {
         }
     }
 
-    // Overload không có imagePath — giữ ảnh cũ (dùng khi không chọn ảnh mới)
     public boolean updateItem(String productId, String name, String description,
                               double startPrice, double bidIncrement,
                               LocalDateTime endTime, String type) {
@@ -81,7 +100,7 @@ public class ItemSaveDAO {
             ps.setString(3, endTime != null ? endTime.toString() : null);
             ps.setString(4, description != null ? description : "");
             ps.setDouble(5, bidIncrement);
-            ps.setString(6, type); // Gán loại hàng mới
+            ps.setString(6, type);
             ps.setString(7, productId);
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
