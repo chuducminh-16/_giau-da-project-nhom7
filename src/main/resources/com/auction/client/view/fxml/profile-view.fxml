@@ -136,8 +136,7 @@
                                        </toggleGroup>
                                     </RadioButton>
                                     <RadioButton fx:id="radioSeller" prefHeight="19.0" prefWidth="100.0" style="-fx-font-size: 13; -fx-text-fill: #2d3748;" text="Seller" toggleGroup="$roleToggleGroup" />
-                                    
-                                    <RadioButton fx:id="radioAdmin" prefHeight="19.0" prefWidth="100.0" style="-fx-font-size: 13; -fx-text-fill: #2d3748;" text="Admin" toggleGroup="$roleToggleGroup" />
+
                                  </children>
                               </HBox>
                            </children>
