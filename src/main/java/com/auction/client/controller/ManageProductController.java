@@ -19,6 +19,7 @@ import com.auction.client.utils.ImageUploadHandler;
 import com.auction.shared.model.Entity.Item.Item;
 import com.google.gson.JsonObject;
 
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -29,73 +30,124 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.ImageView;
 
 /**
- * 👑 LỚP ĐIỀU KHIỂN GIAO DIỆN QUẢN LÝ SẢN PHẨM (MANAGE PRODUCT UI CONTROLLER)
- * - Đóng vai trò tiếp nhận tương tác nút bấm, đổ màu giao diện.
- * - Đã bổ sung tính năng tự động định dạng dấu chấm phân tách hàng nghìn cho tiền tệ.
- * - Đã nâng cấp liên kết phím mũi tên điều hướng nhanh giữa các ô nhập thời gian.
+ * ════════════════════════════════════════════════════════════════════════
+ * 👑 MANAGE PRODUCT CONTROLLER — Màn hình Quản lý Sản phẩm (Seller)
+ * ════════════════════════════════════════════════════════════════════════
+ *
+ * Chức năng chính:
+ *   - Thêm sản phẩm mới (Add Product)
+ *   - Cập nhật thông tin sản phẩm đã có (Update)
+ *   - Xóa sản phẩm (Delete)
+ *   - Xem danh sách sản phẩm của Seller hiện tại
+ *   - Upload ảnh sản phẩm
+ *
+ * ✅ FIX: showStatus() giờ luôn hiển thị thông báo và tự xóa sau 4 giây.
+ * ════════════════════════════════════════════════════════════════════════
  */
 public class ManageProductController implements Initializable {
 
-    // ── 📌 KHAI BÁO CÁC PHẦN TỬ PHẢN XẠ FXML UI BINDING ──────────────────────
-    @FXML private TextField txtName;
-    @FXML private TextField txtStartingPrice;
-    @FXML private TextField txtBidIncrement;
-    @FXML private TextArea  txtDescription;
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 1: KHAI BÁO CÁC PHẦN TỬ FXML
+    // ════════════════════════════════════════════════════════════════════
 
+    // ── Form nhập liệu bên trái ──────────────────────────────────────
+    @FXML private TextField txtName;          // Tên sản phẩm
+    @FXML private TextField txtStartingPrice; // Giá khởi điểm (tự thêm dấu chấm phân nghìn)
+    @FXML private TextField txtBidIncrement;  // Bước giá (tự thêm dấu chấm phân nghìn)
+    @FXML private TextArea  txtDescription;   // Mô tả sản phẩm
+
+    // ── Preview ảnh (chỉ dùng ảnh 1, các ảnh còn lại giữ để tránh lỗi FXML inject) ──
     @FXML private ImageView imgPreview1;
-    @FXML private ImageView imgPreview2; // Giữ để tránh lỗi FXML Inject
-    @FXML private ImageView imgPreview3; 
-    @FXML private ImageView imgPreview4; 
+    @FXML private ImageView imgPreview2;
+    @FXML private ImageView imgPreview3;
+    @FXML private ImageView imgPreview4;
 
+    // ── Thời gian bắt đầu ───────────────────────────────────────────
     @FXML private DatePicker dpStartDate;
+    @FXML private TextField  txtStartHour;
+    @FXML private TextField  txtStartMinute;
+    @FXML private TextField  txtStartSecond;
+
+    // ── Thời gian kết thúc ──────────────────────────────────────────
     @FXML private DatePicker dateEnd;
+    @FXML private TextField  txtEndHour;
+    @FXML private TextField  txtEndMinute;
+    @FXML private TextField  txtEndSecond;
 
-    @FXML private TextField txtStartHour;
-    @FXML private TextField txtStartMinute;
-    @FXML private TextField txtStartSecond;
-
-    @FXML private TextField txtEndHour;
-    @FXML private TextField txtEndMinute;
-    @FXML private TextField txtEndSecond;
-
+    // ── Nút chọn loại sản phẩm ──────────────────────────────────────
     @FXML private Button btnTypeArt;
     @FXML private Button btnTypeElectronics;
     @FXML private Button btnTypeVehicle;
 
-    @FXML private TableView<Item>          tableProducts;
-    @FXML private TableColumn<Item, String>        colName;
-    @FXML private TableColumn<Item, Double>        colPrice;
+    // ── Bảng danh sách sản phẩm bên phải ───────────────────────────
+    @FXML private TableView<Item>           tableProducts;
+    @FXML private TableColumn<Item, String> colName;
+    @FXML private TableColumn<Item, Double> colPrice;
     @FXML private TableColumn<Item, LocalDateTime> colTime;
-    @FXML private TableColumn<Item, String>        colStatus;
-    @FXML private TableColumn<Item, Double>        colCurrentBid;
+    @FXML private TableColumn<Item, String> colStatus;
+    @FXML private TableColumn<Item, Double> colCurrentBid;
 
+    /**
+     * ✅ FIX: statusLabel đã được chuyển sang cột trái (dưới 2 nút Add/Update)
+     * và đặt visible="true" managed="true" trong FXML.
+     * showStatus() giờ chỉ cần setText + setStyle, không cần toggle visible nữa.
+     */
     @FXML private Label statusLabel;
 
-    // ── 📦 BIẾN TRẠNG THÁI VÀ BỘ HỖ TRỢ ỦY QUYỀN ─────────────────────────────
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 2: KHAI BÁO BIẾN NỘI BỘ
+    // ════════════════════════════════════════════════════════════════════
+
+    /** Danh sách sản phẩm liên kết với TableView */
     private final ObservableList<Item> productData = FXCollections.observableArrayList();
+
+    /** Cờ chống submit khi đang upload ảnh chưa xong */
     private volatile boolean isUploading = false;
+
+    /** Bộ xử lý upload và hiển thị ảnh */
     private ImageUploadHandler imageHandler;
-    private String currentImagePath = ""; // Đường dẫn file lưu trữ trên Server sau khi upload thành công
-    private String selectedType = "ART";  // Mặc định ban đầu là dòng Tranh Nghệ Thuật
 
-    // Chuỗi mã màu CSS quản lý trạng thái kích hoạt của Tab lựa chọn loại hình sản phẩm
-    private static final String BTN_ACTIVE_STYLE = "-fx-background-color: #4299e1; -fx-text-fill: white; -fx-background-radius: 8; -fx-cursor: hand; -fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
-    private static final String BTN_INACTIVE_STYLE = "-fx-background-color: #edf2f7; -fx-text-fill: #4a5568; -fx-background-radius: 8; -fx-cursor: hand; -fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
+    /** Đường dẫn ảnh trên Server sau khi upload thành công */
+    private String currentImagePath = "";
 
-    private NetworkClient client = NetworkClient.getInstance();
-    private ProductMessageHandler messageHandler; // Lớp xử lý gói tin mạng và cấu trúc dữ liệu Gson
+    /** Loại sản phẩm đang chọn — mặc định là ART */
+    private String selectedType = "ART";
+
+    /** Style CSS cho nút loại sản phẩm đang được chọn (nền xanh) */
+    private static final String BTN_ACTIVE_STYLE =
+        "-fx-background-color: #4299e1; -fx-text-fill: white;" +
+        "-fx-background-radius: 8; -fx-cursor: hand;" +
+        "-fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
+
+    /** Style CSS cho nút loại sản phẩm không được chọn (nền xám) */
+    private static final String BTN_INACTIVE_STYLE =
+        "-fx-background-color: #edf2f7; -fx-text-fill: #4a5568;" +
+        "-fx-background-radius: 8; -fx-cursor: hand;" +
+        "-fx-font-size: 13; -fx-font-weight: bold; -fx-border-radius: 8;";
+
+    /** Kênh giao tiếp Socket với Server */
+    private final NetworkClient client = NetworkClient.getInstance();
+
+    /** Bộ xử lý phân tích gói tin phản hồi từ Server */
+    private ProductMessageHandler messageHandler;
+
+    /** Callback lắng nghe luồng mạng — lưu lại để giải phóng khi rời màn hình */
     private NetworkClient.MessageListener listener;
+
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 3: KHỞI TẠO
+    // ════════════════════════════════════════════════════════════════════
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Thiết lập bộ phân phối tin nhắn mới
+
+        // Khởi tạo bộ lắng nghe gói tin mạng
         this.messageHandler = new ProductMessageHandler(this);
         this.listener = msg -> messageHandler.handleServerResponse(msg);
-
-        client.removeListener(listener);
+        client.removeListener(listener); // Tránh đăng ký trùng lắp
         client.addListener(listener);
 
-        // Cấu hình Image Upload Handler ghim trực tiếp vào Khung xem trước chính (imgPreview1)
+        // Cấu hình ImageUploadHandler gắn vào khung xem trước ảnh 1
         imageHandler = new ImageUploadHandler(client, imgPreview1)
             .onSuccess(path -> {
                 currentImagePath = path;
@@ -107,19 +159,27 @@ public class ManageProductController implements Initializable {
                 showStatus("⚠ " + err, true);
             });
 
-        // Kích hoạt tính năng gõ tự thêm dấu chấm phân cách hàng nghìn
+        // Kích hoạt tính năng tự thêm dấu chấm phân cách hàng nghìn khi nhập giá
         setupCurrencyFormatter(txtStartingPrice);
         setupCurrencyFormatter(txtBidIncrement);
 
+        // Cấu hình bảng, lắng nghe click dòng, giới hạn ô thời gian
         setupTable();
         setupRowClickListener();
-        setupTimeFieldListeners(); // Gọi thiết lập giới hạn số kiêm kích hoạt phím mũi tên
+        setupTimeFieldListeners();
+
+        // Mặc định chọn loại ART và tải danh sách sản phẩm của seller
         updateTypeButtons("ART");
         loadMyProducts();
     }
 
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 4: ĐỊNH DẠNG TIỀN TỆ
+    // ════════════════════════════════════════════════════════════════════
+
     /**
-     * 🟢 Bộ xử lý định dạng dấu chấm phân tách hàng nghìn khi người dùng nhập số trực tiếp
+     * Gắn listener tự động thêm dấu chấm phân cách hàng nghìn khi người dùng nhập số.
+     * Ví dụ: nhập "1000000" → hiển thị "1.000.000"
      */
     private void setupCurrencyFormatter(TextField field) {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
@@ -129,19 +189,15 @@ public class ManageProductController implements Initializable {
         field.textProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue == null || newValue.isEmpty()) return;
 
-            // Loại bỏ tất cả ký tự không phải là số thuần túy
+            // Loại bỏ mọi ký tự không phải số
             String cleanString = newValue.replaceAll("[^\\d]", "");
-            if (cleanString.isEmpty()) {
-                field.setText("");
-                return;
-            }
+            if (cleanString.isEmpty()) { field.setText(""); return; }
 
             try {
                 double parsed = Double.parseDouble(cleanString);
                 String formatted = formatter.format(parsed);
-
-                // Cập nhật text trên UI và đồng bộ con trỏ chuột ở cuối chuỗi
-                javafx.application.Platform.runLater(() -> {
+                // Cập nhật text và đặt con trỏ về cuối
+                Platform.runLater(() -> {
                     field.setText(formatted);
                     field.positionCaret(formatted.length());
                 });
@@ -150,7 +206,8 @@ public class ManageProductController implements Initializable {
     }
 
     /**
-     * Helper hỗ trợ chuyển số Double thuần từ đối tượng Item sang chuỗi có phân cách dấu chấm "."
+     * Chuyển giá trị double thành chuỗi có dấu chấm phân nghìn để hiển thị trên form.
+     * Ví dụ: 2000000.0 → "2.000.000"
      */
     private String formatDoubleToCurrencyString(double value) {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
@@ -159,26 +216,18 @@ public class ManageProductController implements Initializable {
         return formatter.format(value);
     }
 
-    private void setupTimeFieldListeners() {
-        // 1. Giới hạn giá trị trần khi nhập số vào ô thời gian
-        ProductFormValidator.limitTimeField(txtStartHour,   23);
-        ProductFormValidator.limitTimeField(txtStartMinute, 59);
-        ProductFormValidator.limitTimeField(txtStartSecond, 59);
-        ProductFormValidator.limitTimeField(txtEndHour,     23);
-        ProductFormValidator.limitTimeField(txtEndMinute,   59);
-        ProductFormValidator.limitTimeField(txtEndSecond,   59);
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 5: THIẾT LẬP BẢNG VÀ LẮNG NGHE SỰ KIỆN
+    // ════════════════════════════════════════════════════════════════════
 
-        // 2. 🎯 KÍCH HOẠT ĐIỀU HƯỚNG PHÍM MŨI TÊN TRÁI/PHẢI GIỮA BỘ BA THỜI GIAN
-        ProductFormValidator.linkTimeFieldsNavigation(txtStartHour, txtStartMinute, txtStartSecond);
-        ProductFormValidator.linkTimeFieldsNavigation(txtEndHour, txtEndMinute, txtEndSecond);
-    }
-
+    /** Cấu hình cột TableView và màu trạng thái */
     private void setupTable() {
         colName.setCellValueFactory(new PropertyValueFactory<>("name"));
         colPrice.setCellValueFactory(new PropertyValueFactory<>("startingPrice"));
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
         colCurrentBid.setCellValueFactory(new PropertyValueFactory<>("currentBid"));
 
+        // Cột thời gian kết thúc — format dd/MM/yyyy HH:mm:ss
         colTime.setCellValueFactory(new PropertyValueFactory<>("endTime"));
         colTime.setCellFactory(col -> new TableCell<>() {
             private final DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
@@ -189,6 +238,7 @@ public class ManageProductController implements Initializable {
             }
         });
 
+        // Cột trạng thái — tô màu theo giá trị
         colStatus.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -202,30 +252,38 @@ public class ManageProductController implements Initializable {
                 });
             }
         });
+
         tableProducts.setItems(productData);
     }
 
+    /**
+     * Khi người dùng click vào 1 dòng trong bảng,
+     * tự động đổ toàn bộ dữ liệu sản phẩm đó lên form để chỉnh sửa.
+     */
     private void setupRowClickListener() {
         tableProducts.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal == null) return;
+
             txtName.setText(newVal.getName());
-            
-            // Đổ giá trị số dạng dấu chấm (.) trực quan lên form khi chọn hàng trong bảng
+            // Hiển thị giá có dấu chấm phân nghìn
             txtStartingPrice.setText(formatDoubleToCurrencyString(newVal.getStartingPrice()));
             txtBidIncrement.setText(formatDoubleToCurrencyString(newVal.getBidIncrement()));
-            
             txtDescription.setText(newVal.getDescription() != null ? newVal.getDescription() : "");
 
+            // Đồng bộ loại sản phẩm
             String itemType = newVal.getType() != null ? newVal.getType().toUpperCase() : "ART";
             selectedType = itemType;
             updateTypeButtons(itemType);
 
+            // Đổ thời gian bắt đầu
             if (newVal.getStartTime() != null) {
                 dpStartDate.setValue(newVal.getStartTime().toLocalDate());
                 txtStartHour.setText(String.format("%02d", newVal.getStartTime().getHour()));
                 txtStartMinute.setText(String.format("%02d", newVal.getStartTime().getMinute()));
                 txtStartSecond.setText(String.format("%02d", newVal.getStartTime().getSecond()));
             }
+
+            // Đổ thời gian kết thúc
             if (newVal.getEndTime() != null) {
                 dateEnd.setValue(newVal.getEndTime().toLocalDate());
                 txtEndHour.setText(String.format("%02d", newVal.getEndTime().getHour()));
@@ -233,35 +291,55 @@ public class ManageProductController implements Initializable {
                 txtEndSecond.setText(String.format("%02d", newVal.getEndTime().getSecond()));
             }
 
+            // Load ảnh từ Server
             currentImagePath = "";
             String rawPath = newVal.getImagePath() != null ? newVal.getImagePath() : "";
             String firstPath = rawPath.contains("|") ? rawPath.split("\\|")[0] : rawPath;
-            imageHandler.loadFromServer(firstPath); // Đổ ảnh từ thư mục máy chủ lên màn hình xem trước
+            imageHandler.loadFromServer(firstPath);
         });
     }
 
+    /** Cấu hình giới hạn số và điều hướng phím mũi tên cho các ô giờ/phút/giây */
+    private void setupTimeFieldListeners() {
+        ProductFormValidator.limitTimeField(txtStartHour,   23);
+        ProductFormValidator.limitTimeField(txtStartMinute, 59);
+        ProductFormValidator.limitTimeField(txtStartSecond, 59);
+        ProductFormValidator.limitTimeField(txtEndHour,     23);
+        ProductFormValidator.limitTimeField(txtEndMinute,   59);
+        ProductFormValidator.limitTimeField(txtEndSecond,   59);
+
+        // Bấm mũi tên trái/phải để di chuyển giữa ô HH, MM, SS
+        ProductFormValidator.linkTimeFieldsNavigation(txtStartHour, txtStartMinute, txtStartSecond);
+        ProductFormValidator.linkTimeFieldsNavigation(txtEndHour, txtEndMinute, txtEndSecond);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 6: XỬ LÝ CÁC NÚT HÀNH ĐỘNG
+    // ════════════════════════════════════════════════════════════════════
+
+    /** Xử lý nút "Add Product" — validate rồi gửi lệnh ADD_PRODUCT lên Server */
     @FXML
     private void onAddProductClick() {
-        if (isUploading) {
-            showStatus("⏳ Vui lòng chờ upload ảnh xong...", false);
-            return;
-        }
+        if (isUploading) { showStatus("⏳ Vui lòng chờ upload ảnh xong...", false); return; }
 
-        // Bóc sạch dấu chấm "." hiển thị trực quan trước khi đưa vào bộ Validator kiểm tra số hợp lệ
-        String cleanStartPrice = txtStartingPrice.getText().trim().replaceAll("\\.", "");
-        String cleanBidIncrement = txtBidIncrement.getText().trim().replaceAll("\\.", "");
+        // Bóc sạch dấu chấm trực quan trước khi validate số
+        String cleanStartPrice    = txtStartingPrice.getText().trim().replaceAll("\\.", "");
+        String cleanBidIncrement  = txtBidIncrement.getText().trim().replaceAll("\\.", "");
 
         boolean isValid = ProductFormValidator.validateProductForm(
                 txtName.getText().trim(), cleanStartPrice, cleanBidIncrement,
-                dpStartDate, dateEnd, txtStartHour, txtStartMinute, txtStartSecond,
-                txtEndHour, txtEndMinute, txtEndSecond, this::showStatus);
-        
+                dpStartDate, dateEnd,
+                txtStartHour, txtStartMinute, txtStartSecond,
+                txtEndHour, txtEndMinute, txtEndSecond,
+                this::showStatus);
         if (!isValid) return;
 
         showStatus("Đang gửi...", false);
-        LocalDateTime startDT = ProductFormValidator.buildDateTime(dpStartDate, txtStartHour, txtStartMinute, txtStartSecond, LocalDateTime.now());
-        LocalDateTime endDT = ProductFormValidator.buildDateTime(dateEnd, txtEndHour, txtEndMinute, txtEndSecond, null);
-        
+
+        LocalDateTime startDT = ProductFormValidator.buildDateTime(
+                dpStartDate, txtStartHour, txtStartMinute, txtStartSecond, LocalDateTime.now());
+        LocalDateTime endDT = ProductFormValidator.buildDateTime(
+                dateEnd, txtEndHour, txtEndMinute, txtEndSecond, null);
         if (endDT == null) { showStatus("⚠ Vui lòng chọn ngày kết thúc.", true); return; }
 
         UserSession session = UserSession.getInstance();
@@ -284,27 +362,30 @@ public class ManageProductController implements Initializable {
         client.send(new Message("ADD_PRODUCT", payload));
     }
 
+    /** Xử lý nút "Update" — validate rồi gửi lệnh UPDATE_PRODUCT lên Server */
     @FXML
     public void handleUpdateProduct(ActionEvent event) {
-        if (isUploading) {
-            showStatus("⏳ Vui lòng chờ upload ảnh xong...", false);
-            return;
-        }
-        Item selected = tableProducts.getSelectionModel().getSelectedItem();
-        if (selected == null) { showStatus("Vui lòng chọn sản phẩm cần sửa!", true); return; }
+        if (isUploading) { showStatus("⏳ Vui lòng chờ upload ảnh xong...", false); return; }
 
-        // Bóc sạch dấu chấm "." hiển thị trực quan trước khi đưa vào bộ Validator kiểm tra số hợp lệ
-        String cleanStartPrice = txtStartingPrice.getText().trim().replaceAll("\\.", "");
+        Item selected = tableProducts.getSelectionModel().getSelectedItem();
+        if (selected == null) { showStatus("⚠ Vui lòng chọn sản phẩm cần sửa!", true); return; }
+
+        String cleanStartPrice   = txtStartingPrice.getText().trim().replaceAll("\\.", "");
         String cleanBidIncrement = txtBidIncrement.getText().trim().replaceAll("\\.", "");
 
         boolean isValid = ProductFormValidator.validateProductForm(
                 txtName.getText().trim(), cleanStartPrice, cleanBidIncrement,
-                dpStartDate, dateEnd, txtStartHour, txtStartMinute, txtStartSecond,
-                txtEndHour, txtEndMinute, txtEndSecond, this::showStatus);
+                dpStartDate, dateEnd,
+                txtStartHour, txtStartMinute, txtStartSecond,
+                txtEndHour, txtEndMinute, txtEndSecond,
+                this::showStatus);
         if (!isValid) return;
 
-        LocalDateTime endDT = ProductFormValidator.buildDateTime(dateEnd, txtEndHour, txtEndMinute, txtEndSecond, selected.getEndTime());
-        String imagePath = currentImagePath.isBlank() ? (selected.getImagePath() != null ? selected.getImagePath() : "") : currentImagePath;
+        LocalDateTime endDT = ProductFormValidator.buildDateTime(
+                dateEnd, txtEndHour, txtEndMinute, txtEndSecond, selected.getEndTime());
+        String imagePath = currentImagePath.isBlank()
+                ? (selected.getImagePath() != null ? selected.getImagePath() : "")
+                : currentImagePath;
 
         String payload = messageHandler.getGson().toJson(Map.of(
                 "productId",    selected.getId(),
@@ -320,79 +401,158 @@ public class ManageProductController implements Initializable {
         showStatus("Đang cập nhật...", false);
     }
 
+    /** Xử lý nút "Delete" — xác nhận rồi gửi lệnh DELETE_PRODUCT lên Server */
     @FXML
     public void onDeleteClick(ActionEvent event) {
         Item selected = tableProducts.getSelectionModel().getSelectedItem();
-        if (selected == null) { showStatus("Vui lòng chọn sản phẩm cần xoá!", true); return; }
-        
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Xoá sản phẩm: " + selected.getName() + "?", ButtonType.YES, ButtonType.NO);
+        if (selected == null) { showStatus("⚠ Vui lòng chọn sản phẩm cần xoá!", true); return; }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Xoá sản phẩm: " + selected.getName() + "?",
+                ButtonType.YES, ButtonType.NO);
         confirm.setTitle("Xác nhận xoá");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.YES) {
-                client.send(new Message("DELETE_PRODUCT", messageHandler.getGson().toJson(Map.of("productId", selected.getId()))));
-                showStatus("Đang xoá...", false);
+                client.send(new Message("DELETE_PRODUCT",
+                        messageHandler.getGson().toJson(Map.of("productId", selected.getId()))));
+                showStatus("Đang xoá...", true); // đỏ — thao tác xóa
             }
         });
     }
 
-    @FXML private void onTypeArtClick(ActionEvent event) { selectedType = "ART"; updateTypeButtons("ART"); }
-    @FXML private void onTypeElectronicsClick(ActionEvent event) { selectedType = "ELECTRONICS"; updateTypeButtons("ELECTRONICS"); }
-    @FXML private void onTypeVehicleClick(ActionEvent event) { selectedType = "VEHICLE"; updateTypeButtons("VEHICLE"); }
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 7: CHỌN LOẠI SẢN PHẨM
+    // ════════════════════════════════════════════════════════════════════
 
+    @FXML private void onTypeArtClick(ActionEvent event)         { selectedType = "ART";         updateTypeButtons("ART"); }
+    @FXML private void onTypeElectronicsClick(ActionEvent event) { selectedType = "ELECTRONICS"; updateTypeButtons("ELECTRONICS"); }
+    @FXML private void onTypeVehicleClick(ActionEvent event)     { selectedType = "VEHICLE";     updateTypeButtons("VEHICLE"); }
+
+    /** Cập nhật màu nền nút loại sản phẩm — nút đang chọn nền xanh, còn lại nền xám */
     private void updateTypeButtons(String activeType) {
-        if (btnTypeArt != null) btnTypeArt.setStyle(BTN_INACTIVE_STYLE);
+        if (btnTypeArt         != null) btnTypeArt.setStyle(BTN_INACTIVE_STYLE);
         if (btnTypeElectronics != null) btnTypeElectronics.setStyle(BTN_INACTIVE_STYLE);
-        if (btnTypeVehicle != null) btnTypeVehicle.setStyle(BTN_INACTIVE_STYLE);
+        if (btnTypeVehicle     != null) btnTypeVehicle.setStyle(BTN_INACTIVE_STYLE);
         switch (activeType) {
-            case "ART"         -> { if (btnTypeArt != null) btnTypeArt.setStyle(BTN_ACTIVE_STYLE); }
+            case "ART"         -> { if (btnTypeArt         != null) btnTypeArt.setStyle(BTN_ACTIVE_STYLE); }
             case "ELECTRONICS" -> { if (btnTypeElectronics != null) btnTypeElectronics.setStyle(BTN_ACTIVE_STYLE); }
-            case "VEHICLE"     -> { if (btnTypeVehicle != null) btnTypeVehicle.setStyle(BTN_ACTIVE_STYLE); }
+            case "VEHICLE"     -> { if (btnTypeVehicle     != null) btnTypeVehicle.setStyle(BTN_ACTIVE_STYLE); }
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 8: UPLOAD ẢNH
+    // ════════════════════════════════════════════════════════════════════
+
     @FXML private void onSelectImageClick() {
         javafx.stage.Window window = imgPreview1.getScene().getWindow();
-        isUploading = true; currentImagePath = "";
+        isUploading = true;
+        currentImagePath = "";
         showStatus("Đang upload ảnh...", false);
         imageHandler.pickAndUpload(window);
     }
 
+    // Các ô ảnh 2-4 chưa dùng, giữ stub để FXML không báo lỗi missing handler
     @FXML private void onSelectImage1Click() { onSelectImageClick(); }
     @FXML private void onSelectImage2Click() {}
     @FXML private void onSelectImage3Click() {}
     @FXML private void onSelectImage4Click() {}
 
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 9: TẢI DỮ LIỆU VÀ RESET FORM
+    // ════════════════════════════════════════════════════════════════════
+
+    /** Gửi yêu cầu lấy danh sách sản phẩm của Seller hiện tại lên Server */
     public void loadMyProducts() {
         UserSession session = UserSession.getInstance();
-        if (session != null && session.getUserId() != null)
-            client.send(new Message("GET_MY_PRODUCTS", messageHandler.getGson().toJson(Map.of("sellerId", session.getUserId()))));
+        if (session != null && session.getUserId() != null) {
+            client.send(new Message("GET_MY_PRODUCTS",
+                    messageHandler.getGson().toJson(Map.of("sellerId", session.getUserId()))));
+        }
     }
 
+    /** Xóa sạch toàn bộ form về trạng thái ban đầu sau khi thêm/xóa thành công */
     public void clearForm() {
-        txtName.clear(); txtStartingPrice.clear(); txtBidIncrement.clear(); txtDescription.clear();
-        dpStartDate.setValue(null); txtStartHour.clear(); txtStartMinute.clear(); txtStartSecond.clear();
-        dateEnd.setValue(null); txtEndHour.clear(); txtEndMinute.clear(); txtEndSecond.clear();
-        currentImagePath = ""; isUploading = false;
+        txtName.clear();
+        txtStartingPrice.clear();
+        txtBidIncrement.clear();
+        txtDescription.clear();
+        dpStartDate.setValue(null);
+        txtStartHour.clear(); txtStartMinute.clear(); txtStartSecond.clear();
+        dateEnd.setValue(null);
+        txtEndHour.clear(); txtEndMinute.clear(); txtEndSecond.clear();
+        currentImagePath = "";
+        isUploading = false;
         if (imageHandler != null) imageHandler.clearPreview();
-        selectedType = "ART"; updateTypeButtons("ART");
+        selectedType = "ART";
+        updateTypeButtons("ART");
         tableProducts.getSelectionModel().clearSelection();
     }
 
+    /** Nút Back Home — giải phóng listener rồi chuyển về trang chủ */
     @FXML private void onBackHomeClick(ActionEvent event) {
         try { client.removeListener(listener); } catch (Exception ignored) {}
         SceneEngine.changeScene(event, "home-view.fxml", "The Curator - Trang chủ");
     }
 
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 10: HIỂN THỊ THÔNG BÁO TRẠNG THÁI
+    // ════════════════════════════════════════════════════════════════════
+
+    /**
+     * ✅ FIX: Hiển thị thông báo lên statusLabel và tự xóa sau 4 giây.
+     *
+     * Trước đây label bị visible=false managed=false trong FXML và
+     * showStatus() không bật lại → thông báo không bao giờ hiện.
+     *
+     * Giờ label đã luôn visible=true managed=true trong FXML.
+     * showStatus() chỉ cần đổi text + màu chữ, và lên lịch tự xóa sau 4 giây.
+     *
+     * @param msg     Nội dung thông báo cần hiện
+     * @param isError true = chữ đỏ (lỗi) | false = chữ xanh (thành công / thông tin)
+     */
     public void showStatus(String msg, boolean isError) {
         if (statusLabel == null) return;
+
+        // isError=true → chữ đỏ (dùng cho xóa và lỗi)
+        // isError=false → chữ xanh lá (dùng cho thêm mới, cập nhật, thành công)
         statusLabel.setText(msg);
-        statusLabel.setStyle(isError ? "-fx-text-fill:#e53e3e; -fx-font-size:12px;" : "-fx-text-fill:#38a169; -fx-font-size:12px;");
+        statusLabel.setStyle(isError
+                ? "-fx-text-fill: #e53e3e; -fx-font-size: 12px; -fx-font-weight: bold;"
+                : "-fx-text-fill: #38a169; -fx-font-size: 12px; -fx-font-weight: bold;"
+        );
+
+        // ⏱ Tự động xóa thông báo sau 4 giây để giao diện không bị rác
+        new Thread(() -> {
+            try { Thread.sleep(4000); } catch (InterruptedException ignored) {}
+            Platform.runLater(() -> {
+                // Chỉ xóa nếu label vẫn đang hiển thị đúng thông báo này
+                // (tránh xóa nhầm thông báo mới hơn đã thay thế)
+                if (statusLabel.getText().equals(msg)) {
+                    statusLabel.setText("");
+                }
+            });
+        }).start();
     }
 
-    public String safeMsg(JsonObject root) { return root.has("message") ? root.get("message").getAsString() : "Lỗi không xác định"; }
+    // ════════════════════════════════════════════════════════════════════
+    // 📌 PHẦN 11: GETTERS & HELPERS CHO HANDLER
+    // ════════════════════════════════════════════════════════════════════
 
-    // ── ⚙️ DANH SÁCH GETTER GIÚP KẾT NỐI XUYÊN TẦNG HANDLER ──────────────────
+    /**
+     * Trích xuất chuỗi message từ JSON response của Server.
+     * Dùng trong ProductMessageHandler khi cần lấy nội dung lỗi.
+     */
+    public String safeMsg(JsonObject root) {
+        return root.has("message") ? root.get("message").getAsString() : "Lỗi không xác định";
+    }
+
+    /** Trả về danh sách sản phẩm để Handler cập nhật trực tiếp */
     public ObservableList<Item> getProductData() { return productData; }
+
+    /** Trả về TableView để Handler xử lý chọn/bỏ chọn dòng */
     public TableView<Item> getTableProducts() { return tableProducts; }
+
+    /** Trả về ImageUploadHandler để Handler điều phối sự kiện upload/tải ảnh */
     public ImageUploadHandler getImageHandler() { return imageHandler; }
 }
