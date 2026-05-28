@@ -313,6 +313,19 @@ public class HomeController implements Initializable {
         SelectedProductSession.getInstance().clear(); // Giải phóng ID sản phẩm đang chọn dở
         SceneEngine.changeScene(event, "login-view.fxml", "The Curator - Đăng nhập");
     }
+    @FXML public void onWalletClick(ActionEvent event) {
+    try {
+        javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+            getClass().getResource("/com/auction/client/view/fxml/wallet-view.fxml"));
+        javafx.scene.Parent root = loader.load();
+        javafx.stage.Stage stage = new javafx.stage.Stage();
+        stage.setTitle("💰 Nạp tiền");
+        stage.setScene(new javafx.scene.Scene(root));
+        stage.setResizable(false);
+        stage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+        stage.show();
+    } catch (Exception e) { e.printStackTrace(); }
+}
 
     /**
      * PHƯƠNG THỨC KHỬ TRÀN BỘ NHỚ (ANTI-MEMORY LEAK):

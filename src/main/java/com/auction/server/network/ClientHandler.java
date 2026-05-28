@@ -10,9 +10,10 @@ import java.util.Map;
 import com.auction.client.network.Message;
 import com.auction.server.controller.AdminController;
 import com.auction.server.controller.AuctionRoomEngineController;
-import com.auction.server.controller.AutoBidController; // Thêm import Controller mới
+import com.auction.server.controller.AutoBidController;
 import com.auction.server.controller.ProductController; // Thêm import Controller mới
-import com.auction.server.controller.UserController;
+import com.auction.server.controller.UserController; // Thêm import Controller mới
+import com.auction.server.controller.WalletController;
 import com.auction.shared.model.Entity.User.User;
 import com.google.gson.Gson;
 
@@ -168,7 +169,14 @@ public class ClientHandler implements Runnable {
             case "GET_PRODUCT_DETAIL" -> {
                 send(productController.handleGetProductDetail(p)); // Đã chuyển sang productController
             }
-
+           case "TOP_UP" -> {
+                if (!isAuthenticated()) return;
+                send(new WalletController().handleTopUp(p));
+            }
+            case "GET_BALANCE" -> {
+                if (!isAuthenticated()) return;
+                send(new WalletController().handleGetBalance(p));
+            }
             // ── Quản lý tính năng Tự động đặt giá (Tuyến AutoBidController mới) ──
             case "REGISTER_AUTO_BID" -> {
                 if (!isAuthenticated()) return;

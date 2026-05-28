@@ -1,4 +1,4 @@
-package com.auction.client.handler.livebidding;
+﻿package com.auction.client.handler.livebidding;
 
 import com.auction.client.BidItem;
 import com.auction.client.controller.LiveBiddingController;
@@ -123,22 +123,22 @@ public class LiveBiddingMessageHandler {
                 }
             }
 
-            if (arr == null || arr.size() == 0) return;
-
             List<HistoryEntry> entries = new ArrayList<>();
             double maxBid = 0;
 
-            // Vòng lặp bóc từng bản ghi lịch sử đặt cược
-            for (JsonElement el : arr) {
-                JsonObject row = el.getAsJsonObject();
-                String rawTime = safeStr(row, "createdAt", safeStr(row, "bidTime", ""));
-                String username = safeStr(row, "username", "?");
-                double price = safeDouble(row, "amount") > 0 ? safeDouble(row, "amount") : safeDouble(row, "bidPrice");
-                
-                String displayTime = convertUtcToVnTime(rawTime); // Đổi múi giờ UTC sang giờ VN (+7)
-                entries.add(new HistoryEntry(displayTime, username, String.format("%,.0f VNĐ", price), price));
-                
-                if (price > maxBid) maxBid = price; // Tìm ra mức giá cao nhất trong lịch sử cũ
+            if (arr != null && arr.size() > 0) {
+                // Vòng lặp bóc từng bản ghi lịch sử đặt cược
+                for (JsonElement el : arr) {
+                    JsonObject row = el.getAsJsonObject();
+                    String rawTime = safeStr(row, "createdAt", safeStr(row, "bidTime", ""));
+                    String username = safeStr(row, "username", "?");
+                    double price = safeDouble(row, "amount") > 0 ? safeDouble(row, "amount") : safeDouble(row, "bidPrice");
+                    
+                    String displayTime = convertUtcToVnTime(rawTime); // Đổi múi giờ UTC sang giờ VN (+7)
+                    entries.add(new HistoryEntry(displayTime, username, String.format("%,.0f VNĐ", price), price));
+                    
+                    if (price > maxBid) maxBid = price; // Tìm ra mức giá cao nhất trong lịch sử cũ
+                }
             }
 
             final double finalMaxBid = maxBid;
@@ -166,6 +166,28 @@ public class LiveBiddingMessageHandler {
 
                 // Xóa đồ thị trắng rồi tiến hành vẽ các điểm lịch sử cũ theo thứ tự thời gian (Từ cũ nhất đến mới nhất)
                 controller.getChartManager().clearChart();
+
+                // 1. Vẽ điểm giá khởi điểm trước tiên
+                Item item = controller.getCurrentItem();
+                if (item != null) {
+                    double startPrice = item.getStartingPrice();
+                    String startLabel = null;
+                    if (item.getStartTime() != null) {
+                        startLabel = item.getStartTime().toLocalTime().format(timeFmt);
+                    } else if (!finalEntries.isEmpty()) {
+                        try {
+                            String firstBidTimeStr = finalEntries.get(finalEntries.size() - 1).timeLabel();
+                            LocalTime firstBidTime = LocalTime.parse(firstBidTimeStr, timeFmt);
+                            startLabel = firstBidTime.minusMinutes(5).format(timeFmt);
+                        } catch (Exception ignored) {}
+                    }
+                    if (startLabel == null) {
+                        startLabel = LocalTime.now().minusMinutes(10).format(timeFmt);
+                    }
+                    controller.getChartManager().addChartPoint(startLabel, startPrice);
+                }
+
+                // 2. Vẽ tiếp các điểm đã đặt giá
                 for (int i = finalEntries.size() - 1; i >= 0; i--) {
                     HistoryEntry e = finalEntries.get(i);
                     controller.getChartManager().addChartPoint(e.timeLabel(), e.price());
@@ -297,11 +319,16 @@ public class LiveBiddingMessageHandler {
 
                 if (message != null) {
                     controller.addLog(message);
-                } else if (winnerName != null && finalPrice > 0) {
-                    controller.addLog(String.format("🏆 CHÚC MỪNG CHIẾN THẮNG: Người thắng cuộc: %s — Giá chốt: %,.0f VNĐ", winnerName, finalPrice));
+                } 
+
+                // Luôn luôn hiện winner nếu có dữ liệu, bất kể message có hay không
+                // Hien thi thong bao nguoi chien thang - day la phan quan trong bi bug
+                if (winnerName != null && !winnerName.isBlank() && finalPrice > 0) {
+                    controller.addLog(String.format("?? CHUC MUNG CHIEN THANG! Nguoi thang cuoc: %s | Gia chot: %,.0f VND", winnerName, finalPrice));
                 } else {
-                    controller.addLog("Phiên kết thúc — Không tìm thấy người đặt giá hợp lệ.");
+                    controller.addLog("Phien ket thuc - Khong tim thay nguoi dat gia hop le.");
                 }
+                
 
                 // Đẩy một hộp thoại chúc mừng lớn hiển thị trên màn hình nền Client
                 try {

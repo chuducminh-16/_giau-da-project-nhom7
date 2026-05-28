@@ -57,14 +57,16 @@ public class ItemFindDAO {
         List<Item> list = new ArrayList<>();
         String sql = "SELECT i.*, u.username AS seller_name " +
                      "FROM items i LEFT JOIN users u ON i.seller_id = u.id " +
-                     "WHERE i.status IN ('OPEN','RUNNING') AND i.end_time > NOW() " +
+                     "WHERE i.status IN ('OPEN','RUNNING') AND i.end_time > ? " +
                      "ORDER BY i.end_time ASC";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Item item = mapRow(rs);
-                if (item != null) list.add(item);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, java.time.LocalDateTime.now().toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Item item = mapRow(rs);
+                    if (item != null) list.add(item);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
