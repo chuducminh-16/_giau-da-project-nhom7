@@ -32,9 +32,65 @@ public class WalletController {
     private final NetworkClient.MessageListener listener = this::handleServerResponse;
 
     @FXML
+    private boolean isUpdating = false;
+
+    @FXML
     public void initialize() {
         client.addListener(listener);
-        loadBalance(); // Lấy số dư hiện tại khi mở popup
+        loadBalance(); // L?y s? du hi?n t?i khi m? popup
+
+        txtAmount.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (isUpdating) return;
+            if (newValue == null || newValue.isEmpty()) return;
+
+            String clean = newValue.replaceAll("[^\\d]", "");
+            if (clean.isEmpty()) {
+                isUpdating = true;
+                txtAmount.setText("");
+                isUpdating = false;
+                return;
+            }
+
+            try {
+                long parsed = Long.parseLong(clean);
+                String formatted = String.format(java.util.Locale.US, "%,d", parsed);
+                if (!newValue.equals(formatted)) {
+                    isUpdating = true;
+                    int oldCaret = txtAmount.getCaretPosition();
+
+                    int digitsBeforeCaret = 0;
+                    String textBeforeCaret = newValue.substring(0, Math.min(oldCaret, newValue.length()));
+                    for (char c : textBeforeCaret.toCharArray()) {
+                        if (Character.isDigit(c)) {
+                            digitsBeforeCaret++;
+                        }
+                    }
+
+                    txtAmount.setText(formatted);
+
+                    int newCaret = 0;
+                    int digitCount = 0;
+                    for (int i = 0; i < formatted.length(); i++) {
+                        if (digitCount == digitsBeforeCaret) {
+                            newCaret = i;
+                            break;
+                        }
+                        if (Character.isDigit(formatted.charAt(i))) {
+                            digitCount++;
+                        }
+                    }
+                    if (digitCount == digitsBeforeCaret && newCaret == 0) {
+                        newCaret = formatted.length();
+                    }
+                    txtAmount.positionCaret(newCaret);
+                    isUpdating = false;
+                }
+            } catch (NumberFormatException e) {
+                isUpdating = true;
+                txtAmount.setText(oldValue);
+                isUpdating = false;
+            }
+        });
     }
 
     /** Lấy số dư từ server khi mở popup */

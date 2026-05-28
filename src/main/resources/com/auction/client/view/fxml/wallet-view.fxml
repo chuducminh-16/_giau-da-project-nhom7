@@ -35,6 +35,7 @@
         <Label style="-fx-text-fill: #a0aec0; -fx-font-size: 11; -fx-font-weight: bold;"
                text="SỐ TIỀN NẠP (VND)" />
         <TextField fx:id="txtAmount"
+                   onAction="#onTopUpClick"
                    prefHeight="40" prefWidth="276"
                    promptText="Nhập số tiền..."
                    style="-fx-background-color: #2d3748;
