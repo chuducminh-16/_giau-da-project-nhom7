@@ -1,4 +1,4 @@
-package com.auction.server.dao.item;
+﻿package com.auction.server.dao.item;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -42,7 +42,7 @@ public class ItemSaveDAO {
                 pstmt.setString(2, item.getName());
                 pstmt.setDouble(3, item.getStartingPrice());
                 pstmt.setDouble(4, item.getStartingPrice());
-                pstmt.setString(5, item.getEndTime() != null ? item.getEndTime().toString() : null);
+                pstmt.setString(5, item.getEndTime() != null ? item.getEndTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
                 pstmt.setString(6, item.getType());
                 pstmt.setString(7, item.getSellerId());
                 pstmt.setString(8, item.getStatus() != null ? item.getStatus() : "OPEN");
@@ -55,7 +55,7 @@ public class ItemSaveDAO {
                     pstmt.setString(1, item.getId());
                     pstmt.setString(2, item.getName());
                     pstmt.setDouble(3, item.getStartingPrice());
-                    pstmt.setString(4, item.getEndTime() != null ? item.getEndTime().toString() : null);
+                    pstmt.setString(4, item.getEndTime() != null ? item.getEndTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
                     pstmt.setString(5, item.getType());
                     pstmt.setString(6, item.getSellerId());
                     pstmt.setString(7, item.getStatus() != null ? item.getStatus() : "OPEN");
@@ -76,7 +76,7 @@ public class ItemSaveDAO {
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, name);
             ps.setDouble(2, startPrice);
-            ps.setString(3, endTime != null ? endTime.toString() : null);
+            ps.setString(3, endTime != null ? endTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
             ps.setString(4, description != null ? description : "");
             ps.setDouble(5, bidIncrement);
             ps.setString(6, imagePath != null ? imagePath : "");
@@ -97,7 +97,7 @@ public class ItemSaveDAO {
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, name);
             ps.setDouble(2, startPrice);
-            ps.setString(3, endTime != null ? endTime.toString() : null);
+            ps.setString(3, endTime != null ? endTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
             ps.setString(4, description != null ? description : "");
             ps.setDouble(5, bidIncrement);
             ps.setString(6, type);

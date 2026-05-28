@@ -1,4 +1,4 @@
-package com.auction.server.service.auction;
+﻿package com.auction.server.service.auction;
 
 import com.auction.server.dao.auction.AuctionDAO;
 import com.auction.server.dao.item.ItemSaveDAO;
@@ -66,7 +66,7 @@ public class AuctionProductService {
         // Dùng auctionDAO để lấy ID tiếp theo thay vì System.currentTimeMillis()
         long auctionId = auctionDAO.getNextAuctionId();
         boolean auctionSaved = auctionDAO.saveAuction(
-                auctionId, itemId, sellerId, startPrice, endTime.toString());
+                auctionId, itemId, sellerId, startPrice, endTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         if (!auctionSaved) {
             System.err.println("[AuctionProductService] saveAuction that bai: " + itemId);
             return null;

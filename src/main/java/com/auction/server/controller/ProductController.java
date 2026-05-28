@@ -1,4 +1,4 @@
-package com.auction.server.controller;
+﻿package com.auction.server.controller;
 
 import com.auction.client.network.Message; 
 import com.auction.server.service.auction.AuctionProductService;
@@ -36,6 +36,8 @@ public class ProductController {
             
             // 2. Gọi tầng Query Service để thực thi câu lệnh đọc (SELECT) dữ liệu từ DB
             List<Item> items = auctionQueryService.getProductsBySeller(dto.sellerId());
+            System.err.println("[SERVER-DEBUG] findBySeller sellerId=" + dto.sellerId() + " -> items.size()=" + items.size());
+            items.forEach(it -> System.err.println("[SERVER-DEBUG]   item: id=" + it.getId() + " name=" + it.getName() + " type=" + it.getType()));
             
             // 3. Trả về gói tin phản hồi kèm theo danh sách sản phẩm tìm được
             return new Message("MY_PRODUCTS_RESPONSE", gson.toJson(Map.of("items", items)));

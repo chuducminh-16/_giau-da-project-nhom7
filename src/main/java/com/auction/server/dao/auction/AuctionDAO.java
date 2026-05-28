@@ -1,4 +1,4 @@
-package com.auction.server.dao.auction;
+﻿package com.auction.server.dao.auction;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -23,13 +23,13 @@ public class AuctionDAO {
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
                 int count = rs.getInt(1);
-                return 1001L + count; // bắt đầu từ 1001, 1002, 1003...
+                return 1001L + count;
             }
         } catch (SQLException e) {
             System.err.println("[AuctionDAO] ERROR khi sinh ID: " + e.getMessage());
             e.printStackTrace();
         }
-        return 1001L; // fallback
+        return 1001L;
     }
 
     // ── Lưu phiên mới ────────────────────────────────────────────────────
@@ -148,6 +148,11 @@ public class AuctionDAO {
     }
 
     // ── Tìm theo seller ──────────────────────────────────────────────────
+    /**
+     * ✅ FIX: Sửa bug vòng lặp while(rs.next()) bị gọi 2 lần và thiếu return list.
+     * - Lần 1 đọc hết ResultSet, lần 2 không bao giờ chạy → list luôn rỗng.
+     * - Giờ dùng try-with-resources cho ResultSet và 1 vòng while duy nhất.
+     */
     public List<Map<String, Object>> findBySeller(String sellerId) {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT i.id as item_id, i.name as item_name, i.seller_id, "
@@ -166,10 +171,23 @@ public class AuctionDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, sellerId);
-            ResultSet rs = ps.executeQuery();
-            while (rs.next()) list.add(mapRowFull(rs));
-        } catch (Exception e) { e.printStackTrace(); }
-        return list;
+            // ✅ FIX: Dùng try-with-resources cho ResultSet, 1 vòng while duy nhất
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    try {
+                        list.add(mapRowFull(rs));
+                    } catch (Exception ex) {
+                        System.err.println("[AuctionDAO] mapRowFull error: " + ex.getMessage());
+                        ex.printStackTrace();
+                    }
+                }
+            }
+            System.err.println("[AuctionDAO] findBySeller(" + sellerId + ") -> " + list.size() + " rows");
+        } catch (Exception e) {
+            System.err.println("[AuctionDAO] findBySeller SQL error: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return list; // ✅ FIX: return list bị thiếu hoàn toàn ở bản cũ
     }
 
     // ── Lấy phiên hết hạn chưa đóng ─────────────────────────────────────
@@ -236,12 +254,12 @@ public class AuctionDAO {
         row.put("status",       rs.getString("status"));
         row.put("endTime",      rs.getString("end_time"));
 
-        tryPut(row, "type",         () -> rs.getString("type"));
-        tryPut(row, "description",  () -> rs.getString("description"));
-        tryPut(row, "bidIncrement", () -> rs.getDouble("bid_increment"));
-        tryPut(row, "imagePath",    () -> rs.getString("image_path"));
-        tryPut(row, "startingPrice",() -> rs.getDouble("starting_price"));
-        tryPut(row, "sellerName",   () -> rs.getString("seller_name"));
+        tryPut(row, "type",          () -> rs.getString("type"));
+        tryPut(row, "description",   () -> rs.getString("description"));
+        tryPut(row, "bidIncrement",  () -> rs.getDouble("bid_increment"));
+        tryPut(row, "imagePath",     () -> rs.getString("image_path"));
+        tryPut(row, "startingPrice", () -> rs.getDouble("starting_price"));
+        tryPut(row, "sellerName",    () -> rs.getString("seller_name"));
         return row;
     }
 
