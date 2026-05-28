@@ -27,7 +27,7 @@ Lưu trữ dữ liệu trên MySQL (cloud hoặc local)
 
 Giao diện desktop bằng JavaFX / FXML
 
-- Dự án thể hiện toàn diện các nguyên lý Lập trình Hướng Đối Tượng (OOP), các Design Pattern phổ biến, kỹ thuật Concurrent Programming, và Realtime Communication trong một ứng dụng thực tế.
+- Dự án thể hiện toàn diện các nguyên lý Lập trình Hướng Đối Tượng (OOP), các Design Pattern phổ biến, kỹ thuật Concurrent Programming, và Realtime Communication trong một ứng dụng thực tế (chi tiết ở cuối).
 
 # 2. Công nghệ sử dụng và môi trường chạy
 
@@ -439,10 +439,163 @@ Test File: ```AuctionServiceTest```. Phạm vi kiểm tra: ```BidResult enum, Bi
 
 Test File: ```SnipeGuardServiceTest```. Phạm vi kiểm tra: ```Bid trong/ngoài cửa sổ 60s, ranh giới chính xác 60/61s, cascade 3 lần gia hạn, SnipeGuardResult getters```
 
-Chạy toàn bộ test:
-```
-mvn test
-```
-
-
 # 7. Báo cáo & Demo
+
+Báo cáo PDF: 
+Video Demo: 
+GitHub Repository: https://github.com/chuducminh-16/_giau-da-project-nhom7
+
+Lưu ý kỹ thuật:
+
+- Server phải chạy trước khi mở Client. Nếu Client không kết nối được, ứng dụng vẫn mở nhưng các thao tác gửi/nhận dữ liệu sẽ không hoạt động.
+
+- Mặc định Server lắng nghe tại ```localhost:9090```. Để chạy trên máy khác trong cùng mạng LAN, sửa host trong ```NetworkClient.java``` và ```AuctionClientApp.java```.
+
+- Kết nối DB mặc định trỏ tới MySQL trên Railway Cloud. Nếu muốn dùng DB local, cập nhật ```URL```, ```USER```, ```PASSWORD``` trong ```src/main/java/com/auction/server/database/DatabaseConnection.java.```
+
+
+# MVC Structure:
+Client (JavaFX):
+
+- View    — FXML files (login-view, home-view, live-bidding-view, ...)
+           + CSS styles
+- Controller — *Controller.java (LoginController, HomeController, ...)
+           + MessageHandler (tách xử lý mạng ra khỏi Controller)
+- Model   — shared/model/Entity (User, Item, Auction, Bid)
+           + session (UserSession, SelectedProductSession)
+           
+Server:
+
+- Controller — UserController, AuctionRoomEngineController, ProductController, ...
+- Service    — UserService, BidPlacementService, AuctionProductService, ...
+- DAO        — UserFindDAO, BidDAO, AuctionDAO, ... (chỉ server truy cập DB)
+
+
+# OOP Design:
+
+- Class Hierarchy
+```
+Entity (Abstract)
+├── User (Abstract)
+│   ├── Bidder       — Người tham gia đấu giá, có balance
+│   ├── Seller       — Người đăng sản phẩm, có rating
+│   └── Admin        — Quản trị viên, có adminLevel
+└── Item (Abstract)
+    ├── Art          — Tác phẩm nghệ thuật (artist)
+    ├── Electronics  — Thiết bị điện tử (warrantyPeriod)
+    └── Vehicle      — Phương tiện (mileage)
+```
+- Auction             — Quản lý trung tâm một phiên đấu giá
+- Bid                 — Một lượt đặt giá (id, itemId, bidderId, amount, timestamp)
+- AuctionStatus       — Enum: OPEN → RUNNING → FINISHED → PAID / CANCELED
+
+# OOP Principles Applied
+Nguyên lý Encapsulation
++ Nơi áp dụng: tất cả fields private/protected, truy cập qua getter/setter. Bidder.setBalance() kiểm tra giá trị âm trước khi gán.
+
+Nguyên lý Inheritance
++ Nơi áp dụng: Bidder, Seller, Admin kế thừa User; Art, Electronics, Vehicle kế thừa Item.
+
+Nguyên lý Polymorphism
++ Nơi áp dụng: User.getRole(), Item.getType(), Item.showDetails() được override ở từng subclass. ItemFactory trả về Item nhưng tạo đúng subclass tương ứng.
+
+Nguyên lý Abstraction 
++ Nơi áp dụng: User và Item là abstract class. AuctionObserver là interface. AuctionException là abstract base exception.
+
+
+# Design Patterns:
+
+1. Singleton Pattern:  Đảm bảo duy nhất một instance cho các thành phần quan trọng:
+
+- AuctionManager: Quản lý toàn bộ danh sách phiên đấu giá đang hoạt động. Dùng Initialization-on-demand Holder — lazy, thread-safe, không cần synchronized.
+
+- NetworkClient: Kết nối TCP Socket duy nhất từ client đến server, dùng chung cho tất cả Controller.
+
+- UserSession: Lưu thông tin người dùng đang đăng nhập trên client.
+
+- BidAuto: Event Bus xử lý Auto-bid. Dùng Holder pattern, chạy trên single Worker Thread.
+
+
+2. Factory Method Pattern:  ItemFactory.createItem(type, ...) tạo đúng subclass Item dựa trên chuỗi type:
+```
+// Tự động tạo Art, Electronics, hoặc Vehicle tùy thuộc vào type:
+Item item = ItemFactory.createItem("ELECTRONICS", id, name, price, endTime, sellerId, "24");
+```
+- Input: "ART" / "ELECTRONICS" / "VEHICLE" (case-insensitive)
+- Output: instance đúng subclass tương ứng
+- Throws IllegalArgumentException nếu type không hợp lệ
+
+
+3. Observer Pattern:  Dùng để cập nhật realtime giá đấu cho tất cả client đang xem một phiên:
+```
+AuctionSubject (Abstract)           AuctionObserver (Interface)
+├── subscribe(observer)             ├── onBidPlaced(BidEvent)
+├── unsubscribe(observer)           └── onAuctionClosed(auctionId, winnerId, price)
+├── notifyBidPlaced(event)    ←→    ClientHandler (implements AuctionObserver)
+└── notifyAuctionClosed(...)
+```
+```
+BidEvent (Immutable)
+└── auctionId, productId, bid, newPrice, bidderName, timestamp
+```
+- CopyOnWriteArrayList đảm bảo thread-safe cho danh sách observer
+- Mỗi notifyBidPlaced() chạy trong try-catch riêng — 1 observer lỗi không ảnh hưởng observer khác
+- BidEvent là immutable — an toàn broadcast cho nhiều thread
+
+
+4. Strategy / Template Method Pattern (Power-ups / DAO):  Tuy không đặt tên formal, hệ thống DAO áp dụng tư tưởng Strategy:
+
+- UserFindDAO, UserSaveDAO, UserListDAO — phân tách trách nhiệm đọc/ghi/liệt kê
+- ItemFindDAO, ItemSaveDAO, ItemListDAO — tương tự cho Item
+- Dễ dàng thay thế implementation mà không ảnh hưởng tầng Service
+
+
+# Auction Lifecycle:
+```
+OPEN → RUNNING → FINISHED → PAID
+                           → CANCELED (nếu không có bid nào)
+```
+- Trạng thái: ```OPEN``` - Vừa tạo, chưa đến giờ bắt đầu
+
+- Trạng thái: ```RUNNING``` - Đang diễn ra, nhận bid
+
+- Trạng thái: ```FINISHED``` - Hết giờ, có người thắng, chờ thanh toán
+
+- Trạng thái: ```PAID``` - Người thắng đã thanh toán
+
+- Trạng thái: ```CANCELED``` - Bị hủy hoặc kết thúc mà không có bid
+
+AuctionScheduler chạy mỗi 10 giây để tự động đóng các phiên hết giờ, xác định winner, lưu transaction, và broadcast AUCTION_ENDED.
+
+
+# System Architecture:
+Client–Server Architecture
+```
+┌─────────────────────────────────┐     TCP Socket      ┌──────────────────────────────────┐
+│           CLIENT                │◄──────────────────► │           SERVER                 │
+│                                 │   JSON Messages     │                                  │
+│  JavaFX (FXML + Controller)     │                     │  NetworkServer (port 9090)       │
+│  ├── LoginController            │                     │  ├── ClientHandler (per-client)  │
+│  ├── HomeController             │                     │  ├── UserController              │
+│  ├── LiveBiddingController      │                     │  ├── AuctionRoomEngineController │
+│  ├── ManageProductController    │                     │  ├── ProductController           │
+│  ├── AdminController            │                     │  ├── AutoBidController           │
+│  └── BidHistoryController       │                     │  └── AdminController             │
+│                                 │                     │                                  │
+│  NetworkClient (Singleton)      │                     │  AuctionScheduler (daemon)       │
+│  UserSession (Singleton)        │                     │  BidAuto Event Bus               │
+└─────────────────────────────────┘                     └────────────────┬─────────────────┘
+                                                                         │ 
+                                                                         ▼
+                                                         ┌──────────────────────────────────┐
+                                                         │         DATABASE                 │
+                                                         │   MySQL (Railway Cloud)          │
+                                                         │   ├── users                      │
+                                                         │   ├── items                      │
+                                                         │   ├── auctions                   │
+                                                         │   ├── bids                       │
+                                                         │   ├── transactions               │
+                                                         │   └── auto_bids                  │
+                                                         └──────────────────────────────────┘
+```
+
