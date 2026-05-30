@@ -1,4 +1,4 @@
-﻿package com.auction.client.handler.product;
+package com.auction.client.handler.product;
 
 import com.auction.client.controller.ManageProductController;
 import com.auction.client.network.Message;

@@ -1,4 +1,4 @@
-﻿package com.auction.server.controller;
+package com.auction.server.controller;
 
 import com.auction.client.network.Message; 
 import com.auction.server.service.auction.AuctionProductService;

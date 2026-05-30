@@ -268,7 +268,7 @@
                         <!-- Nút Delete + Back Home + statusLabel -->
                         <HBox alignment="CENTER_LEFT" prefHeight="60" prefWidth="597.0" spacing="12">
                            <children>
-                              <Button mnemonicParsing="false" onAction="#onDeleteClick"
+                              <Button mnemonicParsing="false" onAction="#handleDeleteProduct"
                                       prefHeight="42" prefWidth="110"
                                       style="-fx-background-color: #e53e3e; -fx-text-fill: white;
                                              -fx-background-radius: 6; -fx-cursor: hand;

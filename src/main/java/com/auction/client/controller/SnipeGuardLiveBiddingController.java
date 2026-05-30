@@ -6,9 +6,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.ResourceBundle;
 
-import com.auction.client.BidItem;
+import com.auction.client.model.BidItem;
 import com.auction.client.SceneEngine;
-import com.auction.client.handler.snipeguard.SnipeGuardMessageHandler; // 👈 ĐÃ ĐỔI TÊN ĐƯỜNG IMPORT MỚI
+import com.auction.client.handler.bidding.BiddingMessageHandler;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
@@ -33,12 +33,14 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.util.Duration;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 /**
  * 🎮 LỚP ĐIỀU KHIỂN PHÒNG ĐẤU GIÁ REALTIME (SNIPE GUARD LIVE BIDDING UI CONTROLLER)
  * - Nhiệm vụ: Chỉ quản lý trạng thái hiển thị của các nút bấm, biểu đồ giá, bảng lịch sử và đồng hồ Timeline.
  */
-public class SnipeGuardLiveBiddingController implements Initializable {
+public class SnipeGuardLiveBiddingController implements Initializable, BiddingMessageHandler.IBiddingController {
 
     // ── FXML bindings ────────────────────────────────────────────────────
     @FXML private Label     lblCountdown;
@@ -56,6 +58,8 @@ public class SnipeGuardLiveBiddingController implements Initializable {
     // ── Giao diện & Trạng thái ───────────────────────────────────────────
     private Item currentItem;
     private String itemId;
+    private boolean historyLoaded = false;
+    private double  latestBid     = 0;
     private XYChart.Series<String, Number> priceSeries;
     
     private Timeline countdownTimeline;
@@ -73,10 +77,11 @@ public class SnipeGuardLiveBiddingController implements Initializable {
     private final ObservableList<String>  notifications = FXCollections.observableArrayList();
 
     private final NetworkClient client = NetworkClient.getInstance();
+    private final Gson gson = new Gson();
     private final DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     // ── Các thành phần kết nối Tầng logic ────────────────────────────────
-    private SnipeGuardMessageHandler messageHandler; // 👈 ĐỒI KIỂU DỮ LIỆU SANG CLASS MỚI
+    private BiddingMessageHandler messageHandler;
     private NetworkClient.MessageListener listener;
 
     @Override
@@ -86,8 +91,8 @@ public class SnipeGuardLiveBiddingController implements Initializable {
         setupChart();
 
         // 2. Liên kết kiến trúc bộ điều phối tin nhắn độc lập
-        this.messageHandler = new SnipeGuardMessageHandler(this); // 👈 KHỞI TẠO CLASS MỚI
-        this.listener = msg -> messageHandler.handleServerMessage(msg);
+        this.messageHandler = new BiddingMessageHandler(this);
+        this.listener = msg -> messageHandler.processMessage(msg);
         client.addListener(listener);
 
         // 3. Đọc mã ID sản phẩm từ phiên lưu trữ toàn cục
@@ -96,7 +101,7 @@ public class SnipeGuardLiveBiddingController implements Initializable {
         if (itemId != null) {
             addLog("🔌 Đang kết nối phòng đấu giá...");
             client.send(new Message("GET_PRODUCT_DETAIL",
-                    messageHandler.getGson().toJson(Map.of("itemId", itemId))));
+                    gson.toJson(Map.of("itemId", itemId))));
         } else {
             addLog("❌ Không tìm thấy thông tin sản phẩm!");
         }
@@ -133,7 +138,7 @@ public class SnipeGuardLiveBiddingController implements Initializable {
             addLog(String.format("⚠️ Còn %ds — SnipeGuard sẽ gia hạn nếu bid thành công!", secondsRemaining));
         }
 
-        client.send(new Message("PLACE_BID", messageHandler.getGson().toJson(Map.of(
+        client.send(new Message("PLACE_BID", gson.toJson(Map.of(
                 "productId", currentItem.getId(),
                 "bidderId",  UserSession.getInstance().getUserId(),
                 "amount",    newAmount
@@ -302,4 +307,54 @@ public class SnipeGuardLiveBiddingController implements Initializable {
     public void setCurrentItem(Item currentItem) { this.currentItem = currentItem; }
     public ObservableList<BidItem> getBidHistory() { return bidHistory; }
     public void setSecondsRemaining(long secondsRemaining) { this.secondsRemaining = secondsRemaining; }
+
+    // =========================================================================
+    // IBiddingController - cac method con thieu trong SnipeGuardLiveBiddingController
+    // =========================================================================
+
+    // --- Item ID ---
+    @Override public String getItemId()           { return itemId; }
+    @Override public void   setItemId(String id)  { this.itemId = id; }
+
+    // --- History loaded flag ---
+    @Override public boolean isHistoryLoaded()              { return historyLoaded; }
+    @Override public void    setHistoryLoaded(boolean state){ this.historyLoaded = state; }
+
+    // --- Latest bid ---
+    @Override public double getLatestBid()          { return latestBid; }
+    @Override public void   setLatestBid(double bid){ this.latestBid = bid; }
+
+    // --- Gson ---
+    @Override
+    public com.google.gson.Gson getGson() { return gson; }
+
+    // --- Label countdown ---
+    @Override
+    public javafx.scene.control.Label getLblCountdown() { return lblCountdown; }
+
+    // --- AutoBidHandler (SnipeGuard khong co Auto-bid -> tra null-safe stub) ---
+    @Override
+    public com.auction.client.handler.livebidding.AutoBidHandler getAutoBidHandler() {
+        return new com.auction.client.handler.livebidding.AutoBidHandler(null) {
+            @Override public boolean isAutoBidActive() { return false; }
+            @Override public void deactivateAutoBid() {}
+            @Override public void handleAutoBidIfNeeded(String bidderId, String bidderName) {}
+        };
+    }
+
+    // --- CountdownHandler stub (SnipeGuard dung Timeline noi bo) ---
+    @Override
+    public com.auction.client.handler.livebidding.CountdownHandler getCountdownHandler() {
+        return new com.auction.client.handler.livebidding.CountdownHandler(null) {
+            @Override public void stop()          { stopCountdown(); }
+            @Override public void onAuctionEnded(){ markAuctionEnded(); }
+            @Override public void startCountdownFromItem(){ startCountdownTimer(); }
+        };
+    }
+
+    // --- SnipeGuard animation hook ---
+    @Override
+    public void onAuctionExtended(long newSeconds, int extendedBy, long wasSecondsLeft, String message) {
+        flashExtendedAnimation(extendedBy);
+    }
 }

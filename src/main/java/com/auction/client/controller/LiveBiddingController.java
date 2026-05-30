@@ -1,11 +1,11 @@
 package com.auction.client.controller;
 
-import com.auction.client.BidItem;
+import com.auction.client.model.BidItem;
 import com.auction.client.SceneEngine;
 import com.auction.client.handler.livebidding.AutoBidHandler;
 import com.auction.client.handler.livebidding.CountdownHandler;
 import com.auction.client.handler.livebidding.LiveBiddingChartManager;
-import com.auction.client.handler.livebidding.LiveBiddingMessageHandler;
+import com.auction.client.handler.bidding.BiddingMessageHandler;
 import com.auction.client.network.Message;
 import com.auction.client.network.NetworkClient;
 import com.auction.client.session.SelectedProductSession;
@@ -45,7 +45,7 @@ import java.util.function.UnaryOperator;
  * - Đóng vai trò là cổng kết nối trung gian tiếp nhận các thành phần giao diện đồ họa FXML.
  * - Phân phối công việc thông qua kiến trúc Delegation pattern cho các lớp Handler chuyên biệt.
  */
-public class LiveBiddingController implements Initializable {
+public class LiveBiddingController implements Initializable, BiddingMessageHandler.IBiddingController {
 
     // ── 📌 KHAI BÁO CÁC PHẦN TỬ PHẢN XẠ FXML UI BINDING ──────────────────────
     @FXML private Label lblCountdown;         // Nhãn hiển thị đồng hồ đếm ngược thời gian chốt
@@ -71,7 +71,7 @@ public class LiveBiddingController implements Initializable {
     private AutoBidHandler autoBidHandler;     // Xử lý logic nghiệp vụ đặt giá tự động dựa trên bước nhảy
     private CountdownHandler countdownHandler; // Điều hành bộ đếm ngược luồng Task riêng định kỳ mỗi giây
     private LiveBiddingChartManager chartManager;   // 🆕 Quản trị và ép mã màu đỏ đặc/rỗng cho LineChart
-    private LiveBiddingMessageHandler messageHandler; // 🆕 Lắng nghe, parse chuỗi JSON nhận từ Server TCP/IP
+    private BiddingMessageHandler messageHandler; // 🆕 Lắng nghe, parse chuỗi JSON nhận từ Server TCP/IP
 
     // ── 📦 BIẾN TRẠNG THÁI NỘI BỘ PHÒNG ĐẤU GIÁ ──────────────────────────────
     private Item currentItem;                  // Đối tượng Model thông tin sản phẩm hiện hành
@@ -120,7 +120,7 @@ public class LiveBiddingController implements Initializable {
         this.autoBidHandler = new AutoBidHandler(this);
         this.countdownHandler = new CountdownHandler(this);
         this.chartManager = new LiveBiddingChartManager(priceChart); // Giao quyền điều khiển biểu đồ gốc FXML
-        this.messageHandler = new LiveBiddingMessageHandler(this);   // Giao quyền nhận gói tin Server
+        this.messageHandler = new BiddingMessageHandler(this);   // Giao quyền nhận gói tin Server
 
         setupTable();                  // Ánh xạ liên kết dữ liệu mảng vào TableView UI
         client.addListener(listener); // Đăng ký lắng nghe kênh dữ liệu Network Socket
@@ -332,6 +332,9 @@ public class LiveBiddingController implements Initializable {
     public boolean isHistoryLoaded() { return historyLoaded; }
     public void setHistoryLoaded(boolean state) { this.historyLoaded = state; }
     
+    /** IBiddingController.getBidHistory() - alias cho getBidHistoryList() */
+    @Override public ObservableList<BidItem> getBidHistory() { return bidHistory; }
+
     public ObservableList<BidItem> getBidHistoryList() { return bidHistory; }
     public LiveBiddingChartManager getChartManager() { return chartManager; }
     public CountdownHandler getCountdownHandler() { return countdownHandler; }
@@ -345,4 +348,25 @@ public class LiveBiddingController implements Initializable {
     public Label getLblAutoBidStatus() { return lblAutoBidStatus; }
     public Label getLblAutoBidInfo() { return lblAutoBidInfo; }
     public HBox getHboxAutoBidInfo() { return hboxAutoBidInfo; }
+
+    // =========================================================================
+    // IBiddingController bridge methods
+    // =========================================================================
+
+    @Override
+    public void addChartPoint(double price) {
+        if (chartManager != null) chartManager.addChartPoint(LocalTime.now().format(timeFmt), price);
+    }
+
+    @Override
+    public void populateProductInfo() {
+        if (lblProductName != null && currentItem != null) lblProductName.setText(currentItem.getName());
+        updateCurrentBidLabel(currentItem != null ? currentItem.getCurrentBid() : 0);
+    }
+
+    @Override
+    public void startCountdownFromItem() { countdownHandler.startCountdownFromItem(); }
+
+    @Override
+    public void stopCountdown() { countdownHandler.stop(); }
 }
