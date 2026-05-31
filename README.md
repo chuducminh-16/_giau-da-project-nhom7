@@ -484,7 +484,7 @@ Test File: ```SnipeGuardServiceTest```. Phạm vi kiểm tra: ```Bid trong/ngoà
 
 # 7. Báo cáo & Demo
 
-Báo cáo PDF: 
+Báo cáo PDF: https://drive.google.com/drive/u/0/folders/1jgxN3DuCKqgJ1EA9H_yHBVMss7CRsveH?fbclid=IwY2xjawSJPlpleHRuA2FlbQIxMABicmlkETFPbXlpMlh4eFlHb3BpYldyc3J0YwZhcHBfaWQQMjIyMDM5MTc4ODIwMDg5MgABHp3aGc9tpTVEKnclFmuugaFtHE0nkOJbTiPSlrnGvEVfV23he8_BBWOIznKQ_aem_B0EbBVSU-Tc-jJ5CUx98Nw
 
 Video Demo: https://youtu.be/ljssCCQB0Dk?si=1nyFSGGF2k5-cduC
 
