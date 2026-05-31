@@ -1,37 +1,44 @@
 package com.auction.client.utils;
 
 /**
- * 🛠️ BỘ KIỂM TRA DỮ LIỆU ĐĂNG KÝ (REGISTER VALIDATION)
- * - Nhiệm vụ: Tách biệt hoàn toàn các quy tắc nghiệp vụ kiểm tra chuỗi (Business Rules) ra khỏi tầng điều khiển giao diện.
+ * RegisterValidation - Kiem tra du lieu dau vao form dang ky.
+ * Tach biet quy tac nghiep vu ra khoi controller giao dien.
  */
 public class RegisterValidation {
 
     /**
-     * Thực hiện kiểm tra dữ liệu thô người dùng nhập vào Form đăng ký.
-     * @return Chuỗi thông báo lỗi cụ thể nếu vi phạm quy tắc, hoặc null nếu tất cả dữ liệu đều hợp lệ.
+     * Kiem tra day du cac truong form dang ky.
+     *
+     * @param fullName       Ho va ten
+     * @param username       Ten dang nhap
+     * @param email          Dia chi email
+     * @param phone          So dien thoai
+     * @param password       Mat khau
+     * @param confirmPassword Xac nhan mat khau
+     * @return Chuoi thong bao loi neu co vi pham, hoac null neu hop le.
      */
-    public static String validate(String username, String email, String password, String confirmPassword) {
-        // 1. Kiểm tra các trường thông tin bắt buộc phải điền
-        if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            return "Vui lòng điền đầy đủ thông tin bắt buộc.";
-        }
-        
-        // 2. Kiểm tra định dạng cấu trúc Email cơ bản
-        if (!email.contains("@")) {
-            return "Email không hợp lệ.";
-        }
-        
-        // 3. Kiểm tra độ an toàn tối thiểu của mật khẩu
-        if (password.length() < 6) {
-            return "Mật khẩu phải có ít nhất 6 ký tự.";
-        }
-        
-        // 4. Kiểm tra sự trùng khớp của mật khẩu gõ lại
-        if (!password.equals(confirmPassword)) {
-            return "Mật khẩu xác nhận không khớp.";
-        }
-
-        // Không phát hiện bất kỳ lỗi nào dữ liệu đầu vào
+    public static String validate(String fullName, String username, String email,
+                                  String phone, String password, String confirmPassword) {
+        if (fullName == null || fullName.isBlank())
+            return "Vui long nhap ho va ten.";
+        if (username == null || username.isBlank())
+            return "Vui long nhap ten dang nhap.";
+        if (email == null || email.isBlank())
+            return "Vui long nhap dia chi email.";
+        if (!email.contains("@"))
+            return "Email khong hop le.";
+        if (password == null || password.length() < 6)
+            return "Mat khau phai co it nhat 6 ky tu.";
+        if (!password.equals(confirmPassword))
+            return "Mat khau xac nhan khong khop.";
         return null;
+    }
+
+    /**
+     * Overload 4 tham so de giu tuong thich nguoc voi ProfileController cu.
+     */
+    public static String validate(String username, String email,
+                                  String password, String confirmPassword) {
+        return validate("(ok)", username, email, "", password, confirmPassword);
     }
 }

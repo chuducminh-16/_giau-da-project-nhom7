@@ -16,14 +16,15 @@ public class AuctionDAO {
     // SINH ID TUẦN TỰ → 1001, 1002, 1003...
     // ══════════════════════════════════════════
     public long getNextAuctionId() {
-        String sql = "SELECT COUNT(*) FROM auctions";
+        // Dùng MAX thay vì COUNT để tránh trùng ID khi có auction bị xóa
+        String sql = "SELECT MAX(id) FROM auctions";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                int count = rs.getInt(1);
-                return 1001L + count;
+                long maxId = rs.getLong(1);
+                return Math.max(maxId + 1, 1001L); // bắt đầu từ 1001 nếu bảng rỗng
             }
         } catch (SQLException e) {
             System.err.println("[AuctionDAO] ERROR khi sinh ID: " + e.getMessage());

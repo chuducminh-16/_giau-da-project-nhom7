@@ -15,14 +15,15 @@ public class ItemSaveDAO {
     // SINH ID TUẦN TỰ → "SP-001", "SP-002"...
     // ══════════════════════════════════════════
     public String getNextItemId() {
-        String sql = "SELECT COUNT(*) FROM items";
+        // Dùng MAX thay vì COUNT để tránh trùng ID khi có item bị xóa
+        String sql = "SELECT MAX(CAST(SUBSTRING(id, 4) AS UNSIGNED)) FROM items WHERE id LIKE 'SP-%'";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                int count = rs.getInt(1);
-                return String.format("SP-%03d", count + 1); // SP-001, SP-002...
+                int maxNum = rs.getInt(1);
+                return String.format("SP-%03d", maxNum + 1); // SP-001, SP-002...
             }
         } catch (SQLException e) {
             System.err.println("[ItemSaveDAO] ERROR khi sinh ID: " + e.getMessage());
