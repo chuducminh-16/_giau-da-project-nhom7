@@ -1,4 +1,4 @@
-﻿package com.auction.server.service.auction;
+package com.auction.server.service.auction;
 
 import com.auction.server.dao.auction.AuctionDAO;
 import com.auction.server.dao.item.ItemSaveDAO;

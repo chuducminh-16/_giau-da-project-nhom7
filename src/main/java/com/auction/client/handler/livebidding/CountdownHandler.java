@@ -1,4 +1,4 @@
-﻿package com.auction.client.handler.livebidding;
+package com.auction.client.handler.livebidding;
 
 // Bắt buộc phải IMPORT Controller từ package khác sang để tương tác
 import com.auction.client.controller.LiveBiddingController;
