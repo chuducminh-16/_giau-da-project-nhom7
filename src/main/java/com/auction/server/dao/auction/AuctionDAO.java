@@ -1,4 +1,4 @@
-﻿package com.auction.server.dao.auction;
+package com.auction.server.dao.auction;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

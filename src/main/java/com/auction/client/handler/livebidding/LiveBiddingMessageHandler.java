@@ -1,4 +1,4 @@
-﻿package com.auction.client.handler.livebidding;
+package com.auction.client.handler.livebidding;
 
 import com.auction.client.BidItem;
 import com.auction.client.controller.LiveBiddingController;
