@@ -79,15 +79,38 @@ giau-da-project-nhom7/
 |   |   |   |   |   +-- ManageProductController.java
 |   |   |   |   |   +-- AdminController.java
 |   |   |   |   |   +-- BidHistoryController.java
+|   |   |   |   |   +-- ProfileController.java
+|   |   |   |   |   +-- RegisterController.java
+|   |   |   |   |   +-- SnipeGuardLiveBiddingController.java
+|   |   |   |   |   +-- WalletController.java
 |   |   |   |   |   \-- DetailController.java
 |   |   |   |   +-- handler/                   # Tách xử lý message ra khỏi Controller
 |   |   |   |   |   +-- home/
+|   |   |   |   |       +-- HomeMessageHandler.java
+|   |   |   |   |       +-- HomeSearchFilter.java
+|   |   |   |   |       +-- HomeTableSetup.java
 |   |   |   |   |   +-- livebidding/
+|   |   |   |   |       +-- AutoBidHandler.java
+|   |   |   |   |       +-- CountdownHandler.java
+|   |   |   |   |       +-- LiveBiddingChartManager.java
 |   |   |   |   |   +-- admin/
+|   |   |   |   |       +-- AdminMessageHandler.java
+|   |   |   |   |       +-- AdminTableSetup.java
 |   |   |   |   |   +-- bidhistory/
+|   |   |   |   |       +-- BidHistoryMessageHandler.java
+|   |   |   |   |       +-- BidHistoryTableSetup.java
 |   |   |   |   |   +-- detail/
+|   |   |   |   |       +-- DetailMessageHandler.java
 |   |   |   |   |   +-- product/
+|   |   |   |   |       +-- ProductFormValidator.java
+|   |   |   |   |       +-- ProductMessageHandler.java
+|   |   |   |   |       +-- ProductTableSetup.java
+|   |   |   |   |   +-- bidding/
+|   |   |   |   |       +-- BiddingMessageHandler.java
 |   |   |   |   |   \-- profile/
+|   |   |   |   |       +-- ProfileMessageHandler.java
+|   |   |   |   +-- model/
+|   |   |   |   |   +-- BidItem.java
 |   |   |   |   +-- network/                   # TCP Socket client
 |   |   |   |   |   +-- NetworkClient.java     # Singleton TCP connection
 |   |   |   |   |   \-- Message.java           # JSON message envelope
@@ -96,9 +119,13 @@ giau-da-project-nhom7/
 |   |   |   |   |   +-- SelectedProductSession.java
 |   |   |   |   |   \-- AutoBidSession.java
 |   |   |   |   \-- utils/                     # Tiện ích
-|   |   |   |       +-- ImageUploadHandler.java
+|   |   |   |   |   +-- ImageUploadHandler.java
 |   |   |   |       \-- ToastNotification.java
-|   |   |   |
+|   |   |   |   +-- AuctionClientApp.java
+|   |   |   |   +-- BidItem.java
+|   |   |   |   +-- Launcher.java
+|   |   |   |   +-- SceneEngine.java
+
 |   |   |   +-- server/                        # Toàn bộ code phía Server
 |   |   |   |   +-- Main.java                  # Entry point khởi động Server
 |   |   |   |   +-- controller/                # Điều phối request → Service
@@ -106,17 +133,30 @@ giau-da-project-nhom7/
 |   |   |   |   |   +-- AuctionRoomEngineController.java
 |   |   |   |   |   +-- ProductController.java
 |   |   |   |   |   +-- AutoBidController.java
+|   |   |   |   |   +-- SnipeGuardController.java
+|   |   |   |   |   +-- WalletController.java
 |   |   |   |   |   \-- AdminController.java
 |   |   |   |   +-- dao/                       # Data Access Objects (chỉ server dùng)
 |   |   |   |   |   +-- auction/AuctionDAO.java
-|   |   |   |   |   +-- bid/BidDAO.java
-|   |   |   |   |   +-- item/ItemFindDAO.java
+|   |   |   |   |   +-- bid/
+|   |   |   |   |       +-- BidDAO.java
+|   |   |   |   |       +-- BidHistoryDAO.java
+|   |   |   |   |   +-- item/
+|   |   |   |   |       +-- ItemFindDAO.java
+|   |   |   |   |       +-- ItemSaveDAO.java
+|   |   |   |   |       +-- ItemListDAO.java
 |   |   |   |   |   +-- transaction/TransactionDAO.java
-|   |   |   |   |   \-- user/UserFindDAO.java
-|   |   |   |   +-- database/DatabaseConnection.java
+|   |   |   |   |   \-- user/
+|   |   |   |   |       +-- UserFindDAO.java
+|   |   |   |   |       +-- UserListDAO.java
+|   |   |   |   |       +-- UserSaveDAO.java
+|   |   |   |   +-- database/
+|   |   |   |   |       +-- DatabaseConnection.java
+|   |   |   |   |       +-- QueryDB.java
 |   |   |   |   +-- network/                   # TCP Socket server
 |   |   |   |   |   +-- NetworkServer.java     # Chấp nhận kết nối client
 |   |   |   |   |   +-- ClientHandler.java     # Xử lý 1 client (1 thread)
+|   |   |   |   |   +-- MessageRouter.java
 |   |   |   |   |   \-- ImageHandler.java
 |   |   |   |   +-- scheduler/                 # Đóng phiên hết giờ tự động
 |   |   |   |   |   \-- AuctionScheduler.java
@@ -124,6 +164,9 @@ giau-da-project-nhom7/
 |   |   |   |   |   +-- UserService.java
 |   |   |   |   |   +-- BidService.java
 |   |   |   |   |   +-- AutoBidService.java
+|   |   |   |   |   +-- WalletService.java
+|   |   |   |   |   +-- SnipeGuardService.java
+|   |   |   |   |   +-- AdminService.java
 |   |   |   |   |   \-- auction/
 |   |   |   |   |       +-- BidPlacementService.java   # Core: thread-safe bidding
 |   |   |   |   |       +-- AuctionProductService.java
