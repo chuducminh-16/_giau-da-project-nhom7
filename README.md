@@ -442,7 +442,9 @@ Test File: ```SnipeGuardServiceTest```. Phạm vi kiểm tra: ```Bid trong/ngoà
 # 7. Báo cáo & Demo
 
 Báo cáo PDF: 
-Video Demo: 
+
+Video Demo: https://youtu.be/ljssCCQB0Dk?si=1nyFSGGF2k5-cduC
+
 GitHub Repository: https://github.com/chuducminh-16/_giau-da-project-nhom7
 
 Lưu ý kỹ thuật:
